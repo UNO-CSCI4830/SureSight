@@ -1,8 +1,8 @@
-# Roofing-Siding-Damage-Assessment-Application
+# SureSight: A Roofing & Siding Damage Assessment Application
 An app to streamline the process of identifying and reporting roofing and siding damage, ultimately helping homeowners, contractors, and insurance adjusters.
 
 ## Overview
-The **Roofing and Siding Damage Assessment Application** is a user-friendly tool that leverages **Artificial Intelligence (AI)** and **Augmented Reality (AR)** to assist homeowners, contractors, and insurance adjusters evaluate damage caused by severe weather events. The application simplifies inspection by providing automated damage detection, classification, and cost estimation.
+**SureSight** is a user-friendly tool that leverages **Artificial Intelligence (AI)** and **Augmented Reality (AR)** to assist homeowners, contractors, and insurance adjusters evaluate damage caused by severe weather events. The application simplifies inspection by providing automated damage detection, classification, and cost estimation.
 
 ## Problem Statement
 Severe weather conditions, such as hailstorms, hurricanes, and strong winds, frequently damage roofing and siding. Current assessment methods rely on manual inspections, which can be time-consuming, costly, and prone to human error. Additionally, existing solutions often lack accessibility, accuracy, and integration with modern technologies.
@@ -50,6 +50,13 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 ## Future enhancements
 
 ## Contributors
+
+- [Austin Lukowski](https://github.com/Lownickle)
+- [Isaiah Jacobsen](https://github.com/J-Isaiah)
+- [Samuel Escamilla](https://github.com/sescamilla23)
+- [Scott Faust](https://github.com/DrFaustest)
+- [Sebastian Gomez-Duranona](https://github.com/SebasDuranona)
+- [Zane Eggleston](https://github.com/zeggleston405)
 
 ## License
 This project is licensed under the MIT License.
