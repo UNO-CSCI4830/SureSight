@@ -31,6 +31,7 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 - **Homeowners** – Quickly assess damage and obtain repair estimates.
 - **Contractors** – Improve efficiency in damage documentation and quoting.
 - **Insurance Adjusters** – Streamline claim processing with standardized reports.
+- **Administrators** - Manage user roles, Monitor AI accuracy & database.
 
 ## Technology Stack **Placeholders**
 | Component     | Technology |
