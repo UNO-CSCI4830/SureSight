@@ -35,13 +35,12 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 ## Technology Stack **Placeholders**
 | Component     | Technology |
 |--------------|------------|
-| **Frontend** | HTML, CSS, JavaScript (Bootstrap) |
-| **Backend** | Flask (Python) |
-| **Machine Learning** | TensorFlow Lite (AI-powered image recognition) |
-| **Augmented Reality** | AR.js (Browser-based AR measurement) |
-| **Database** | SQLite (Local storage) & Firebase (Cloud storage) |
-| **Hosting** | Heroku / AWS |
-| **Additional Tools** | OpenCV (Image processing), Real-time APIs (Cost estimation), Matplotlib (Damage visualization) |
+| **Frontend** | Next.js, Tailwind CSS |
+| **Backend** | Fast API, Pydantic |
+| **Machine Learning** | TensorFlow Lite |
+| **Augmented Reality** | AR.js |
+| **Database** | PostgreSQL (Supabase) |
+| **Hosting** | Supabase, Vercel |
 
 ## Installation & Setup
 
