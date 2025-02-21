@@ -57,5 +57,9 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 - [Sebastian Gomez-Duranona](https://github.com/SebasDuranona)
 - [Zane Eggleston](https://github.com/zeggleston405)
 
+## Data Contributors 
+- Papio Exteriors
+- Titan Exteriors
+
 ## License
 This project is licensed under the MIT License.
