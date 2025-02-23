@@ -2,7 +2,7 @@
 An app to streamline the process of identifying and reporting roofing and siding damage, ultimately helping homeowners, contractors, and insurance adjusters.
 
 ## Overview
-**SureSight** is a user-friendly tool that leverages **Artificial Intelligence (AI)** and **Augmented Reality (AR)** to assist homeowners, contractors, and insurance adjusters evaluate damage caused by severe weather events. The application simplifies inspection by providing automated damage detection, classification, and cost estimation.
+**SureSight** is a user-friendly tool that leverages, fast API, **Artificial Intelligence (AI)** and **Augmented Reality (AR)** to assist homeowners, contractors, and insurance adjusters evaluate damage caused by severe weather events. The application simplifies inspection by providing automated damage detection, classification, and cost estimation.
 
 ## Problem Statement
 Severe weather conditions, such as hailstorms, hurricanes, and strong winds, frequently damage roofing and siding. Current assessment methods rely on manual inspections, which can be time-consuming, costly, and prone to human error. Additionally, existing solutions often lack accessibility, accuracy, and integration with modern technologies.
