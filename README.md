@@ -53,7 +53,7 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 - [Austin Lukowski](https://github.com/Lownickle)
 - [Isaiah Jacobsen](https://github.com/J-Isaiah)
 - [Samuel Escamilla](https://github.com/sescamilla23)
-- [Scott Faust](https://github.com/DrFaustest)
+- [Scott  Faust](https://github.com/DrFaustest)
 - [Sebastian Gomez-Duranona](https://github.com/SebasDuranona)
 - [Zane Eggleston](https://github.com/zeggleston405)
 
