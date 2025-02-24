@@ -1,5 +1,5 @@
 # SureSight: A Roofing & Siding Damage Assessment Application
-An app to streamline the process of identifying and reporting roofing and siding damage, ultimately helping homeowners, contractors, and insurance adjusters.
+An app to streamline the process of identifying and reporting roofing and siding damage, ultimately helping homeowners, contractors, and insurance adjusters!
 
 ## Overview
 **SureSight** is a user-friendly tool that leverages, fast API, **Artificial Intelligence (AI)** and **Augmented Reality (AR)** to assist homeowners, contractors, and insurance adjusters evaluate damage caused by severe weather events. The application simplifies inspection by providing automated damage detection, classification, and cost estimation.
