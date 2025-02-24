@@ -39,7 +39,7 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 | **Backend** | Fast API, Pydantic |
 | **Machine Learning** | TensorFlow Lite |
 | **Augmented Reality** | AR.js |
-| **Database** | PostgreSQL (Supabase) |
+| **Database** | PostgreSQL (Supabase), Firebase |
 | **Hosting** | Supabase, Vercel |
 
 ## Installation & Setup
