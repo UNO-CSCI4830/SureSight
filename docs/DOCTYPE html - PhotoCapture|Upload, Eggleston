@@ -1,0 +1,35 @@
+<!DOCTYPE HTML>
+<html lang="en"> <!-- START, English language Declared -->
+<head>
+  <meta charset="UTF-8">                                                          <!-- a character encoding standard that represents characters as a sequence of bytes -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"           <!-- Set webpage to match device screen -->
+  <title>Login</title>                                                            <!-- Website title SUBJECT TO CHANGE -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">   <!-- STYLESHEET AND STYLES.CSS SUBJECT TO CHANGE -->
+</head>
+<body>
+
+  <div class="upload-container"> 
+    <h2>Upload Damage Photos</h2>
+
+    <!-- Select Damage Type -->
+    <p>Select the type of damage:</p>
+    <label><input type="checkbox" name="damage_type" value="roof"> Roof Damage</label><br>
+    <label><input type="checkbox" name="damage_type" value="siding"> Siding Damage</label><br><br>
+
+    <form method="POST" action="{{ url_for('upload_image') }}" enctype="multipart/form-data"> 
+      
+      <!-- upload an image from gallery -->
+      <label for="image-upload">Upload an Image:</label>
+      <input type="file" id="image-upload" name="image" accept="image/*" required>
+
+      <br><!-- capture new photo -->
+      <label for="image-capture">Capture a New Photo:</label>
+      <input type="file" id="image-capture" name="image" accept="image/*" capture="camera">
+
+      
+      <br><button type="submit">Submit</button> <!-- SUBMIT BUTTON -->
+    </form>
+  </div>
+
+</body>
+</html>
