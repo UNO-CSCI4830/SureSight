@@ -1,1 +1,4 @@
-add dependencies here
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
