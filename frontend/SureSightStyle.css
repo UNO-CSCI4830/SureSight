@@ -1,0 +1,102 @@
+/* Base Styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+/* Container */
+.container {
+    width: 90%;
+    max-width: 600px;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Headings */
+h1, h2 {
+    color: #00a3ee;
+    text-align: center;
+}
+
+/* Text Inputs */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+textarea {
+    font-family: Arial, sans-serif;
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+/* Auto-Expanding Textarea */
+textarea {
+    resize: none;
+    overflow-y: hidden;
+    min-height: 100px;
+}
+
+/* Buttons */
+button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #00a3ee;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s ease;
+}
+
+button:hover {
+    background-color: #00a3ee;
+    .close:focus {
+      color: black;
+      text-decoration: navy;
+      cursor: pointer;
+
+}
+button:focus {
+    color: black;
+    text-decoration: navy;
+    cursor: pointer;
+}
+
+/* Navigation */
+nav ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+nav ul li {
+    display: inline;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: #007BFF;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+nav ul li a:hover {
+    color: #0056b3;
+}
+}
