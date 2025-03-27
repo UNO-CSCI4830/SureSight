@@ -36,13 +36,13 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 | **Frontend** | Next.js, Tailwind CSS |
 | **Backend** | Fast API, Pydantic |
 | **Machine Learning** | TensorFlow Lite |
-| **Database** | PostgreSQL, Firebase (Authentication) |
-| **Containerization** | Docker |
-| **Hosting** | TBD
+| **Database** | PostgreSQL, Supabase |
+| **Hosting** | Vercel |
 
 ## Installation & Setup
 
 ## Deployment
+Go to [SureSight.app](https://suresight.app) to see it in action!
 
 ## Future enhancements
 
