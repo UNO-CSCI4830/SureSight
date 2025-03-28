@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<HTML lang="en">         <!-- START, English language Declared -->
+<head>
+  <meta charset="UTF-8">                                                          <!-- a character encoding standard that represents characters as a sequence of bytes -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"           <!-- Set webpage to match device screen -->
+  <title>SureSight - Upload Image</title>                                                        <!-- Website title SUBJECT TO CHANGE -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">   <!-- STYLESHEET AND STYLES.CSS SUBJECT TO CHANGE -->
+</head>
+<body>
+    <h1>SureSight</h1>
+    <div class="upload-container">      <!-- ************* Going to need help connecting this to backend  ************** -->
+        <h2>Upload Image</h2>
+        <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data"> 
+            <label for="image">Choose image</label>
+            <input type="file" id="image" name="image" accept=".jpg, .jpeg" required>
+            <small style="color: gray;">Only Jpeg files (.jpg, .jpeg) are allowed.</small>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+
+</body>
+</html>
