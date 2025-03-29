@@ -11,6 +11,13 @@ body {
     min-height: 100vh;
 }
 
+/* error handling */
+.error-message {
+    color: red;
+    margin-bottom: 10px;
+    front-weight: bold;
+}
+
 /* Container */
 .container {
     width: 90%;
@@ -19,6 +26,72 @@ body {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.upload-container {
+    background-color: #fff;
+    padding: 2rem 3rem;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    margin: 3rem auto;
+    text-align: center;
+}
+
+/* upload container */
+.upload-container input[type="file"] {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.login-container {
+    max-width: 400px;
+    margin: 80px auto;
+    padding: 40px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    font-family: 'tahoma', Geneva, Verdana, sans-serif;
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #333;
+}
+
+.login-container label {
+    display: block;
+    margin-bottom: 30px;
+    color: #333;
+}
+
+.login-container input [type="text"],
+.login-container input [type="password"] {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.login-container button {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.login-container button:hover {
+    background-color: #0056b3;
 }
 
 /* Headings */
