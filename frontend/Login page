@@ -7,8 +7,11 @@
   <link rel="stylesheet" href="SureSightStyle.css">   <!-- STYLESHEET AND STYLES.CSS SUBJECT TO CHANGE -->
 </head>
 <body>
-  <div class="container">                      <!-- ************* I Don't know how using google log in with change this  ************** -->
+  <div class="login-container">                      <!-- ************* I Don't know how using google log in with change this  ************** -->
     <h2>Login</h2>
+    {% if error %}                                                  
+      <div class="error-message">{{ error }}</div>            <!----Display login error message if fails-->
+    {% endif %}
     <form method="POST" action="{{ url_for('login') }}">  <!-- via POST to Flask -->
 
       <label for="username">Username:</label>                        <!-- USERNAME INPUT -->
@@ -20,7 +23,7 @@
       <button type="submit">login</button>                           <!-- SUBMIT BUTTON -->
     </form>
 
-    <!----Display login error message if fails-->
+   
   </div>
 
 </body>
