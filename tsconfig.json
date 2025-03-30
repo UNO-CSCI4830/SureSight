@@ -22,6 +22,12 @@
         "@/*": ["./*"]
       }
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        ".next/types/**/*.ts",
+        "node_modules/@types/react" // Ensure React types are included
+    ],
     "exclude": ["node_modules"]
-  }
+}
