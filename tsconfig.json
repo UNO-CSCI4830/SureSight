@@ -11,7 +11,6 @@
       "moduleResolution": "bundler",
       "resolveJsonModule": true,
       "isolatedModules": true,
-      "jsx": "preserve", // Updated for Next.js compatibility
       "incremental": true,
       "plugins": [
         {
