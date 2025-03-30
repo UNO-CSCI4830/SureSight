@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
-export default {
+const nextConfig = {
   distDir: 'public', // Specify the output directory
 };
+
+module.exports = nextConfig;
