@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import './globals.css'; // Ensure you have a global CSS file for styling
 
 export const metadata = {
