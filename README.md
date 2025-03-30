@@ -44,6 +44,18 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 
 ## Deployment
 
+To deploy this project on Vercel:
+
+1. Ensure you have a Vercel account and the Vercel CLI installed.
+2. Set the required environment variables (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`) in the Vercel dashboard.
+3. Run the following commands:
+   ```bash
+   npm install
+   npm run build
+   vercel deploy
+   ```
+4. Connect your GitHub repository to Vercel for automatic deployments.
+
 ## Future enhancements
 
 ## Contributors

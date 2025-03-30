@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
     "start": "node index.js",
-    "build": "vercel build",
+    "build": "next build",
     "test": "jest"
     },
     "dependencies": {
