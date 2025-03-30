@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import Login from './login';
+import Login from '../app/login';
 
 export default function Home(): ReactNode {
   return (
