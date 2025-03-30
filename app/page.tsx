@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import React from 'react';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-export default function Home() {
+export default function Home(): JSX.Element {
   return (
     <div>
       <header>
