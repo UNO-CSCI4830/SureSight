@@ -10,12 +10,10 @@ export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
-}): JSX.Element {
-  return (
-    <html lang="en">
-      <body>
-        {children}
-      </body>
-    </html>
+}): React.ReactNode {
+  return React.createElement(
+    'html',
+    { lang: 'en' },
+    React.createElement('body', null, children)
   );
 }
