@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true, // Enable React strict mode
-  swcMinify: true, // Enable SWC-based minification for faster builds
+  // Removed swcMinify as it's no longer valid
 };
 
 export default nextConfig;
