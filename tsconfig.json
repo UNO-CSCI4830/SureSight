@@ -11,7 +11,7 @@
       "moduleResolution": "bundler",
       "resolveJsonModule": true,
       "isolatedModules": true,
-      "jsx": "react-jsx", // Ensure this is set for React JSX support
+      "jsx": "preserve", // Updated for Next.js compatibility
       "incremental": true,
       "plugins": [
         {
