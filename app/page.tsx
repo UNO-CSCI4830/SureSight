@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import React from 'react';
+import Login from './login';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -7,6 +8,11 @@ const supabase = createClient(
 );
 
 export default function Home(): JSX.Element {
+  const handleLogin = (username: string, password: string) => {
+    // Replace this with actual login logic
+    console.log('Logging in with:', username, password);
+  };
+
   return (
     <div>
       <header>
@@ -28,18 +34,7 @@ export default function Home(): JSX.Element {
 
       <section id="login" className="login-container">
         <h2>Login</h2>
-        {/* Replace this with actual error handling logic */}
-        <p className="error">Error message placeholder</p>
-
-        <form method="POST" action="/api/login">
-          <label htmlFor="username">Username:</label>
-          <input type="text" id="username" name="username" required />
-
-          <label htmlFor="password">Password:</label>
-          <input type="password" id="password" name="password" required />
-
-          <button type="submit">Login</button>
-        </form>
+        <Login onSubmit={handleLogin} />
       </section>
 
       <footer>
