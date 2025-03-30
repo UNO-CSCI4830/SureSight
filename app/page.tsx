@@ -1,22 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import React, { ReactNode } from 'react';
 import Login from './login';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 export default function Home(): ReactNode {
-  const handleLogin = (username: string, password: string) => {
-    // Replace this with actual login logic
-    console.log('Logging in with:', username, password);
-  };
-
   return (
     <div>
       <header>
@@ -38,7 +23,7 @@ export default function Home(): ReactNode {
 
       <section id="login" className="login-container">
         <h2>Login</h2>
-        <Login onSubmit={handleLogin} />
+        <Login />
       </section>
 
       <footer>

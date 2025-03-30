@@ -2,17 +2,18 @@
 
 import React, { useState } from 'react';
 
-interface LoginFormProps {
-  onSubmit: (username: string, password: string) => void;
-}
-
-const Login: React.FC<LoginFormProps> = ({ onSubmit }) => {
+const Login: React.FC = () => {
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
 
+  const handleLogin = (username: string, password: string) => {
+    // Replace this with actual login logic
+    console.log('Logging in with:', username, password);
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSubmit(username, password);
+    handleLogin(username, password);
   };
 
   return (
