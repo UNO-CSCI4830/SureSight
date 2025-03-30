@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import React from 'react';
+import React, { ReactNode } from 'react';
 import Login from './login';
 
 const supabase = createClient(
@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-export default function Home(): JSX.Element {
+export default function Home(): ReactNode {
   const handleLogin = (username: string, password: string) => {
     // Replace this with actual login logic
     console.log('Logging in with:', username, password);
