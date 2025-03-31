@@ -67,8 +67,8 @@ body {
     color: #333;
 }
 
-.login-container input [type="text"],
-.login-container input [type="password"] {
+.login-container input[type="text"],
+.login-container input[type="password"] {
     width: 100%;
     padding: 12px;
     margin-bottom: 20px;
@@ -136,25 +136,29 @@ button {
 }
 
 button:hover {
-    background-color: #00a3ee;
-    .close:focus {
-      color: black;
-      text-decoration: navy;
-      cursor: pointer;
-
+    background-color: #0056b3;
 }
+
 button:focus {
     color: black;
-    text-decoration: navy;
+    text-decoration: underline;
     cursor: pointer;
 }
+
+.close:focus {
+    color: black;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 
 /* Navigation */
 nav ul {
     list-style: none;
     padding: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column; /* Stack items vertically */
+    align-items: center;
     gap: 15px;
 }
 
@@ -171,5 +175,4 @@ nav ul li a {
 
 nav ul li a:hover {
     color: #0056b3;
-}
 }
