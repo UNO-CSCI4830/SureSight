@@ -4,7 +4,8 @@
   <meta charset="UTF-8">                                                          <!-- a character encoding standard that represents characters as a sequence of bytes -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0"           <!-- Set webpage to match device screen -->
   <title>SureSight</title>                                                        <!-- Website title SUBJECT TO CHANGE -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">   <!-- STYLESHEET AND STYLES.CSS SUBJECT TO CHANGE -->
+  <link rel="stylesheet" href="SureSightStyle.css">   <!-- STYLESHEET AND STYLES.CSS SUBJECT TO CHANGE -->
+
 </head>
 <body>
   <header>
@@ -13,9 +14,9 @@
 
     <nav>
       <ul>
-        <li><a href="">login</a></li>            <!-- LINK TO LOGIN PAGE -->
-        <li><a href="">????</a></li>             <!-- LINK TO DIFFERENT PAGES -->
-        <li><a href="">????</a></li>             <!-- LINK TO DIFFERENT PAGES -->
+        <li><a href="Login page">Login</a></li>            <!-- LINK TO LOGIN PAGE -->
+        <li><a href="Report.html">Generate a report here</a></li>             <!-- LINK TO REPORT CREATION -->
+        <li><a href="image_upload.html">Upload Images</a></li>             <!-- LINK TO IMAGE UPLOAD -->
         <li><a href="">????</a></li>             <!-- LINK TO DIFFERENT PAGES -->
       </ul>
     </nav>
