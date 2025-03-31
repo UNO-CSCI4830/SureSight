@@ -157,7 +157,7 @@ nav ul {
     list-style: none;
     padding: 0;
     display: flex;
-    flex-direction: column; /* Stack items vertically */
+    flex-direction: column; 
     align-items: center;
     gap: 15px;
 }
