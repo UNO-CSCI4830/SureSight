@@ -94,3 +94,4 @@ This schema will be implemented in Supabase using PostgreSQL.
 | storage_path |	VARCHAR(255) |	Path where the image is stored |
 | ai_processed | BOOLEAN	Whether the image has been processed by AI |
 | created_at |	TIMESTAMP	Timestamp when image was uploaded |
+
