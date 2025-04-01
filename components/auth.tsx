@@ -5,6 +5,7 @@ const Auth: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleSignUp = async () => {
     const { error } = await supabase.auth.signUp({ email, password });
@@ -21,27 +22,37 @@ const Auth: React.FC = () => {
       setMessage(`Error: ${error.message}`);
     } else {
       setMessage('Login successful!');
+      setIsLoggedIn(true);
     }
   };
 
   return (
     <div>
-      <h2>Authentication</h2>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button onClick={handleSignUp}>Sign Up</button>
-      <button onClick={handleLogin}>Log In</button>
-      {message && <p>{message}</p>}
+      {isLoggedIn ? (
+        <div>
+          <h2>Welcome, {email}!</h2>
+          <p>You have successfully logged in.</p>
+        </div>
+      ) : (
+        <div>
+          <h2>Authentication</h2>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button onClick={handleSignUp}>Sign Up</button>
+          <button onClick={handleLogin}>Log In</button>
+          {message && <p>{message}</p>}
+        </div>
+      )}
     </div>
   );
 };
