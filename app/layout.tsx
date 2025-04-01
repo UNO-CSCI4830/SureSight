@@ -1,5 +1,5 @@
 import * as React from 'react';
-import './globals.css'; // Ensure you have a global CSS file for styling
+import 'globals.css';
 
 export const metadata = {
   title: 'SureSight',
