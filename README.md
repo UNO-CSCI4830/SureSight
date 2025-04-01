@@ -66,6 +66,7 @@ To deploy this project on Vercel:
 - [Scott  Faust](https://github.com/DrFaustest)
 - [Sebastian Gomez-Duranona](https://github.com/SebasDuranona)
 - [Zane Eggleston](https://github.com/zeggleston405)
+- [Andrew Heftie](https://github.com/aheftie)
 
 ## Data Contributors 
 - Papio Exteriors
