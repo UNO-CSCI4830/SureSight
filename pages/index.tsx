@@ -1,7 +1,38 @@
-import React, { ReactNode } from 'react';
-import Login from '../app/login';
+import React, { ReactNode, useEffect, useState } from 'react';
+import Auth from '../components/auth';
 
 export default function Home(): ReactNode {
+  const [isDatabaseConnected, setIsDatabaseConnected] = useState(true);
+
+  useEffect(() => {
+    const checkDatabaseConnection = async () => {
+      try {
+        const response = await fetch('/api/healthcheck');
+        if (!response.ok) {
+          throw new Error('Database connection failed');
+        }
+      } catch (error) {
+        setIsDatabaseConnected(false);
+      }
+    };
+
+    checkDatabaseConnection();
+  }, []);
+
+  if (!isDatabaseConnected) {
+    return (
+      <div>
+        <header>
+          <h1>SureSight</h1>
+        </header>
+        <section className="auth-container">
+          <h2>Maintenance Mode</h2>
+          <p>The site is currently undergoing maintenance. Please try again later.</p>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div>
       <header>
@@ -11,19 +42,11 @@ export default function Home(): ReactNode {
           and siding damage, ultimately helping homeowners, contractors, and
           insurance adjusters!
         </h3>
-        <nav>
-          <ul>
-            <li><a href="#login">Login</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#contact">Contact</a></li>
-          </ul>
-        </nav>
       </header>
 
-      <section id="login" className="login-container">
-        <h2>Login</h2>
-        <Login />
+      <section id="auth" className="auth-container">
+        <h2>Authentication</h2>
+        <Auth />
       </section>
 
       <footer>
