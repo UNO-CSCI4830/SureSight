@@ -1,7 +1,3 @@
-# SureSight
-
-## Project File Structure
-```
 /SureSight/
 │── /docs/                     # Documentation files
 │   ├── requirements.md         # Project requirements
@@ -56,11 +52,3 @@
 │── .gitignore                  # Git ignore file
 │── README.md                   # Project overview and setup guide
 │── LICENSE                     # License information
-```
-## Tech Stack Overview
-
-- **Frontend:** Next.js (React), Tailwind CSS
-- **Backend:** FastAPI, Pydantic
-- **Database:** Supabase (PostgreSQL)
-- **Deployment:** Vercel, GitHub (CI/CD)
-- **Machine Learning:** PyTorch or TensorFlow for AI-driven damage detection

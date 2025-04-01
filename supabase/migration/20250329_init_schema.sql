@@ -76,4 +76,6 @@ CREATE TABLE images (
     storage_path VARCHAR(255) NOT NULL,
     ai_processed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL
+
 );
+

@@ -1,1 +1,0 @@
-helper functionalities used across the backend
