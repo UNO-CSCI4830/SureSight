@@ -15,7 +15,7 @@ body {
 .error-message {
     color: red;
     margin-bottom: 10px;
-    front-weight: bold;
+    font-weight: bold;
 }
 
 /* Container */
@@ -141,7 +141,7 @@ button:hover {
       color: black;
       text-decoration: navy;
       cursor: pointer;
-
+    }
 }
 button:focus {
     color: black;
