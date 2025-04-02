@@ -1,5 +1,5 @@
 import * as React from 'react';
-import 'globals.css';
+import '../styles/globals.css'; // Fixed import path
 
 export const metadata = {
   title: 'SureSight',

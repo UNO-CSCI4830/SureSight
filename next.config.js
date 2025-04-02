@@ -1,4 +1,4 @@
 /** @type {import('next').NextConfig} */
 export default {
-  // Remove distDir to use the default `.next` directory
+  reactStrictMode: true, // Enable React strict mode
 };
