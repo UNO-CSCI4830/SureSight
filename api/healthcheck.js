@@ -1,6 +1,6 @@
 import { supabase } from '../../utils/supabaseClient';
 
-export default async function handler(req, res) {
+/*export default async function handler(req, res) {
     try {
         const { data, error } = await supabase.rpc('now');
 
@@ -16,3 +16,4 @@ export default async function handler(req, res) {
         res.status(500).json({ success: false, message: 'Unexpected error occurred', error: err.message });
     }
 }
+*/
