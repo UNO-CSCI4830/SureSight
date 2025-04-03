@@ -80,7 +80,7 @@ export default function Home(): ReactNode {
       </main>
 
       <footer>
-        <p>© 2023 SureSight. All rights reserved.</p>
+        <p>© 2025 SureSight. All rights reserved.</p>
       </footer>
     </div>
   );
