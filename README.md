@@ -46,15 +46,24 @@ Go to [SureSight.app](https://suresight.app) to see it in action!
 
 To deploy this project on Vercel:
 
-1. Ensure you have a Vercel account and the Vercel CLI installed.
-2. Set the required environment variables (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`) in the Vercel dashboard.
-3. Run the following commands:
+1. Ensure you have a Vercel account.
+2. Install the Vercel CLI by running:
+   ```bash
+   npm install -g vercel
+   ```
+3. Verify the installation by running:
+   ```bash
+   vercel --version
+   ```
+   If the command is not recognized, ensure that your Node.js global `bin` directory is added to your system's PATH.
+4. Set the required environment variables (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`) in the Vercel dashboard.
+5. Run the following commands:
    ```bash
    npm install
    npm run build
-   vercel deploy
+   vercel dev
    ```
-4. Connect your GitHub repository to Vercel for automatic deployments.
+6. Connect your GitHub repository to Vercel for automatic deployments.
 
 ## Future enhancements
 

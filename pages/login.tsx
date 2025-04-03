@@ -1,45 +1,66 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/router'; // Import useRouter for navigation
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client using environment variables
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 const Login: React.FC = () => {
-  const [username, setUsername] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter(); // Initialize useRouter
 
-  const handleLogin = (username: string, password: string) => {
-    // Replace this with actual login logic
-    console.log('Logging in with:', username, password);
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    handleLogin(username, password);
+    setError(null); // Reset error state
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      console.log('Login successful');
+      router.push('/Dashboard'); // Redirect to the dashboard
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
   return (
-    <div className="login-container">
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="username">Username:</label>
-        <input
-          type="text"
-          id="username"
-          name="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
+    <div className="login-page">
+      <header>
+        <h1>Log In to SureSight</h1>
+      </header>
+      <main>
+        <form onSubmit={handleLogin}>
+          <label htmlFor="email">Email:</label>
+          <input
+            type="email"
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-        <label htmlFor="password">Password:</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+          <label htmlFor="password">Password:</label>
+          <input
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-        <button type="submit">Login</button>
-      </form>
+          {error && <p className="error-message">{error}</p>}
+
+          <button type="submit">Log In</button>
+        </form>
+        <p>
+          Don't have an account? <a href="/signup">Sign Up</a>
+        </p>
+      </main>
     </div>
   );
 };
