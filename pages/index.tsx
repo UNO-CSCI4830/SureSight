@@ -74,7 +74,7 @@ export default function Home(): ReactNode {
         <section id="contact" className="contact-container">
           <h2>Contact Us</h2>
           <p>
-            Have questions or need assistance? Reach out to our support team at <a href="mailto:support@suresight.com">support@suresight.com</a>.
+            Have questions or need assistance? Reach out to our support team at <a href="mailto:support@suresight.app">support@suresight.app</a>.
           </p>
         </section>
       </main>
