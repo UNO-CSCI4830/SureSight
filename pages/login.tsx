@@ -28,6 +28,21 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async () => {                                                                    // Can we verify that this is working. SAM
+    if (!email) {
+      setError('Please enter email address to reset password.');
+      return;
+    }
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: '${window.location.origin}/update-password', });         // Link to update password page
+
+    if (error) {
+      setError(error.message);
+    } else {
+      alert('Email sent. Check your inbox');
+    }
+  };
+
   return (
     <div className="login-page">
       <header>
@@ -57,6 +72,13 @@ const Login: React.FC = () => {
 
           <button type="submit">Log In</button>
         </form>
+
+        <p>                                                                                 
+          <a href= "#" onClick={handleForgotPassword}>                               
+            Forgot your password?
+          </a> 
+        </p>
+
         <p>
           Don't have an account? <a href="/signup">Sign Up</a>
         </p>
