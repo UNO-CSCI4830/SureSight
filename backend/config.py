@@ -1,1 +1,0 @@
-# enviroment configurations

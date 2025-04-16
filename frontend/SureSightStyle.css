@@ -15,7 +15,7 @@ body {
 .error-message {
     color: red;
     margin-bottom: 10px;
-    front-weight: bold;
+    font-weight: bold;
 }
 
 /* Container */
@@ -136,8 +136,15 @@ button {
 }
 
 button:hover {
-    background-color: #0056b3;
-}
+
+    background-color: #00a3ee;
+    .close:focus {
+      color: black;
+      text-decoration: navy;
+      cursor: pointer;
+    }
+=======
+    
 
 button:focus {
     color: black;
@@ -176,3 +183,4 @@ nav ul li a {
 nav ul li a:hover {
     color: #0056b3;
 }
+

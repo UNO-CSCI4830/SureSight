@@ -44,6 +44,27 @@ This application provides a **smart, AI-driven** approach to damage assessment, 
 ## Deployment
 Go to [SureSight.app](https://suresight.app) to see it in action!
 
+To deploy this project on Vercel:
+
+1. Ensure you have a Vercel account.
+2. Install the Vercel CLI by running:
+   ```bash
+   npm install -g vercel
+   ```
+3. Verify the installation by running:
+   ```bash
+   vercel --version
+   ```
+   If the command is not recognized, ensure that your Node.js global `bin` directory is added to your system's PATH.
+4. Set the required environment variables (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`) in the Vercel dashboard.
+5. Run the following commands:
+   ```bash
+   npm install
+   npm run build
+   vercel dev
+   ```
+6. Connect your GitHub repository to Vercel for automatic deployments.
+
 ## Future enhancements
 
 ## Contributors
@@ -54,6 +75,7 @@ Go to [SureSight.app](https://suresight.app) to see it in action!
 - [Scott  Faust](https://github.com/DrFaustest)
 - [Sebastian Gomez-Duranona](https://github.com/SebasDuranona)
 - [Zane Eggleston](https://github.com/zeggleston405)
+- [Andrew Heftie](https://github.com/aheftie)
 
 ## Data Contributors 
 - Papio Exteriors
