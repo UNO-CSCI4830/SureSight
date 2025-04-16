@@ -12,15 +12,7 @@
   <div class="reports-container">                      
     <h2>Report</h2>
       <p align="center">Begin creating a damage report here.</p>    
-      <form method="POST" action="{{ url_for('upload_image') }}" enctype="multipart/form-data">
-
-          <!-- Upload an image from gallery -->
-          <label for="image-upload">Upload an Image:</label>
-          <input type="file" id="image-upload" name="image" accept="image/*" multiple required> <!--should handle multiple photos?-->          <br>or<br>
-          <!-- capture new photo -->
-          <label for="image-capture">Capture a New Image:</label>
-          <input type="file" id="image-capture" name="image" accept="image/*" capture="camera"> <!--Uncertain what is needed for image capturing-->
-
+ <!--will want to be able to pull form image uploads later on-->
           <!-- select damage type -->
           <p>Select the type of damage:</p>
           <label><input type="checkbox" name="damage_type" value="roof"> Roof Damage</label><br>
