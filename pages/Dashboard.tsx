@@ -66,8 +66,7 @@ const Dashboard: React.FC = () => {
             setNotifications(["No notifications yet."]);
         }
     
-        setNotifications(data.map((n: any) => n.message));
-        alert(data.length ? data.map((n: any) => `• ${n.message}`).join('\n') : 'No notifications yet.');
+
     };
     
 
