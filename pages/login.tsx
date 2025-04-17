@@ -30,7 +30,7 @@ const Login: React.FC = () => {
 
   const handleForgotPassword = async () => {                                                                    // Can we verify that this is working. SAM
     if (!email) {
-      setError('Please enter email address to reset password.');
+      setError('Please enter email address and select login to reset password.');
       return;
     }
     
