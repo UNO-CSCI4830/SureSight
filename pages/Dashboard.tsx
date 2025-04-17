@@ -8,6 +8,8 @@ const Dashboard: React.FC = () => {
     const [message, setMessage] = useState('');
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const [notifications, setNotifications] = useState<string[]>([]);
+
 
     // Handle clicks outside the menu to close it
     useEffect(() => {
@@ -40,6 +42,30 @@ const Dashboard: React.FC = () => {
             console.error('Unexpected error during logout:', err);
         }
     };
+    const fetchNotifications = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+    
+        if (!user) {
+            setMessage("No user session found.");
+            return;
+        }
+    
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('message')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+    
+        if (error) {
+            console.error('Error fetching notifications:', error.message);
+            setMessage("Error fetching notifications.");
+            return;
+        }
+    
+        setNotifications(data.map((n: any) => n.message));
+        alert(data.length ? data.map((n: any) => `• ${n.message}`).join('\n') : 'No notifications yet.');
+    };
+    
 
     const handleChangePassword = () => {
         router.push('/updatepassword');
@@ -112,6 +138,10 @@ const Dashboard: React.FC = () => {
                 {menuOpen && (
                     <div className="dropdown-menu">
                         <ul className="menu-list">
+                            <li className= "menu-item menu-item-border" onClick={fetchNotifications}
+                              >
+                                Notifications
+                            </li>    
                             <li className="menu-item menu-item-border" onClick={handleChangePassword}>
                                 Change Password
                             </li>
