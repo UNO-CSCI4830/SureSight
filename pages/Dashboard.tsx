@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
             setMessage("No user session found.");
             return;
         }
-    
+        console.log('Current user ID:', user.id); //debug
         const { data, error } = await supabase
             .from('notifications')
             .select('message')
