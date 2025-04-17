@@ -30,11 +30,11 @@ const Login: React.FC = () => {
 
   const handleForgotPassword = async () => {                                                                    // Can we verify that this is working. SAM
     if (!email) {
-      setError('Please enter email address and select login to reset password.');
+      setError('Please enter email address and select Forgot Password to reset password.');
       return;
     }
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: '${window.location.origin}/update-password', });         // Link to update password page
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/update-password`, });         // Link to update password page
 
     if (error) {
       setError(error.message);
