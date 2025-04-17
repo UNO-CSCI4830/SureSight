@@ -77,6 +77,13 @@ const Dashboard: React.FC = () => {
                 Log Out
             </button>
             <h1>Welcome to your Dashboard</h1>
+
+            <form onSubmit={handleUpload} style={{ marginTop: '30px'}}>
+                <label>Upload a file:</><br />
+                <input type="file" onChange={handleFileChange} /><br /><br />
+                <button type="submit">Upload</button>
+                {message && <p>{message}</p>}
+            </form>
             {/* Add additional dashboard content here */}
         </div>
     );
