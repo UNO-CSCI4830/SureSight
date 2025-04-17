@@ -49,7 +49,6 @@ const Dashboard: React.FC = () => {
             setMessage("No user session found.");
             return;
         }
-        console.log('Current user ID:', user.id); //debug
         const { data, error } = await supabase
             .from('notifications')
             .select('message')
@@ -60,6 +59,11 @@ const Dashboard: React.FC = () => {
             console.error('Error fetching notifications:', error.message);
             setMessage("Error fetching notifications.");
             return;
+        }
+        if (data.length > 0) {
+            setNotifications(data.map((n: any) => n.message));
+        } else {
+            setNotifications(["No notifications yet."]);
         }
     
         setNotifications(data.map((n: any) => n.message));
@@ -175,6 +179,14 @@ const Dashboard: React.FC = () => {
                 {message && <p className="message">{message}</p>}
             </form>
             {/* Add additional dashboard content here */}
+            <div>
+                <h3>Notifications</h3>
+                <ul>
+                    {notifications.map((notification, index) => (
+                        <li key={index}>{notification}</li>
+                    ))}
+                </ul>
+            </div>
         </div>
     );
 };
