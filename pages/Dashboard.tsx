@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../utils/supabaseClient'; // Adjust the import path as needed
 import { useRouter } from 'next/router';
 
@@ -20,13 +20,14 @@ const Dashboard: React.FC = () => {
             console.error('Unexpected error during logout:', err);
         }
     };
-    const handleFileChange = async (event: React:changeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] || null;
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
         setImage(file);
     };
 
-    const handleUpload = async (event: React:FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+    const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
         setMessage('');
 
         if (!image) {
@@ -34,7 +35,7 @@ const Dashboard: React.FC = () => {
             return;
         }
 
-        const fileExt = Image.name.split('.').pop();
+        const fileExt = image.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
 
         const {error: uploadError } = await supabase.storage          // Uploading to supabase
@@ -49,6 +50,8 @@ const Dashboard: React.FC = () => {
         const { data: publicUrlData } = supabase.storage              // give a public URL
             .from('reports')
             .getPublicUrl(fileName);
+        
+        const imageUrl = publicUrlData?.publicUrl;
         
         if (!imageUrl) {
             setMessage('Could not retrieve image URL.')
