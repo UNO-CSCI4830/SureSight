@@ -1,153 +1,105 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background-color: #f9f9f9;
-  color: #333;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles that extend Tailwind */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-800 font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-medium;
+  }
+  
+  h1 {
+    @apply text-3xl md:text-4xl text-primary-600;
+  }
+  
+  h2 {
+    @apply text-2xl md:text-3xl text-primary-500;
+  }
+  
+  h3 {
+    @apply text-xl md:text-2xl text-gray-700;
+  }
 }
 
-header {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-header h1 {
-  font-size: 2.5rem;
-  color: #007bff;
-}
-
-header h3 {
-  font-size: 1.2rem;
-  color: #555;
-}
-
-.auth-container {
-  background-color: #ffffff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  max-width: 400px;
-  width: 90%;
-  margin: 20px auto;
-}
-
-.auth-container h2 {
-  text-align: center;
-  margin-bottom: 20px;
-  color: #007bff;
-}
-
-.auth-container input {
-  width: 100%;
-  padding: 10px;
-  margin: 10px 0;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 16px;
-}
-
-.auth-container button {
-  width: 100%;
-  padding: 10px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.auth-container button:hover {
-  background-color: #0056b3;
-}
-
-footer {
-  text-align: center;
-  margin-top: 20px;
-  font-size: 0.9rem;
-  color: #777;
-}
-
-/* Dashboard styles */
-.hamburger-menu {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-}
-
-.hamburger-button {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 5px;
-}
-
-.hamburger-line {
-  width: 25px;
-  height: 3px;
-  background-color: #333;
-  margin: 4px 0;
-  border-radius: 2px;
-}
-
-.dropdown-menu {
-  position: absolute;
-  right: 0;
-  top: 40px;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  z-index: 100;
-  min-width: 150px;
-}
-
-.menu-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.menu-item {
-  padding: 10px 15px;
-  cursor: pointer;
-}
-
-.menu-item-border {
-  border-bottom: 1px solid #eee;
-}
-
-.menu-item:hover {
-  background-color: #f5f5f5;
-}
-
-.upload-form {
-  margin-top: 30px;
-}
-
-.file-input-container {
-  margin-bottom: 15px;
-}
-
-.upload-button {
-  padding: 8px 16px;
-  background-color: #0070f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.upload-button:hover {
-  background-color: #0051cb;
-}
-
-.message {
-  margin-top: 10px;
-  font-weight: bold;
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-secondary-500 text-white hover:bg-secondary-600 focus:ring-secondary-500;
+  }
+  
+  .btn-outline {
+    @apply btn border border-gray-300 hover:bg-gray-100 focus:ring-gray-400;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-card p-6 transition-shadow duration-200;
+  }
+  
+  .card:hover {
+    @apply shadow-hover;
+  }
+  
+  .form-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400;
+  }
+  
+  /* Nav styles */
+  .nav-bar {
+    @apply fixed top-0 left-0 w-full flex justify-between items-center px-4 py-3 bg-white shadow-sm z-50;
+  }
+  
+  .logo {
+    @apply text-xl font-bold text-primary-500;
+  }
+  
+  .logo a {
+    @apply no-underline transition-colors duration-200 hover:text-primary-600;
+  }
+  
+  .hamburger-menu {
+    @apply relative;
+  }
+  
+  .hamburger-button {
+    @apply bg-transparent border-none cursor-pointer p-1 rounded-md transition-colors duration-200 hover:bg-gray-100;
+  }
+  
+  .hamburger-line {
+    @apply w-6 h-0.5 bg-gray-700 my-1 rounded-full transition-all duration-200;
+  }
+  
+  .dropdown-menu {
+    @apply absolute right-0 top-12 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[180px] overflow-hidden;
+  }
+  
+  .menu-list {
+    @apply list-none p-0 m-0;
+  }
+  
+  .menu-item {
+    @apply p-3 cursor-pointer hover:bg-gray-50 transition-colors duration-150 text-gray-700;
+  }
+  
+  .menu-item a {
+    @apply no-underline text-inherit block w-full;
+  }
+  
+  .menu-item-border {
+    @apply border-b border-gray-100;
+  }
 }
