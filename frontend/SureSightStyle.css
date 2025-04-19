@@ -67,8 +67,8 @@ body {
     color: #333;
 }
 
-.login-container input [type="text"],
-.login-container input [type="password"] {
+.login-container input[type="text"],
+.login-container input[type="password"] {
     width: 100%;
     padding: 12px;
     margin-bottom: 20px;
@@ -136,25 +136,36 @@ button {
 }
 
 button:hover {
+
     background-color: #00a3ee;
     .close:focus {
       color: black;
       text-decoration: navy;
       cursor: pointer;
     }
-}
+=======
+    
+
 button:focus {
     color: black;
-    text-decoration: navy;
+    text-decoration: underline;
     cursor: pointer;
 }
+
+.close:focus {
+    color: black;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 
 /* Navigation */
 nav ul {
     list-style: none;
     padding: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column; 
+    align-items: center;
     gap: 15px;
 }
 

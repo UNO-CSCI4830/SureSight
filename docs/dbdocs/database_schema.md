@@ -19,7 +19,7 @@ This schema will be implemented in Supabase using PostgreSQL.
 | Column Name | Data Type | Description | 
 |--------------|------------|------------|
 | id | UUID | Unique identifier for each role (primary key) |
-| name | VARCHAR (255) | Name of the role (Homeowner, Contractor, Adjuster, Admin |
+| name | VARCHAR (255) | Name of the role (Homeowner, Contractor, Adjuster, Admin) |
 
 
 ## user_roles Table
