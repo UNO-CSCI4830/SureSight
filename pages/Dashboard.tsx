@@ -4,6 +4,7 @@ import AuthGuard from '../components/auth/AuthGuard';
 import FileUpload from '../components/ui/FileUpload';
 import Layout from '../components/layout/Layout';
 import { supabase } from '../utils/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 const Dashboard: React.FC = () => {
     const router = useRouter();
@@ -12,18 +13,39 @@ const Dashboard: React.FC = () => {
     const handleUploadComplete = async (urls: string[]) => {
         if (urls.length > 0) {
             try {
-                // Insert each uploaded image URL into the reports table
+                const auditLogs = [];
+
                 for (const imageUrl of urls) {
                     const { error } = await supabase
                         .from('reports')
                         .insert([{ image_url: imageUrl }]);
-                        
+
                     if (error) {
                         console.error('Error saving to reports table:', error);
                         setMessage('Error saving some uploads to the database.');
+                    } else {
+                        // Log the successful upload
+                        auditLogs.push({
+                            id: uuidv4(),
+                            timestamp: new Date().toISOString(),
+                            user_id: 'current_user_id', // Replace with actual user ID
+                            action: 'UPLOAD',
+                            details: `Uploaded image URL: ${imageUrl}`
+                        });
                     }
                 }
-                
+
+                // Save audit logs to the database
+                if (auditLogs.length > 0) {
+                    const { error: logError } = await supabase
+                        .from('audit_logs')
+                        .insert(auditLogs);
+
+                    if (logError) {
+                        console.error('Error saving audit logs:', logError);
+                    }
+                }
+
                 setMessage(`${urls.length} file(s) uploaded and saved to reports!`);
             } catch (err) {
                 console.error('Unexpected error:', err);
