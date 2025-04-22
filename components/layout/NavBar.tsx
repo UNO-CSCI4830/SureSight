@@ -11,6 +11,7 @@ interface NavBarProps {
 const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) => {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Handle clicks outside the menu to close it
@@ -26,6 +27,19 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  //Fetch notifications
+  useEffect(() => {
+    const fetchUnreadNotifications = async () => {
+      if (!isLoggedIn) return;
+      try {
+        const res = await fetch('/api/notifications');
+        const data = await res.json();
+        setUnreadCount(data.count || 0);
+      } catch (error) {
+        console.error('Failed to retrieve notifications:', error);
+      }
+    };
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
