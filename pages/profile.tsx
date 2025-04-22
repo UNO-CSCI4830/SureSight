@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/layout/Layout';
 import AuthGuard from '../components/auth/AuthGuard';
-import { supabase } from '../utils/supabaseClient';
+import { supabase, handleSupabaseError } from '../utils/supabaseClient';
 
 type Profile = {
   id: string;
@@ -18,6 +18,12 @@ type Profile = {
   service_area?: string;
   territories?: string[];
   additional_notes?: string;
+  // Flag to track if profile needs to be created
+  needsProfileCreation?: {
+    homeowner?: boolean;
+    contractor?: boolean;
+    adjuster?: boolean;
+  };
 };
 
 const ProfilePage: React.FC = () => {
@@ -26,10 +32,12 @@ const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [message, setMessage] = useState<{text: string, type: 'success' | 'error' | 'info'} | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [showMessageTimeout, setShowMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Editable profile fields
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<string>('');
   const [preferredContactMethod, setPreferredContactMethod] = useState<string>('email');
   const [companyName, setCompanyName] = useState<string>('');
   const [licenseNumber, setLicenseNumber] = useState<string>('');
@@ -37,13 +45,22 @@ const ProfilePage: React.FC = () => {
   const [serviceArea, setServiceArea] = useState<string>('');
   const [territories, setTerritories] = useState<string>('');
   const [additionalNotes, setAdditionalNotes] = useState<string>('');
+  const [updateSuccess, setUpdateSuccess] = useState<boolean>(false);
 
   useEffect(() => {
     fetchProfile();
+    
+    // Clear any existing message timeout when component unmounts
+    return () => {
+      if (showMessageTimeout) {
+        clearTimeout(showMessageTimeout);
+      }
+    };
   }, []);
 
   const fetchProfile = async () => {
     setIsLoading(true);
+    setUpdateSuccess(false);
     try {
       // Get the current authenticated user
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -58,76 +75,148 @@ const ProfilePage: React.FC = () => {
       }
 
       const userId = session.user.id;
-
-      // Get basic user info
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (userError) {
-        throw userError;
-      }
-
-      // Get user's role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('roles(name)')
-        .eq('user_id', userId)
-        .single();
-
-      let userRole = '';
-      if (!roleError && roleData && roleData.roles) {
-        // Access the name correctly from the returned structure
-        userRole = Array.isArray(roleData.roles) && roleData.roles[0]?.name || '';
-      }
-
-      // Initialize the profile with user data
+      const userEmail = session.user.email || '';
+      
+      // Initialize the profile with user data from the auth session
       const profileData: Profile = {
-        id: userData.id,
-        email: userData.email,
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        role: userRole
+        id: userId,
+        email: userEmail,
+        first_name: '',
+        last_name: '',
+        role: '',
+        needsProfileCreation: {
+          homeowner: false,
+          contractor: false,
+          adjuster: false
+        }
       };
+
+      // Try to get user metadata from session first
+      if (session.user.user_metadata) {
+        const { first_name, last_name } = session.user.user_metadata;
+        if (first_name) profileData.first_name = first_name;
+        if (last_name) profileData.last_name = last_name;
+      }
+
+      // Get user's profile from profiles table instead of users table
+      try {
+        const { data: profileRecord, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (!profileError && profileRecord) {
+          // Parse full_name into first_name and last_name if available
+          if (profileRecord.full_name) {
+            const nameParts = profileRecord.full_name.split(' ');
+            profileData.first_name = nameParts[0] || profileData.first_name;
+            profileData.last_name = nameParts.slice(1).join(' ') || profileData.last_name;
+          }
+        }
+      } catch (profileErr) {
+        console.warn('Error fetching profiles table:', profileErr);
+      }
+
+      // Get user's role with better error handling
+      let userRole = '';
+      try {
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('roles(name), role_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!roleError && roleData && roleData.roles) {
+          if (typeof roleData.roles === 'object' && roleData.roles !== null) {
+            // Handle both array format and direct object format
+            userRole = Array.isArray(roleData.roles) 
+              ? (roleData.roles[0]?.name || '') 
+              : (roleData.roles.name || '');
+          }
+        } else if (roleError) {
+          console.warn('Could not fetch role, setting default role:', roleError);
+          // Default to homeowner if role can't be determined
+          userRole = 'homeowner';
+          
+          // Create a role entry if it doesn't exist
+          if (roleError.code === 'PGRST116') {
+            await supabase
+              .from('user_roles')
+              .insert([{
+                user_id: userId,
+                role_id: 1, // Assuming 1 is the homeowner role_id
+                created_at: new Date().toISOString()
+              }]);
+          }
+        }
+      } catch (roleErr) {
+        console.error('Error processing role:', roleErr);
+        userRole = 'homeowner'; // Default fallback
+      }
+      
+      profileData.role = userRole;
 
       // Fetch role-specific profile data
       if (userRole === 'homeowner') {
-        const { data: homeownerData, error: homeownerError } = await supabase
-          .from('homeowner_profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+        try {
+          const { data: homeownerData, error: homeownerError } = await supabase
+            .from('homeowner_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-        if (!homeownerError && homeownerData) {
-          profileData.preferred_contact_method = homeownerData.preferred_contact_method;
-          profileData.additional_notes = homeownerData.additional_notes;
+          if (!homeownerError && homeownerData) {
+            profileData.preferred_contact_method = homeownerData.preferred_contact_method as string;
+            profileData.additional_notes = homeownerData.additional_notes as string;
+          } else {
+            profileData.needsProfileCreation!.homeowner = true;
+            console.log('Homeowner profile needs to be created');
+          }
+        } catch (err) {
+          console.error('Error fetching homeowner profile:', err);
+          profileData.needsProfileCreation!.homeowner = true;
         }
       } else if (userRole === 'contractor') {
-        const { data: contractorData, error: contractorError } = await supabase
-          .from('contractor_profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+        try {
+          const { data: contractorData, error: contractorError } = await supabase
+            .from('contractor_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-        if (!contractorError && contractorData) {
-          profileData.company_name = contractorData.company_name;
-          profileData.license_number = contractorData.license_number;
-          profileData.years_experience = contractorData.years_experience;
-          profileData.service_area = contractorData.service_area;
+          if (!contractorError && contractorData) {
+            profileData.company_name = contractorData.company_name as string;
+            profileData.license_number = contractorData.license_number as string;
+            profileData.years_experience = contractorData.years_experience as number;
+            profileData.service_area = contractorData.service_area as string;
+          } else {
+            profileData.needsProfileCreation!.contractor = true;
+            console.log('Contractor profile needs to be created');
+          }
+        } catch (err) {
+          console.error('Error fetching contractor profile:', err);
+          profileData.needsProfileCreation!.contractor = true;
         }
       } else if (userRole === 'adjuster') {
-        const { data: adjusterData, error: adjusterError } = await supabase
-          .from('adjuster_profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+        try {
+          const { data: adjusterData, error: adjusterError } = await supabase
+            .from('adjuster_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-        if (!adjusterError && adjusterData) {
-          profileData.company_name = adjusterData.company_name;
-          profileData.license_number = adjusterData.adjuster_license;
-          profileData.territories = adjusterData.territories;
+          if (!adjusterError && adjusterData) {
+            profileData.company_name = adjusterData.company_name as string;
+            profileData.license_number = adjusterData.adjuster_license as string;
+            profileData.territories = adjusterData.territories as string[];
+          } else {
+            profileData.needsProfileCreation!.adjuster = true;
+            console.log('Adjuster profile needs to be created');
+          }
+        } catch (err) {
+          console.error('Error fetching adjuster profile:', err);
+          profileData.needsProfileCreation!.adjuster = true;
         }
       }
 
@@ -136,6 +225,7 @@ const ProfilePage: React.FC = () => {
       // Initialize form fields
       setFirstName(profileData.first_name || '');
       setLastName(profileData.last_name || '');
+      setSelectedRole(profileData.role || 'homeowner');
       setPreferredContactMethod(profileData.preferred_contact_method || 'email');
       setCompanyName(profileData.company_name || '');
       setLicenseNumber(profileData.license_number || '');
@@ -145,8 +235,9 @@ const ProfilePage: React.FC = () => {
       setAdditionalNotes(profileData.additional_notes || '');
     } catch (error: any) {
       console.error('Error fetching profile:', error);
+      const errorDetails = handleSupabaseError(error);
       setMessage({
-        text: 'Failed to load profile information. Please try again later.',
+        text: `Failed to load profile information: ${errorDetails.message}`,
         type: 'error'
       });
     } finally {
@@ -154,82 +245,69 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleRoleChange = async (newRole: string) => {
+    setSelectedRole(newRole);
+  };
+
   const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage(null);
     setIsLoading(true);
+    setUpdateSuccess(false);
     
     try {
       if (!profile) return;
       
-      const timestamp = new Date().toISOString();
+      // Parse territories into an array if role is adjuster
+      const territoriesArray = selectedRole === 'adjuster' 
+        ? territories.split(',').map(t => t.trim()).filter(t => t) 
+        : null;
+
+      // Use the manage_user_profile function to update everything in one call
+      const { data, error } = await supabase.rpc('manage_user_profile', {
+        p_user_id: profile.id,
+        p_email: profile.email,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_role: selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1), // Capitalize first letter
+        // Generic profile fields
+        p_avatar_url: null,
+        // Homeowner fields
+        p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : null,
+        p_additional_notes: selectedRole === 'homeowner' ? additionalNotes : null,
+        // Contractor fields
+        p_company_name: (selectedRole === 'contractor' || selectedRole === 'adjuster') ? companyName : null,
+        p_license_number: selectedRole === 'contractor' ? licenseNumber : null,
+        p_specialties: null, // Not currently in the form
+        p_years_experience: selectedRole === 'contractor' ? (parseInt(yearsExperience) || 0) : null,
+        p_service_area: selectedRole === 'contractor' ? serviceArea : null,
+        // Adjuster fields
+        p_adjuster_license: selectedRole === 'adjuster' ? licenseNumber : null,
+        p_territories: selectedRole === 'adjuster' ? territoriesArray : null
+      });
       
-      // Update basic user information
-      const { error: userUpdateError } = await supabase
-        .from('users')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          updated_at: timestamp
-        })
-        .eq('id', profile.id);
-        
-      if (userUpdateError) throw userUpdateError;
+      if (error) {
+        throw error;
+      }
+
+      // Log the result from the function
+      console.log('Profile update result:', data);
       
-      // Update role-specific profile
-      if (profile.role === 'homeowner') {
-        const { error: homeownerError } = await supabase
-          .from('homeowner_profiles')
-          .update({
-            preferred_contact_method: preferredContactMethod,
-            additional_notes: additionalNotes,
-            updated_at: timestamp
-          })
-          .eq('user_id', profile.id);
-          
-        if (homeownerError) throw homeownerError;
-      } 
-      else if (profile.role === 'contractor') {
-        const { error: contractorError } = await supabase
-          .from('contractor_profiles')
-          .update({
-            company_name: companyName,
-            license_number: licenseNumber,
-            years_experience: parseInt(yearsExperience) || 0,
-            service_area: serviceArea,
-            updated_at: timestamp
-          })
-          .eq('user_id', profile.id);
-          
-        if (contractorError) throw contractorError;
-      } 
-      else if (profile.role === 'adjuster') {
-        const { error: adjusterError } = await supabase
-          .from('adjuster_profiles')
-          .update({
-            company_name: companyName,
-            adjuster_license: licenseNumber,
-            territories: territories.split(',').map(t => t.trim()),
-            updated_at: timestamp
-          })
-          .eq('user_id', profile.id);
-          
-        if (adjusterError) throw adjusterError;
+      // Ensure message stays visible for at least 5 seconds
+      if (showMessageTimeout) {
+        clearTimeout(showMessageTimeout);
       }
       
-      // Update generic profiles table
-      const { error: profilesError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: `${firstName} ${lastName}`
-        })
-        .eq('id', profile.id);
-        
-      if (profilesError) {
-        console.error('Error updating profiles table:', profilesError);
-      }
+      const timeout = setTimeout(() => {
+        // Only clear the message after 5 seconds if we're still showing the same one
+        setShowMessageTimeout(null);
+      }, 5000);
       
+      setShowMessageTimeout(timeout);
+      
+      // Update UI state
       setIsEditing(false);
+      setUpdateSuccess(true);
       setMessage({
         text: 'Profile updated successfully!',
         type: 'success'
@@ -239,10 +317,12 @@ const ProfilePage: React.FC = () => {
       fetchProfile();
     } catch (error: any) {
       console.error('Error updating profile:', error);
+      const errorDetails = handleSupabaseError(error);
       setMessage({
-        text: 'Failed to update profile. Please try again later.',
+        text: `Failed to update profile: ${errorDetails.message}`,
         type: 'error'
       });
+      setUpdateSuccess(false);
     } finally {
       setIsLoading(false);
     }
@@ -265,8 +345,58 @@ const ProfilePage: React.FC = () => {
   const renderProfileView = () => {
     if (!profile) return <div>No profile information available.</div>;
 
+    // Check if a role-specific profile needs to be created
+    const needsProfileCreation = profile.needsProfileCreation?.homeowner || 
+                               profile.needsProfileCreation?.contractor || 
+                               profile.needsProfileCreation?.adjuster;
+
+    if (needsProfileCreation) {
+      return (
+        <div className="space-y-6">
+          <div className="p-4 bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+            <h3 className="font-medium text-lg mb-2">Complete Your Profile</h3>
+            <p>Please complete your profile information to get the most out of SureSight.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Email</h3>
+              <p className="mt-1 text-lg">{profile.email}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Name</h3>
+              <p className="mt-1 text-lg">{profile.first_name} {profile.last_name}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Account Type</h3>
+              <p className="mt-1 text-lg capitalize">{profile.role || 'Unknown'}</p>
+            </div>
+          </div>
+          
+          <div className="pt-4">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setIsEditing(true)}
+            >
+              Complete Profile
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
+        {updateSuccess && (
+          <div className="p-3 bg-green-100 text-green-700 border border-green-200 rounded-md mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span>Profile updated successfully!</span>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Email</h3>
@@ -389,8 +519,31 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
 
+        <div>
+          <label htmlFor="userRole" className="block text-sm font-medium text-gray-700 mb-1">
+            Account Type
+          </label>
+          <select
+            id="userRole"
+            name="userRole"
+            value={selectedRole}
+            onChange={(e) => handleRoleChange(e.target.value)}
+            className="form-input"
+            aria-label="Select account type"
+          >
+            <option value="homeowner">Homeowner</option>
+            <option value="contractor">Contractor</option>
+            <option value="adjuster">Adjuster</option>
+          </select>
+          {selectedRole !== profile.role && (
+            <p className="mt-1 text-xs text-amber-600">
+              Changing your account type will update the information you need to provide.
+            </p>
+          )}
+        </div>
+
         {/* Homeowner-specific fields */}
-        {profile.role === 'homeowner' && (
+        {selectedRole === 'homeowner' && (
           <>
             <div>
               <label htmlFor="preferredContact" className="block text-sm font-medium text-gray-700 mb-1">
@@ -427,7 +580,7 @@ const ProfilePage: React.FC = () => {
         )}
 
         {/* Contractor-specific fields */}
-        {profile.role === 'contractor' && (
+        {selectedRole === 'contractor' && (
           <>
             <div>
               <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
@@ -490,7 +643,7 @@ const ProfilePage: React.FC = () => {
         )}
 
         {/* Adjuster-specific fields */}
-        {profile.role === 'adjuster' && (
+        {selectedRole === 'adjuster' && (
           <>
             <div>
               <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">

@@ -1,0 +1,13 @@
+{
+  "schema": {
+    "db": "public"
+  },
+  "project": {
+    "id": "khqevpnoodeggshfxeaa",
+    "ref": "khqevpnoodeggshfxeaa"
+  },
+  "api": {
+    "url": "https://khqevpnoodeggshfxeaa.supabase.co",
+    "key": "${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+  }
+}
