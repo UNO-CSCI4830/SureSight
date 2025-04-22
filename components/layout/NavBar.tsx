@@ -41,6 +41,9 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
       }
     };
 
+    fetchUnreadNotifications();
+  }, [isLoggedIn]);
+
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
   };
