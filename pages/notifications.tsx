@@ -15,23 +15,46 @@ const NotificationsPage = () => {
   const user = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchMessages();
+
+      //real time message subscript
+      const subscription = supabase
+      .from('messages')
+      .on('INSERT', payload => {
+        fetchMessages(); 
+      })
+      .on('UPDATE', payload => {
+        fetchMessages();
+      })
+      .subscribe();
+
+      return()=> {
+        supabase.removeSubscription(subscription);
+      };
     }
   }, [user]);
-
+      
   const fetchMessages = async () => {
     setLoading(true);
+    setError(null);
+    
     const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('receiver_id', user?.id)
       .order('created_at', { ascending: false });
 
-    if (error) console.error('Error fetching messages:', error);
-    else setMessages(data || []);
+    if (error) {
+      setError('Error fetching messages:');
+      console.error(error);
+    }
+    else {
+      setMessages(data || []);
+    }
 
     setLoading(false);
   };
@@ -43,8 +66,13 @@ const NotificationsPage = () => {
       .eq('id', id);
 
     if (!error) fetchMessages();
+    else setError('Error marking message as read');
   };
 
+  if (!user) {
+    return <p>Please log in to view your notifications.</p>
+  }
+  
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Messages</h1>
