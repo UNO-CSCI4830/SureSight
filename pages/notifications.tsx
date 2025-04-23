@@ -1,57 +1,85 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabaseClient'; 
+import { supabase } from '../utils/supabaseClient';
+import { useUser } from '@supabase/auth-helpers-react';
 
-const Notifications = () => {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+interface Message {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+const NotificationsPage = () => {
+  const user = useUser();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      setLoading(true);
+    if (user) {
+      fetchMessages();
+    }
+  }, [user]);
 
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*') 
-          .order('created_at', { ascending: false });
+  const fetchMessages = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('receiver_id', user?.id)
+      .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error('Error fetching notifications:', error);
-        } else {
-          setNotifications(data);
-        }
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      }
+    if (error) console.error('Error fetching messages:', error);
+    else setMessages(data || []);
 
-      setLoading(false);
-    };
+    setLoading(false);
+  };
 
-    fetchNotifications();
-  }, []);
+  const markAsRead = async (id: string) => {
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('id', id);
+
+    if (!error) fetchMessages();
+  };
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Notifications</h1>
+      <h1 className="text-3xl font-bold mb-4">Messages</h1>
       {loading ? (
-        <p>Loading notifications...</p>
-      ) : (
+        <p>Loading messages...</p>
+      ) : messages.length > 0 ? (
         <ul className="space-y-4">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <li key={notification.id} className="p-4 border rounded-lg shadow-sm bg-white">
-                <h2 className="text-xl font-semibold">{notification.title}</h2>
-                <p className="text-gray-600">{notification.message}</p>
-                <small className="text-gray-400">{new Date(notification.created_at).toLocaleString()}</small>
-              </li>
-            ))
-          ) : (
-            <p>No notifications yet!</p>
-          )}
+          {messages.map((msg) => (
+            <li
+              key={msg.id}
+              className={`p-4 border rounded-lg shadow-sm ${
+                msg.is_read ? 'bg-gray-100' : 'bg-white'
+              }`}
+            >
+              <p className="font-semibold">From: {msg.sender_id}</p>
+              <p>{msg.content}</p>
+              <small className="text-gray-500">
+                {new Date(msg.created_at).toLocaleString()}
+              </small>
+              {!msg.is_read && (
+                <button
+                  onClick={() => markAsRead(msg.id)}
+                  className="mt-2 text-sm text-blue-600 hover:underline"
+                >
+                  Mark as read
+                </button>
+              )}
+            </li>
+          ))}
         </ul>
+      ) : (
+        <p>No messages yet!</p>
       )}
     </div>
   );
 };
 
-export default Notifications;
+export default NotificationsPage;
