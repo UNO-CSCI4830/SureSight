@@ -27,10 +27,10 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-  
+  const [error, setError] = useState<string | null>(null);
   //Fetch notifications
   useEffect(() => {
-const [error, setError] = useState<string | null>(null);
+
     
     const fetchUnreadNotifications = async () => {
   if (!isLoggedIn) return;
