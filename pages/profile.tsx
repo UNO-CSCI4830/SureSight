@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/layout/Layout';
 import AuthGuard from '../components/auth/AuthGuard';
-import { supabase, handleSupabaseError, Database } from '../utils/supabaseClient';
+import { supabase, handleSupabaseError } from '../utils/supabaseClient';
+import { PageHeader, Card, LoadingSpinner, StatusMessage } from '../components/common';
+import { FormInput, Select, TextArea } from '../components/ui';
 
 type Profile = {
   id: string;
@@ -62,7 +64,6 @@ const ProfilePage: React.FC = () => {
     setIsLoading(true);
     setUpdateSuccess(false);
     try {
-      // Get the current authenticated user
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -77,7 +78,6 @@ const ProfilePage: React.FC = () => {
       const userId = session.user.id;
       const userEmail = session.user.email || '';
       
-      // Initialize the profile with user data from the auth session
       const profileData: Profile = {
         id: userId,
         email: userEmail,
@@ -91,14 +91,12 @@ const ProfilePage: React.FC = () => {
         }
       };
 
-      // Try to get user metadata from session first
       if (session.user.user_metadata) {
         const { first_name, last_name } = session.user.user_metadata;
         if (first_name) profileData.first_name = first_name;
         if (last_name) profileData.last_name = last_name;
       }
 
-      // Get user's profile from profiles table instead of users table
       try {
         const { data: profileRecord, error: profileError } = await supabase
           .from('profiles')
@@ -107,7 +105,6 @@ const ProfilePage: React.FC = () => {
           .maybeSingle();
 
         if (!profileError && profileRecord) {
-          // Parse full_name into first_name and last_name if available
           if (profileRecord.full_name) {
             const nameParts = profileRecord.full_name.split(' ');
             profileData.first_name = nameParts[0] || profileData.first_name;
@@ -118,7 +115,6 @@ const ProfilePage: React.FC = () => {
         console.warn('Error fetching profiles table:', profileErr);
       }
 
-      // Get user's role with better error handling
       let userRole = '';
       try {
         const { data: roleData, error: roleError } = await supabase
@@ -129,35 +125,31 @@ const ProfilePage: React.FC = () => {
 
         if (!roleError && roleData && roleData.roles) {
           if (typeof roleData.roles === 'object' && roleData.roles !== null) {
-            // Handle both array format and direct object format
             userRole = Array.isArray(roleData.roles) 
               ? (roleData.roles[0]?.name || '') 
               : (roleData.roles.name || '');
           }
         } else if (roleError) {
           console.warn('Could not fetch role, setting default role:', roleError);
-          // Default to homeowner if role can't be determined
           userRole = 'homeowner';
           
-          // Create a role entry if it doesn't exist
           if (roleError.code === 'PGRST116') {
             await supabase
               .from('user_roles')
               .insert([{
                 user_id: userId,
-                role_id: 1, // Assuming 1 is the homeowner role_id
+                role_id: 1,
                 created_at: new Date().toISOString()
               }]);
           }
         }
       } catch (roleErr) {
         console.error('Error processing role:', roleErr);
-        userRole = 'homeowner'; // Default fallback
+        userRole = 'homeowner';
       }
       
       profileData.role = userRole;
 
-      // Fetch role-specific profile data
       if (userRole === 'homeowner') {
         try {
           const { data: homeownerData, error: homeownerError } = await supabase
@@ -222,7 +214,6 @@ const ProfilePage: React.FC = () => {
 
       setProfile(profileData);
       
-      // Initialize form fields
       setFirstName(profileData.first_name || '');
       setLastName(profileData.last_name || '');
       setSelectedRole(profileData.role || 'homeowner');
@@ -258,54 +249,44 @@ const ProfilePage: React.FC = () => {
     try {
       if (!profile) return;
       
-      // Parse territories into an array if role is adjuster
       const territoriesArray = selectedRole === 'adjuster' 
         ? territories.split(',').map(t => t.trim()).filter(t => t) 
         : null;
 
-      // Use the manage_user_profile function to update everything in one call
       const { data, error } = await supabase.rpc('manage_user_profile', {
         p_user_id: profile.id,
         p_email: profile.email,
         p_first_name: firstName,
         p_last_name: lastName,
-        p_role: selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1), // Capitalize first letter
-        // Generic profile fields
+        p_role: selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1),
         p_avatar_url: null,
-        // Homeowner fields
         p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : null,
         p_additional_notes: selectedRole === 'homeowner' ? additionalNotes : null,
-        // Contractor fields
         p_company_name: (selectedRole === 'contractor' || selectedRole === 'adjuster') ? companyName : null,
         p_license_number: selectedRole === 'contractor' ? licenseNumber : null,
-        p_specialties: null, // Not currently in the form
+        p_specialties: null,
         p_years_experience: selectedRole === 'contractor' ? (parseInt(yearsExperience) || 0) : null,
         p_service_area: selectedRole === 'contractor' ? serviceArea : null,
-        // Adjuster fields
         p_adjuster_license: selectedRole === 'adjuster' ? licenseNumber : null,
         p_territories: selectedRole === 'adjuster' ? territoriesArray : null
-      }) as any; // Type assertion to resolve the type mismatch
+      });
       
       if (error) {
         throw error;
       }
 
-      // Log the result from the function
       console.log('Profile update result:', data);
       
-      // Ensure message stays visible for at least 5 seconds
       if (showMessageTimeout) {
         clearTimeout(showMessageTimeout);
       }
       
       const timeout = setTimeout(() => {
-        // Only clear the message after 5 seconds if we're still showing the same one
         setShowMessageTimeout(null);
       }, 5000);
       
       setShowMessageTimeout(timeout);
       
-      // Update UI state
       setIsEditing(false);
       setUpdateSuccess(true);
       setMessage({
@@ -313,7 +294,6 @@ const ProfilePage: React.FC = () => {
         type: 'success'
       });
       
-      // Refresh profile data
       fetchProfile();
     } catch (error: any) {
       console.error('Error updating profile:', error);
@@ -328,24 +308,9 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const getMessageClass = () => {
-    if (!message) return '';
-    
-    switch (message.type) {
-      case 'success':
-        return 'bg-green-50 text-green-800 border-green-200';
-      case 'error':
-        return 'bg-red-50 text-red-800 border-red-200';
-      case 'info':
-      default:
-        return 'bg-blue-50 text-blue-800 border-blue-200';
-    }
-  };
-
   const renderProfileView = () => {
     if (!profile) return <div>No profile information available.</div>;
 
-    // Check if a role-specific profile needs to be created
     const needsProfileCreation = profile.needsProfileCreation?.homeowner || 
                                profile.needsProfileCreation?.contractor || 
                                profile.needsProfileCreation?.adjuster;
@@ -353,10 +318,11 @@ const ProfilePage: React.FC = () => {
     if (needsProfileCreation) {
       return (
         <div className="space-y-6">
-          <div className="p-4 bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
-            <h3 className="font-medium text-lg mb-2">Complete Your Profile</h3>
-            <p>Please complete your profile information to get the most out of SureSight.</p>
-          </div>
+          <StatusMessage 
+            type="info"
+            text="Please complete your profile information to get the most out of SureSight."
+            className="mb-4"
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -389,12 +355,11 @@ const ProfilePage: React.FC = () => {
     return (
       <div className="space-y-6">
         {updateSuccess && (
-          <div className="p-3 bg-green-100 text-green-700 border border-green-200 rounded-md mb-4 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span>Profile updated successfully!</span>
-          </div>
+          <StatusMessage
+            type="success"
+            text="Profile updated successfully!"
+            className="mb-4"
+          />
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -411,7 +376,6 @@ const ProfilePage: React.FC = () => {
             <p className="mt-1 text-lg capitalize">{profile.role || 'Unknown'}</p>
           </div>
 
-          {/* Homeowner-specific fields */}
           {profile.role === 'homeowner' && (
             <>
               <div>
@@ -427,7 +391,6 @@ const ProfilePage: React.FC = () => {
             </>
           )}
 
-          {/* Contractor-specific fields */}
           {profile.role === 'contractor' && (
             <>
               <div>
@@ -449,7 +412,6 @@ const ProfilePage: React.FC = () => {
             </>
           )}
 
-          {/* Adjuster-specific fields */}
           {profile.role === 'adjuster' && (
             <>
               <div>
@@ -489,52 +451,38 @@ const ProfilePage: React.FC = () => {
     return (
       <form onSubmit={handleSaveProfile} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-              First Name
-            </label>
-            <input
-              type="text"
-              id="firstName"
-              name="firstName"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="form-input"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-              Last Name
-            </label>
-            <input
-              type="text"
-              id="lastName"
-              name="lastName"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="form-input"
-              required
-            />
-          </div>
+          <FormInput
+            id="firstName"
+            label="First Name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="John"
+            required
+          />
+          <FormInput
+            id="lastName"
+            label="Last Name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Doe"
+            required
+          />
         </div>
 
         <div>
           <label htmlFor="userRole" className="block text-sm font-medium text-gray-700 mb-1">
             Account Type
           </label>
-          <select
+          <Select
             id="userRole"
-            name="userRole"
             value={selectedRole}
             onChange={(e) => handleRoleChange(e.target.value)}
-            className="form-input"
-            aria-label="Select account type"
-          >
-            <option value="homeowner">Homeowner</option>
-            <option value="contractor">Contractor</option>
-            <option value="adjuster">Adjuster</option>
-          </select>
+            options={[
+              { value: 'homeowner', label: 'Homeowner' },
+              { value: 'contractor', label: 'Contractor' },
+              { value: 'adjuster', label: 'Adjuster' }
+            ]}
+          />
           {selectedRole !== profile.role && (
             <p className="mt-1 text-xs text-amber-600">
               Changing your account type will update the information you need to provide.
@@ -542,56 +490,48 @@ const ProfilePage: React.FC = () => {
           )}
         </div>
 
-        {/* Homeowner-specific fields */}
         {selectedRole === 'homeowner' && (
           <>
             <div>
               <label htmlFor="preferredContact" className="block text-sm font-medium text-gray-700 mb-1">
                 Preferred Contact Method
               </label>
-              <select
+              <Select
                 id="preferredContact"
-                name="preferredContact"
                 value={preferredContactMethod}
                 onChange={(e) => setPreferredContactMethod(e.target.value)}
-                className="form-input"
-                aria-label="Select preferred contact method"
-              >
-                <option value="email">Email</option>
-                <option value="phone">Phone</option>
-                <option value="text">Text Message</option>
-              </select>
+                options={[
+                  { value: 'email', label: 'Email' },
+                  { value: 'phone', label: 'Phone' },
+                  { value: 'text', label: 'Text Message' }
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="additionalNotes" className="block text-sm font-medium text-gray-700 mb-1">
                 Additional Notes
               </label>
-              <textarea
+              <TextArea
                 id="additionalNotes"
-                name="additionalNotes"
                 value={additionalNotes}
                 onChange={(e) => setAdditionalNotes(e.target.value)}
                 rows={3}
-                className="form-input"
                 placeholder="Any additional information you'd like to share"
               />
             </div>
           </>
         )}
 
-        {/* Contractor-specific fields */}
         {selectedRole === 'contractor' && (
           <>
             <div>
               <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
                 Company Name
               </label>
-              <input
-                type="text"
+              <FormInput
                 id="companyName"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className="form-input"
                 placeholder="Your Company LLC"
               />
             </div>
@@ -600,12 +540,10 @@ const ProfilePage: React.FC = () => {
               <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 License Number
               </label>
-              <input
-                type="text"
+              <FormInput
                 id="licenseNumber"
                 value={licenseNumber}
                 onChange={(e) => setLicenseNumber(e.target.value)}
-                className="form-input"
                 placeholder="e.g. CON-12345"
               />
             </div>
@@ -615,12 +553,11 @@ const ProfilePage: React.FC = () => {
                 <label htmlFor="yearsExperience" className="block text-sm font-medium text-gray-700 mb-1">
                   Years of Experience
                 </label>
-                <input
-                  type="number"
+                <FormInput
                   id="yearsExperience"
+                  type="number"
                   value={yearsExperience}
                   onChange={(e) => setYearsExperience(e.target.value)}
-                  className="form-input"
                   placeholder="5"
                   min="0"
                 />
@@ -629,12 +566,10 @@ const ProfilePage: React.FC = () => {
                 <label htmlFor="serviceArea" className="block text-sm font-medium text-gray-700 mb-1">
                   Service Area
                 </label>
-                <input
-                  type="text"
+                <FormInput
                   id="serviceArea"
                   value={serviceArea}
                   onChange={(e) => setServiceArea(e.target.value)}
-                  className="form-input"
                   placeholder="e.g. Omaha Metro Area"
                 />
               </div>
@@ -642,19 +577,16 @@ const ProfilePage: React.FC = () => {
           </>
         )}
 
-        {/* Adjuster-specific fields */}
         {selectedRole === 'adjuster' && (
           <>
             <div>
               <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
                 Insurance Company
               </label>
-              <input
-                type="text"
+              <FormInput
                 id="companyName"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className="form-input"
                 placeholder="e.g. State Farm Insurance"
               />
             </div>
@@ -663,12 +595,10 @@ const ProfilePage: React.FC = () => {
               <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 Adjuster License Number
               </label>
-              <input
-                type="text"
+              <FormInput
                 id="licenseNumber"
                 value={licenseNumber}
                 onChange={(e) => setLicenseNumber(e.target.value)}
-                className="form-input"
                 placeholder="e.g. ADJ-12345"
               />
             </div>
@@ -677,15 +607,13 @@ const ProfilePage: React.FC = () => {
               <label htmlFor="territories" className="block text-sm font-medium text-gray-700 mb-1">
                 Territories
               </label>
-              <input
-                type="text"
+              <FormInput
                 id="territories"
                 value={territories}
                 onChange={(e) => setTerritories(e.target.value)}
-                className="form-input"
                 placeholder="e.g. Nebraska, Iowa, Kansas"
+                helpText="Comma separated list of territories you cover"
               />
-              <p className="mt-1 text-xs text-gray-500">Comma separated list of territories you cover</p>
             </div>
           </>
         )}
@@ -705,11 +633,8 @@ const ProfilePage: React.FC = () => {
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
+                <LoadingSpinner size="sm" color="white" />
+                <span className="ml-2">Saving...</span>
               </span>
             ) : (
               'Save Changes'
@@ -725,29 +650,29 @@ const ProfilePage: React.FC = () => {
       <AuthGuard>
         <div className="container mx-auto px-4 py-6">
           <div className="max-w-3xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-2xl font-semibold text-gray-800 mb-2">My Profile</h1>
-              <p className="text-gray-600">View and manage your profile information</p>
-            </div>
+            <PageHeader 
+              title="My Profile" 
+              subtitle="View and manage your profile information" 
+            />
             
             {message && (
-              <div className={`mb-6 p-4 rounded-md border ${getMessageClass()}`}>
-                <p>{message.text}</p>
-              </div>
+              <StatusMessage 
+                type={message.type} 
+                text={message.text} 
+                className="mb-6" 
+                onDismiss={() => setMessage(null)}
+              />
             )}
             
-            <div className="bg-white rounded-lg shadow p-6">
+            <Card>
               {isLoading && !profile ? (
                 <div className="flex justify-center items-center py-8">
-                  <svg className="animate-spin h-8 w-8 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <LoadingSpinner size="md" text="Loading profile..." />
                 </div>
               ) : (
                 isEditing ? renderProfileForm() : renderProfileView()
               )}
-            </div>
+            </Card>
           </div>
         </div>
       </AuthGuard>

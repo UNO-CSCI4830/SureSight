@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Head from 'next/head';
 import Layout from '../components/layout/Layout';
 import { supabase } from '../utils/supabaseClient';
+import { Card, LoadingSpinner, StatusMessage } from '../components/common';
+import { FormInput, Button } from '../components/ui';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState<string>('');
@@ -27,60 +29,72 @@ const Login: React.FC = () => {
         router.push('/Dashboard');
       }, 100);
     } catch (err: any) {
+      console.error('Login error:', err.message);
       setError(err.message);
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
-      setError('Please enter your email address first.');
+      setError('Please enter your email address to reset your password.');
       return;
     }
-    
-    setIsLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { 
-      redirectTo: `${window.location.origin}/updatepassword`,
-    });
 
-    setIsLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      alert('Password reset email sent. Please check your inbox.');
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/updatepassword`,
+      });
+
+      if (error) throw error;
+      
+      // Show success message
+      setError('Password reset link sent to your email.');
+    } catch (err: any) {
+      console.error('Password reset error:', err.message);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Layout title="Login | SureSight" description="Login to your SureSight account">
-      <div className="max-w-md mx-auto w-full">
+    <Layout>
+      <Head>
+        <title>Login | SureSight</title>
+        <meta name="description" content="Login to SureSight to access your dashboard" />
+      </Head>
+
+      <div className="max-w-md mx-auto mt-8 mb-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="text-gray-600 mt-2">Log in to your SureSight account</p>
+          <h1 className="text-2xl font-bold mb-2">Welcome Back</h1>
+          <p className="text-gray-600">Log in to access your SureSight account</p>
         </div>
-        
-        <div className="card">
+
+        <Card>
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md">
-              <p className="text-sm">{error}</p>
-            </div>
+            <StatusMessage
+              type={error.includes('sent') ? 'info' : 'error'}
+              text={error}
+              className="mb-4"
+            />
           )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
-              <input
-                type="email"
+              <FormInput
                 id="email"
-                name="email"
-                autoComplete="email"
+                label="Email Address"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="form-input"
                 placeholder="your-email@example.com"
                 required
+                autoComplete="email"
               />
             </div>
 
@@ -97,40 +111,29 @@ const Login: React.FC = () => {
                   Forgot password?
                 </button>
               </div>
-              <input
-                type="password"
+              <FormInput
                 id="password"
-                name="password"
-                autoComplete="current-password"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="form-input"
                 placeholder="••••••••"
                 required
+                autoComplete="current-password"
               />
             </div>
 
             <div>
-              <button
+              <Button
                 type="submit"
                 disabled={isLoading}
-                className={`btn-primary w-full ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className="w-full"
+                isLoading={isLoading}
               >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Logging in...
-                  </span>
-                ) : (
-                  'Log In'
-                )}
-              </button>
+                Log In
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
         
         <div className="text-center mt-6">
           <p className="text-gray-600">
