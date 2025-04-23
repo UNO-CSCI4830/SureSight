@@ -43,8 +43,6 @@ const [error, setError] = useState<string | null>(null);
     setError('Failed to fetch notifications. Please try again later.');
   }
 };
-
-
     fetchUnreadNotifications();
   }, [isLoggedIn]);
 
@@ -123,9 +121,10 @@ const [error, setError] = useState<string | null>(null);
                       </svg>
                       Dashboard
                       {unreadCount> 0 && (
-                      <span className= "ml-1 text-xs font-semibolg bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                        <span className= "ml-1 text-xs font-semibolg bg-red-500 text-white px-1.5 py-0.5 rounded-full">
                         {unreadCount}
                       </span>
+                       )} 
                     </Link>
                   </li>
                   {/* Conditional menu items based on user role */}
