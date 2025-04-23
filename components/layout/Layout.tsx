@@ -32,18 +32,30 @@ const Layout = ({
       
       if (isAuthenticated && data.session?.user) {
         // Fetch user role from database
-        const userId = data.session.user.id;
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('roles(name)')
-          .eq('user_id', userId)
-          .single();
-        
-        if (roleError) {
-          console.error('Error fetching user role:', roleError);
-        } else if (roleData) {
-          // Extract role name from the response
-          setUserRole(roleData.roles?.[0]?.name || '');
+        try {
+          const userId = data.session.user.id;
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select('roles(name)')
+            .eq('user_id', userId)
+            .maybeSingle(); // Use maybeSingle instead of single to prevent errors
+          
+          if (roleError) {
+            console.error('Error fetching user role:', roleError);
+          } else if (roleData && roleData.roles) {
+            // Handle both object and array formats
+            if (typeof roleData.roles === 'object' && roleData.roles !== null) {
+              // If it's an array format
+              if (Array.isArray(roleData.roles)) {
+                setUserRole(roleData.roles[0]?.name || '');
+              } else {
+                // If it's an object format
+                setUserRole(roleData.roles.name || '');
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error in role processing:', err);
         }
       }
     };
@@ -56,15 +68,31 @@ const Layout = ({
       
       if (session?.user) {
         // Fetch user role when auth state changes
-        const userId = session.user.id;
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('roles(name)')
-          .eq('user_id', userId)
-          .single();
-        
-        if (!roleError && roleData) {
-          setUserRole(roleData.roles?.[0]?.name || '');
+        try {
+          const userId = session.user.id;
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select('roles(name)')
+            .eq('user_id', userId)
+            .maybeSingle(); // Use maybeSingle instead of single
+          
+          if (!roleError && roleData && roleData.roles) {
+            // Handle both object and array formats
+            if (typeof roleData.roles === 'object' && roleData.roles !== null) {
+              // If it's an array format
+              if (Array.isArray(roleData.roles)) {
+                setUserRole(roleData.roles[0]?.name || '');
+              } else {
+                // If it's an object format
+                setUserRole(roleData.roles.name || '');
+              }
+            }
+          } else {
+            setUserRole('');
+          }
+        } catch (err) {
+          console.error('Error in auth change role processing:', err);
+          setUserRole('');
         }
       } else {
         setUserRole('');

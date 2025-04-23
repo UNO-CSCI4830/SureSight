@@ -38,14 +38,6 @@ const SignUp: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // UUID utility function (not cryptographically secure, but sufficient for our needs)
-  const generateUUID = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  };
-
   const nextStep = () => {
     if (currentStep === 1) {
       // Validate first step
@@ -102,128 +94,45 @@ const SignUp: React.FC = () => {
       }
 
       const userId = authData.user.id;
-      const timestamp = new Date().toISOString();
+      
+      // Parse territories into an array if role is adjuster
+      const territoriesArray = role === 'adjuster' 
+        ? territories.split(',').map(t => t.trim()).filter(t => t) 
+        : null;
 
-      // 2. Create entry in users table
-      const { error: userError } = await supabase.from('users').insert([{
-        id: userId,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        created_at: timestamp,
-        updated_at: timestamp
-      }]);
+      // For contractors, create a default specialties array
+      const specialtiesArray = role === 'contractor' ? ['roofing', 'siding'] : null;
       
-      if (userError) {
-        console.error('Error creating user record:', userError);
-      }
+      // 2. Use the manage_user_profile function to handle all profile creation in one call
+      // The function will handle creating entries in users, roles, user_roles, profiles, and role-specific profile tables
+      const { data, error } = await supabase.rpc('manage_user_profile', {
+        p_user_id: userId,
+        p_email: email,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_role: role.charAt(0).toUpperCase() + role.slice(1), // Capitalize first letter
+        // Generic profile fields
+        p_avatar_url: null,
+        // Homeowner fields
+        p_preferred_contact_method: role === 'homeowner' ? preferredContactMethod : null,
+        p_additional_notes: role === 'homeowner' ? '' : null,
+        // Contractor fields
+        p_company_name: (role === 'contractor' || role === 'adjuster') ? companyName : null,
+        p_license_number: role === 'contractor' ? licenseNumber : null,
+        p_specialties: specialtiesArray,
+        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || 0) : null,
+        p_service_area: role === 'contractor' ? serviceArea : null,
+        // Adjuster fields
+        p_adjuster_license: role === 'adjuster' ? licenseNumber : null,
+        p_territories: territoriesArray
+      });
       
-      // 3. Find role ID or create if not exists
-      const { data: roleData, error: roleError } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', role)
-        .single();
-        
-      let roleId: string;
-      
-      if (roleError || !roleData) {
-        // Create role if it doesn't exist
-        const newRoleId = generateUUID();
-        const { error: createRoleError } = await supabase
-          .from('roles')
-          .insert([{ id: newRoleId, name: role }]);
-          
-        if (createRoleError) {
-          console.error('Error creating role:', createRoleError);
-          throw createRoleError;
-        }
-        
-        roleId = newRoleId;
-      } else {
-        roleId = roleData.id;
-      }
-      
-      // 4. Assign role to user
-      const { error: userRoleError } = await supabase
-        .from('user_roles')
-        .insert([{
-          id: generateUUID(),
-          user_id: userId,
-          role_id: roleId,
-          created_at: timestamp
-        }]);
-        
-      if (userRoleError) {
-        console.error('Error assigning role to user:', userRoleError);
-      }
-      
-      // 5. Create profile based on role
-      if (role === 'homeowner') {
-        const { error: profileError } = await supabase
-          .from('homeowner_profiles')
-          .insert([{
-            id: generateUUID(),
-            user_id: userId,
-            preferred_contact_method: preferredContactMethod,
-            additional_notes: '',
-            created_at: timestamp,
-            updated_at: timestamp
-          }]);
-          
-        if (profileError) {
-          console.error('Error creating homeowner profile:', profileError);
-        }
-      } else if (role === 'contractor') {
-        const { error: profileError } = await supabase
-          .from('contractor_profiles')
-          .insert([{
-            id: generateUUID(),
-            user_id: userId,
-            company_name: companyName,
-            license_number: licenseNumber,
-            specialties: ['roofing', 'siding'], // Default specialties
-            years_experience: parseInt(yearsExperience) || 0,
-            service_area: serviceArea,
-            created_at: timestamp,
-            updated_at: timestamp
-          }]);
-          
-        if (profileError) {
-          console.error('Error creating contractor profile:', profileError);
-        }
-      } else if (role === 'adjuster') {
-        const { error: profileError } = await supabase
-          .from('adjuster_profiles')
-          .insert([{
-            id: generateUUID(),
-            user_id: userId,
-            company_name: companyName,
-            adjuster_license: licenseNumber,
-            territories: territories.split(',').map(t => t.trim()),
-            created_at: timestamp,
-            updated_at: timestamp
-          }]);
-          
-        if (profileError) {
-          console.error('Error creating adjuster profile:', profileError);
-        }
+      if (error) {
+        console.error('Error creating user profile:', error);
+        throw error;
       }
 
-      // 6. Create entry in generic profiles table for Row Level Security
-      const { error: profilesError } = await supabase
-        .from('profiles')
-        .insert([{
-          id: userId,
-          email: email,
-          full_name: `${firstName} ${lastName}`,
-          created_at: timestamp
-        }]);
-        
-      if (profilesError) {
-        console.error('Error creating profile record:', profilesError);
-      }
-
+      console.log('Profile creation result:', data);
       setIsSubmitted(true);
     } catch (err: any) {
       console.error('Error during sign-up:', err);
