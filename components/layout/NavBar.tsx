@@ -30,16 +30,20 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
   
   //Fetch notifications
   useEffect(() => {
+const [error, setError] = useState<string | null>(null);
+    
     const fetchUnreadNotifications = async () => {
-      if (!isLoggedIn) return;
-      try {
-        const res = await fetch('/api/notifications');
-        const data = await res.json();
-        setUnreadCount(data.count || 0);
-      } catch (error) {
-        console.error('Failed to retrieve notifications:', error);
-      }
-    };
+  if (!isLoggedIn) return;
+  try {
+    const res = await fetch('/api/notifications');
+    const data: { count: number } = await res.json();  
+    setUnreadCount(data.count || 0);
+  } catch (error) {
+    console.error('Failed to retrieve notifications:', error);
+    setError('Failed to fetch notifications. Please try again later.');
+  }
+};
+
 
     fetchUnreadNotifications();
   }, [isLoggedIn]);
@@ -55,7 +59,7 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
         console.error('Error logging out:', error.message);
       } else {
         console.log('User logged out');
-        router.push('/'); // Redirect to home page after logout
+        router.push('/login'); // Redirect to home page after logout
       }
     } catch (err) {
       console.error('Unexpected error during logout:', err);
