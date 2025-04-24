@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState, ReactNode } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import { UserRole } from '../../types/supabase';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -42,53 +43,30 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
           return;
         }
 
-        // Check if user has the required role
+        // Check if user has the required role using the new schema
         try {
-          const { data: roleData, error: roleError } = await supabase
-            .from('user_roles')
-            .select('roles(name)')
-            .eq('user_id', userId);
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .single();
 
-          if (roleError) {
-            console.error('Role fetch error:', roleError);
+          if (userError) {
+            console.error('User role fetch error:', userError);
             throw new Error('Failed to check user role');
           }
 
-          if (!roleData || roleData.length === 0) {
-            console.log('No roles found for user');
+          if (!userData || !userData.role) {
+            console.log('No role found for user');
             // If we can't determine the role, redirect to a default dashboard
             router.push('/dashboard');
             return;
           }
 
-          // Extract roles from the nested structure, handling different response formats
-          let userRoles: string[] = [];
-          
-          for (const roleEntry of roleData) {
-            if (roleEntry.roles) {
-              // Handle object structure when a single role is returned
-              if (typeof roleEntry.roles === 'object' && !Array.isArray(roleEntry.roles)) {
-                if (typeof roleEntry.roles === 'object' && roleEntry.roles !== null && 'name' in roleEntry.roles) {
-                  userRoles.push((roleEntry.roles as { name: string }).name);
-                }
-              } 
-              // Handle array of roles
-              else if (Array.isArray(roleEntry.roles)) {
-                userRoles = userRoles.concat(roleEntry.roles.map(r => r.name).filter(Boolean));
-              }
-            }
-          }
-
-          if (userRoles.length === 0) {
-            console.log('No valid roles found for user');
-            // If we can't determine the role, redirect to a default dashboard
-            router.push('/dashboard');
-            return;
-          }
-
-          // Check if user has any of the required roles
+          // Check if user has the required role
+          const userRole = userData.role.toLowerCase();
           const hasRequiredRole = requiredRoles.length === 0 || 
-                                requiredRoles.some(role => userRoles.includes(role));
+                                requiredRoles.some(role => role.toLowerCase() === userRole);
 
           if (!hasRequiredRole) {
             console.log('User does not have required role');

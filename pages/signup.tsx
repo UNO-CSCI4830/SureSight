@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import Layout from '../components/layout/Layout';
 import { useRouter } from 'next/router';
-
-// Initialize Supabase client using environment variables
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
-
-type UserRole = 'homeowner' | 'contractor' | 'adjuster';
+import { supabase } from '../utils/supabaseClient';
+import { Card, StatusMessage, LoadingSpinner } from '../components/common';
+import { FormInput, Select, Button } from '../components/ui';
+import { UserRole } from '../types/supabase';
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -98,33 +93,31 @@ const SignUp: React.FC = () => {
       // Parse territories into an array if role is adjuster
       const territoriesArray = role === 'adjuster' 
         ? territories.split(',').map(t => t.trim()).filter(t => t) 
-        : null;
+        : undefined;
 
-      // For contractors, create a default specialties array
-      const specialtiesArray = role === 'contractor' ? ['roofing', 'siding'] : null;
+      // For contractors, we can specify specialties if needed
+      const specialtiesArray = role === 'contractor' ? ['roofing', 'siding'] : undefined;
       
-      // 2. Use the manage_user_profile function to handle all profile creation in one call
-      // The function will handle creating entries in users, roles, user_roles, profiles, and role-specific profile tables
-      const { data, error } = await supabase.rpc('manage_user_profile', {
-        p_user_id: userId,
+      // 2. Use the create_user_profile function from the new schema
+      const { data, error } = await supabase.rpc('create_user_profile', {
         p_email: email,
         p_first_name: firstName,
         p_last_name: lastName,
-        p_role: role.charAt(0).toUpperCase() + role.slice(1), // Capitalize first letter
-        // Generic profile fields
-        p_avatar_url: null,
-        // Homeowner fields
-        p_preferred_contact_method: role === 'homeowner' ? preferredContactMethod : null,
-        p_additional_notes: role === 'homeowner' ? '' : null,
-        // Contractor fields
-        p_company_name: (role === 'contractor' || role === 'adjuster') ? companyName : null,
-        p_license_number: role === 'contractor' ? licenseNumber : null,
+        p_role: role,
+        p_auth_user_id: userId,
+        p_avatar_url: undefined,
+        p_phone: undefined, // We could collect phone on signup if needed
+        p_preferred_contact_method: role === 'homeowner' ? preferredContactMethod : undefined,
+        p_additional_notes: role === 'homeowner' ? undefined : undefined,
+        p_company_name: (role === 'contractor' || role === 'adjuster') ? companyName : undefined,
+        p_license_number: role === 'contractor' ? licenseNumber : undefined,
         p_specialties: specialtiesArray,
-        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || 0) : null,
-        p_service_area: role === 'contractor' ? serviceArea : null,
-        // Adjuster fields
-        p_adjuster_license: role === 'adjuster' ? licenseNumber : null,
-        p_territories: territoriesArray
+        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || undefined) : undefined,
+        p_service_area: role === 'contractor' ? serviceArea : undefined,
+        p_insurance_verified: false, // Default value, admin can update later
+        p_adjuster_license: role === 'adjuster' ? licenseNumber : undefined,
+        p_territories: territoriesArray,
+        p_certification_verified: false // Default value, admin can update later
       });
       
       if (error) {
@@ -150,17 +143,12 @@ const SignUp: React.FC = () => {
   const renderStep1 = () => (
     <div className="space-y-6">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-          Email Address <span className="text-red-500">*</span>
-        </label>
-        <input
+        <FormInput
+          label="Email Address"
           type="email"
           id="email"
-          name="email"
-          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="form-input"
           placeholder="your-email@example.com"
           required
         />
@@ -168,31 +156,23 @@ const SignUp: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-            First Name <span className="text-red-500">*</span>
-          </label>
-          <input
+          <FormInput
+            label="First Name"
             type="text"
             id="firstName"
-            name="firstName"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="form-input"
             placeholder="John"
             required
           />
         </div>
         <div>
-          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name <span className="text-red-500">*</span>
-          </label>
-          <input
+          <FormInput
+            label="Last Name"
             type="text"
             id="lastName"
-            name="lastName"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="form-input"
             placeholder="Doe"
             required
           />
@@ -200,35 +180,25 @@ const SignUp: React.FC = () => {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-          Password <span className="text-red-500">*</span>
-        </label>
-        <input
+        <FormInput
+          label="Password"
           type="password"
           id="password"
-          name="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="form-input"
           placeholder="••••••••"
           required
+          helpText="Must be at least 8 characters"
         />
-        <p className="mt-1 text-xs text-gray-500">
-          Must be at least 8 characters
-        </p>
       </div>
 
       <div>
-        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-          Confirm Password <span className="text-red-500">*</span>
-        </label>
-        <input
+        <FormInput
+          label="Confirm Password"
           type="password"
           id="confirm-password"
-          name="confirm-password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          className="form-input"
           placeholder="••••••••"
           required
         />
@@ -296,13 +266,13 @@ const SignUp: React.FC = () => {
       </div>
 
       <div>
-        <button
+        <Button
           type="button"
           onClick={nextStep}
           className="btn-primary w-full"
         >
           Next Step
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -319,48 +289,38 @@ const SignUp: React.FC = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Preferred Contact Method
-            </label>
-            <select
+            <Select
+              label="Preferred Contact Method"
               id="preferredContactMethod"
-              name="preferredContactMethod"
               value={preferredContactMethod}
               onChange={(e) => setPreferredContactMethod(e.target.value)}
-              className="form-input"
-              aria-label="Select preferred contact method"
-            >
-              <option value="email">Email</option>
-              <option value="phone">Phone</option>
-              <option value="text">Text Message</option>
-            </select>
+              options={[
+                { value: 'email', label: 'Email' },
+                { value: 'phone', label: 'Phone' },
+                { value: 'sms', label: 'Text Message' }
+              ]}
+            />
           </div>
 
           <div className="flex justify-between pt-4">
-            <button
+            <Button
               type="button"
               onClick={prevStep}
               className="btn-outline"
             >
               Back
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isLoading}
               className={`btn-primary ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating account...
-                </span>
+                <LoadingSpinner text="Creating account..." />
               ) : (
                 'Create Account'
               )}
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -376,89 +336,71 @@ const SignUp: React.FC = () => {
           </div>
           
           <div>
-            <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-              Company Name <span className="text-red-500">*</span>
-            </label>
-            <input
+            <FormInput
+              label="Company Name"
               type="text"
               id="companyName"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="form-input"
               placeholder="Your Company LLC"
               required
             />
           </div>
           
           <div>
-            <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700 mb-1">
-              License Number
-            </label>
-            <input
+            <FormInput
+              label="License Number"
               type="text"
               id="licenseNumber"
               value={licenseNumber}
               onChange={(e) => setLicenseNumber(e.target.value)}
-              className="form-input"
               placeholder="e.g. CON-12345"
             />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="yearsExperience" className="block text-sm font-medium text-gray-700 mb-1">
-                Years of Experience
-              </label>
-              <input
+              <FormInput
+                label="Years of Experience"
                 type="number"
                 id="yearsExperience"
                 value={yearsExperience}
                 onChange={(e) => setYearsExperience(e.target.value)}
-                className="form-input"
                 placeholder="5"
                 min="0"
               />
             </div>
             <div>
-              <label htmlFor="serviceArea" className="block text-sm font-medium text-gray-700 mb-1">
-                Service Area
-              </label>
-              <input
+              <FormInput
+                label="Service Area"
                 type="text"
                 id="serviceArea"
                 value={serviceArea}
                 onChange={(e) => setServiceArea(e.target.value)}
-                className="form-input"
                 placeholder="e.g. Omaha Metro Area"
               />
             </div>
           </div>
 
           <div className="flex justify-between pt-4">
-            <button
+            <Button
               type="button"
               onClick={prevStep}
               className="btn-outline"
             >
               Back
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isLoading}
               className={`btn-primary ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating account...
-                </span>
+                <LoadingSpinner text="Creating account..." />
               ) : (
                 'Create Account'
               )}
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -474,74 +416,59 @@ const SignUp: React.FC = () => {
           </div>
           
           <div>
-            <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-              Insurance Company <span className="text-red-500">*</span>
-            </label>
-            <input
+            <FormInput
+              label="Insurance Company"
               type="text"
               id="companyName"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="form-input"
               placeholder="e.g. State Farm Insurance"
               required
             />
           </div>
           
           <div>
-            <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700 mb-1">
-              Adjuster License Number
-            </label>
-            <input
+            <FormInput
+              label="Adjuster License Number"
               type="text"
               id="licenseNumber"
               value={licenseNumber}
               onChange={(e) => setLicenseNumber(e.target.value)}
-              className="form-input"
               placeholder="e.g. ADJ-12345"
             />
           </div>
           
           <div>
-            <label htmlFor="territories" className="block text-sm font-medium text-gray-700 mb-1">
-              Territories
-            </label>
-            <input
+            <FormInput
+              label="Territories"
               type="text"
               id="territories"
               value={territories}
               onChange={(e) => setTerritories(e.target.value)}
-              className="form-input"
               placeholder="e.g. Nebraska, Iowa, Kansas"
+              helpText="Comma separated list of territories you cover"
             />
-            <p className="mt-1 text-xs text-gray-500">Comma separated list of territories you cover</p>
           </div>
 
           <div className="flex justify-between pt-4">
-            <button
+            <Button
               type="button"
               onClick={prevStep}
               className="btn-outline"
             >
               Back
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isLoading}
               className={`btn-primary ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating account...
-                </span>
+                <LoadingSpinner text="Creating account..." />
               ) : (
                 'Create Account'
               )}
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -559,11 +486,9 @@ const SignUp: React.FC = () => {
         </div>
         
         {!isSubmitted ? (
-          <div className="card">
+          <Card>
             {errorMessage && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md">
-                <p className="text-sm">{errorMessage}</p>
-              </div>
+              <StatusMessage type="error" text={errorMessage} className="mb-4" />
             )}
 
             {/* Progress indicator */}
@@ -576,9 +501,9 @@ const SignUp: React.FC = () => {
               {currentStep === 1 && renderStep1()}
               {currentStep === 2 && renderStep2()}
             </form>
-          </div>
+          </Card>
         ) : (
-          <div className="card text-center py-10">
+          <Card className="text-center py-10">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -591,7 +516,7 @@ const SignUp: React.FC = () => {
             <Link href="/login" className="btn-primary">
               Go to Login
             </Link>
-          </div>
+          </Card>
         )}
         
         {!isSubmitted && (

@@ -1,34 +1,5 @@
-export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
-
-export interface Database {
-  public: {
-    Functions: {
-      manage_user_profile: {
-        Args: {
-          p_user_id: string;
-          p_email: string;
-          p_first_name: string;
-          p_last_name: string;
-          p_role: string;
-          p_avatar_url?: string | null;
-          p_preferred_contact_method?: string | null;
-          p_additional_notes?: string | null;
-          p_company_name?: string | null;
-          p_license_number?: string | null;
-          p_specialties?: string[] | null;
-          p_years_experience?: number | null;
-          p_service_area?: string | null;
-          p_adjuster_license?: string | null;
-          p_territories?: string[] | null;
-        };
-        Returns: unknown;
-      };
-    };
-  };
-}
-
 import { createClient } from '@supabase/supabase-js';
-import { Database as SupabaseDatabase } from '../types/supabase';
+import { Database } from '../types/database.types';
 import { useEffect, useState } from 'react';
 
 // Use environment variables for Supabase credentials
@@ -45,7 +16,12 @@ declare global {
   var supabaseInstance: ReturnType<typeof createClient<Database>> | undefined;
 }
 
-export const supabase = createClient<SupabaseDatabase>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+export const supabase = global.supabaseInstance || createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+// Only assign to global in non-production to avoid memory leaks in development from HMR
+if (process.env.NODE_ENV !== 'production') {
+  global.supabaseInstance = supabase;
+}
 
 // Helper function for handling common Supabase errors
 export const handleSupabaseError = (error: any) => {
@@ -55,3 +31,31 @@ export const handleSupabaseError = (error: any) => {
     status: error.status || 500,
   };
 };
+
+// Custom hook for Supabase authentication state
+export function useSupabaseAuth() {
+  const [user, setUser] = useState<any>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    
+    // Get current user
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data?.user || undefined);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || undefined);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  return { user, loading };
+}
