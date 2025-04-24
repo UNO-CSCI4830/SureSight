@@ -1,4 +1,4 @@
-import Footer from "@/components/layout/footer";
+import Footer from "@/components/layout/Footer";
 import NavBar from "@/components/layout/NavBar";
 
 const Home = () => {
