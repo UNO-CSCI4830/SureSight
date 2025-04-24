@@ -1,283 +1,42 @@
+// filepath: c:\Users\scott\Documents\My_Programming_Projects\.GithubClones\Suresight\SureSight\types\supabase.ts
+// Re-export the types from the main database types file
+import { Database } from './database.types';
+export type { Database } from './database.types';
+
+// Export common type helpers
 export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[]
+  | Json[];
 
-export interface Database {
-  public: {
-    Tables: {
-      users: {
-        Row: {
-          id: string
-          email: string
-          first_name: string | null
-          last_name: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id: string
-          email: string
-          first_name?: string | null
-          last_name?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          email?: string
-          first_name?: string | null
-          last_name?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          id: string
-          email: string | null
-          full_name: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id: string
-          email?: string | null
-          full_name?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          email?: string | null
-          full_name?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      roles: {
-        Row: {
-          id: number
-          name: string
-          created_at: string | null
-        }
-        Insert: {
-          id?: number
-          name: string
-          created_at?: string | null
-        }
-        Update: {
-          id?: number
-          name?: string
-          created_at?: string | null
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          id: number
-          user_id: string
-          role_id: number
-          created_at: string | null
-        }
-        Insert: {
-          id?: number
-          user_id: string
-          role_id: number
-          created_at?: string | null
-        }
-        Update: {
-          id?: number
-          user_id?: string
-          role_id?: number
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      homeowner_profiles: {
-        Row: {
-          id: string
-          user_id: string
-          preferred_contact_method: string | null
-          additional_notes: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id: string
-          user_id: string
-          preferred_contact_method?: string | null
-          additional_notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          preferred_contact_method?: string | null
-          additional_notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "homeowner_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      contractor_profiles: {
-        Row: {
-          id: string
-          user_id: string
-          company_name: string | null
-          license_number: string | null
-          specialties: string[] | null
-          years_experience: number | null
-          service_area: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id: string
-          user_id: string
-          company_name?: string | null
-          license_number?: string | null
-          specialties?: string[] | null
-          years_experience?: number | null
-          service_area?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          company_name?: string | null
-          license_number?: string | null
-          specialties?: string[] | null
-          years_experience?: number | null
-          service_area?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contractor_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      adjuster_profiles: {
-        Row: {
-          id: string
-          user_id: string
-          company_name: string | null
-          adjuster_license: string | null
-          territories: string[] | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id: string
-          user_id: string
-          company_name?: string | null
-          adjuster_license?: string | null
-          territories?: string[] | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          company_name?: string | null
-          adjuster_license?: string | null
-          territories?: string[] | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "adjuster_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      reports: {
-        Row: {
-          id: number
-          image_url: string
-          created_at: string | null
-        }
-        Insert: {
-          id?: number
-          image_url: string
-          created_at?: string | null
-        }
-        Update: {
-          id?: number
-          image_url?: string
-          created_at?: string | null
-        }
-        Relationships: []
-      }
-    }
-    Views: {}
-    Functions: {
-      manage_user_profile: {
-        Args: {
-          p_user_id: string;
-          p_email: string;
-          p_first_name: string;
-          p_last_name: string;
-          p_role: string;
-          p_avatar_url?: string | null;
-          p_preferred_contact_method?: string | null;
-          p_additional_notes?: string | null;
-          p_company_name?: string | null;
-          p_license_number?: string | null;
-          p_specialties?: string[] | null;
-          p_years_experience?: number | null;
-          p_service_area?: string | null;
-          p_adjuster_license?: string | null;
-          p_territories?: string[] | null;
-        };
-        Returns: unknown;
-      };
-    }
-    Enums: {}
-  }
+// Common type helpers for working with Supabase
+export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
+export type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
+export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];
+export type Enums<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T];
+
+// Type definitions for common entities
+export type User = Tables<'users'>;
+export type Profile = Tables<'profiles'>;
+export type HomeownerProfile = Tables<'homeowner_profiles'>;
+export type ContractorProfile = Tables<'contractor_profiles'>;
+export type AdjusterProfile = Tables<'adjuster_profiles'>;
+export type Property = Tables<'properties'>;
+export type Report = Tables<'reports'>;
+export type AssessmentArea = Tables<'assessment_areas'>;
+export type Image = Tables<'images'>;
+export type UserRole = Enums<'user_role'>;
+export type ReportStatus = Enums<'report_status'>;
+export type DamageType = Enums<'damage_type'>;
+export type DamageSeverity = Enums<'damage_severity'>;
+export type ContactMethod = Enums<'contact_method'>;
+
+// Complete user profile type with role-specific data
+export interface CompleteUserProfile {
+  user: User;
+  profile: Profile;
+  roleProfile: HomeownerProfile | ContractorProfile | AdjusterProfile | null;
 }
