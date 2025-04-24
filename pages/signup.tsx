@@ -5,8 +5,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
 import { Card, StatusMessage, LoadingSpinner } from '../components/common';
 import { FormInput, Select, Button } from '../components/ui';
-
-type UserRole = 'homeowner' | 'contractor' | 'adjuster';
+import { UserRole } from '../types/supabase';
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -96,31 +95,29 @@ const SignUp: React.FC = () => {
         ? territories.split(',').map(t => t.trim()).filter(t => t) 
         : null;
 
-      // For contractors, create a default specialties array
+      // For contractors, we can specify specialties if needed
       const specialtiesArray = role === 'contractor' ? ['roofing', 'siding'] : null;
       
-      // 2. Use the manage_user_profile function to handle all profile creation in one call
-      // The function will handle creating entries in users, roles, user_roles, profiles, and role-specific profile tables
-      const { data, error } = await supabase.rpc('manage_user_profile', {
-        p_user_id: userId,
+      // 2. Use the create_user_profile function from the new schema
+      const { data, error } = await supabase.rpc('create_user_profile', {
         p_email: email,
         p_first_name: firstName,
         p_last_name: lastName,
-        p_role: role.charAt(0).toUpperCase() + role.slice(1), // Capitalize first letter
-        // Generic profile fields
+        p_role: role,
+        p_auth_user_id: userId,
         p_avatar_url: null,
-        // Homeowner fields
+        p_phone: null, // We could collect phone on signup if needed
         p_preferred_contact_method: role === 'homeowner' ? preferredContactMethod : null,
-        p_additional_notes: role === 'homeowner' ? '' : null,
-        // Contractor fields
+        p_additional_notes: role === 'homeowner' ? null : null,
         p_company_name: (role === 'contractor' || role === 'adjuster') ? companyName : null,
         p_license_number: role === 'contractor' ? licenseNumber : null,
         p_specialties: specialtiesArray,
-        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || 0) : null,
+        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || null) : null,
         p_service_area: role === 'contractor' ? serviceArea : null,
-        // Adjuster fields
+        p_insurance_verified: false, // Default value, admin can update later
         p_adjuster_license: role === 'adjuster' ? licenseNumber : null,
-        p_territories: territoriesArray
+        p_territories: territoriesArray,
+        p_certification_verified: false // Default value, admin can update later
       });
       
       if (error) {
@@ -300,7 +297,7 @@ const SignUp: React.FC = () => {
               options={[
                 { value: 'email', label: 'Email' },
                 { value: 'phone', label: 'Phone' },
-                { value: 'text', label: 'Text Message' }
+                { value: 'sms', label: 'Text Message' }
               ]}
             />
           </div>

@@ -5,14 +5,15 @@ import AuthGuard from '../components/auth/AuthGuard';
 import { supabase, handleSupabaseError } from '../utils/supabaseClient';
 import { PageHeader, Card, LoadingSpinner, StatusMessage } from '../components/common';
 import { FormInput, Select, TextArea } from '../components/ui';
+import { CompleteUserProfile, HomeownerProfile, ContractorProfile, AdjusterProfile } from '../types/supabase';
 
+// Unified profile type that includes all possible role-specific fields
 type Profile = {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
-  // Role-specific profile fields
-  role?: string;
+  role: string;
   preferred_contact_method?: string;
   company_name?: string;
   license_number?: string;
@@ -20,22 +21,21 @@ type Profile = {
   service_area?: string;
   territories?: string[];
   additional_notes?: string;
-  // Flag to track if profile needs to be created
-  needsProfileCreation?: {
-    homeowner?: boolean;
-    contractor?: boolean;
-    adjuster?: boolean;
-  };
+  property_count?: number;
+  insurance_verified?: boolean;
+  rating?: number;
+  certification_verified?: boolean;
+  needsProfileCompletion?: boolean;
 };
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [message, setMessage] = useState<{text: string, type: 'success' | 'error' | 'info'} | null>(null);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showMessageTimeout, setShowMessageTimeout] = useState<NodeJS.Timeout | null>(null);
-  
+
   // Editable profile fields
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
@@ -51,7 +51,7 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
-    
+
     // Clear any existing message timeout when component unmounts
     return () => {
       if (showMessageTimeout) {
@@ -64,8 +64,11 @@ const ProfilePage: React.FC = () => {
     setIsLoading(true);
     setUpdateSuccess(false);
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
       if (sessionError) {
         throw sessionError;
       }
@@ -77,143 +80,62 @@ const ProfilePage: React.FC = () => {
 
       const userId = session.user.id;
       const userEmail = session.user.email || '';
-      
+
+      // Get the complete user profile using the new function that aggregates all data
+      const { data: completeProfile, error: profileError } = await supabase.rpc('get_complete_user_profile', {
+        p_user_id: userId,
+      });
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (!completeProfile) {
+        throw new Error('Could not fetch profile data');
+      }
+
+      // Parse the JSON result
+      const userData = completeProfile as CompleteUserProfile;
+
+      // Create a unified profile object
       const profileData: Profile = {
-        id: userId,
-        email: userEmail,
-        first_name: '',
-        last_name: '',
-        role: '',
-        needsProfileCreation: {
-          homeowner: false,
-          contractor: false,
-          adjuster: false
-        }
+        id: userData.user.id,
+        email: userData.user.email,
+        first_name: userData.user.first_name,
+        last_name: userData.user.last_name,
+        role: userData.user.role.toLowerCase(),
+        needsProfileCompletion: !userData.roleProfile,
       };
 
-      if (session.user.user_metadata) {
-        const { first_name, last_name } = session.user.user_metadata;
-        if (first_name) profileData.first_name = first_name;
-        if (last_name) profileData.last_name = last_name;
-      }
+      // Add role-specific data based on the user's role
+      if (userData.roleProfile) {
+        const roleProfile = userData.roleProfile;
 
-      try {
-        const { data: profileRecord, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (!profileError && profileRecord) {
-          if (profileRecord.full_name) {
-            const nameParts = profileRecord.full_name.split(' ');
-            profileData.first_name = nameParts[0] || profileData.first_name;
-            profileData.last_name = nameParts.slice(1).join(' ') || profileData.last_name;
-          }
-        }
-      } catch (profileErr) {
-        console.warn('Error fetching profiles table:', profileErr);
-      }
-
-      let userRole = '';
-      try {
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('roles(name), role_id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (!roleError && roleData && roleData.roles) {
-          if (typeof roleData.roles === 'object' && roleData.roles !== null) {
-            userRole = Array.isArray(roleData.roles) 
-              ? (roleData.roles[0]?.name || '') 
-              : (roleData.roles.name || '');
-          }
-        } else if (roleError) {
-          console.warn('Could not fetch role, setting default role:', roleError);
-          userRole = 'homeowner';
-          
-          if (roleError.code === 'PGRST116') {
-            await supabase
-              .from('user_roles')
-              .insert([{
-                user_id: userId,
-                role_id: 1,
-                created_at: new Date().toISOString()
-              }]);
-          }
-        }
-      } catch (roleErr) {
-        console.error('Error processing role:', roleErr);
-        userRole = 'homeowner';
-      }
-      
-      profileData.role = userRole;
-
-      if (userRole === 'homeowner') {
-        try {
-          const { data: homeownerData, error: homeownerError } = await supabase
-            .from('homeowner_profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-          if (!homeownerError && homeownerData) {
-            profileData.preferred_contact_method = homeownerData.preferred_contact_method as string;
-            profileData.additional_notes = homeownerData.additional_notes as string;
-          } else {
-            profileData.needsProfileCreation!.homeowner = true;
-            console.log('Homeowner profile needs to be created');
-          }
-        } catch (err) {
-          console.error('Error fetching homeowner profile:', err);
-          profileData.needsProfileCreation!.homeowner = true;
-        }
-      } else if (userRole === 'contractor') {
-        try {
-          const { data: contractorData, error: contractorError } = await supabase
-            .from('contractor_profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-          if (!contractorError && contractorData) {
-            profileData.company_name = contractorData.company_name as string;
-            profileData.license_number = contractorData.license_number as string;
-            profileData.years_experience = contractorData.years_experience as number;
-            profileData.service_area = contractorData.service_area as string;
-          } else {
-            profileData.needsProfileCreation!.contractor = true;
-            console.log('Contractor profile needs to be created');
-          }
-        } catch (err) {
-          console.error('Error fetching contractor profile:', err);
-          profileData.needsProfileCreation!.contractor = true;
-        }
-      } else if (userRole === 'adjuster') {
-        try {
-          const { data: adjusterData, error: adjusterError } = await supabase
-            .from('adjuster_profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-          if (!adjusterError && adjusterData) {
-            profileData.company_name = adjusterData.company_name as string;
-            profileData.license_number = adjusterData.adjuster_license as string;
-            profileData.territories = adjusterData.territories as string[];
-          } else {
-            profileData.needsProfileCreation!.adjuster = true;
-            console.log('Adjuster profile needs to be created');
-          }
-        } catch (err) {
-          console.error('Error fetching adjuster profile:', err);
-          profileData.needsProfileCreation!.adjuster = true;
+        if (userData.user.role.toLowerCase() === 'homeowner') {
+          const homeownerProfile = roleProfile as HomeownerProfile;
+          profileData.preferred_contact_method = homeownerProfile.preferred_contact_method;
+          profileData.additional_notes = homeownerProfile.additional_notes || undefined;
+          profileData.property_count = homeownerProfile.property_count;
+        } else if (userData.user.role.toLowerCase() === 'contractor') {
+          const contractorProfile = roleProfile as ContractorProfile;
+          profileData.company_name = contractorProfile.company_name;
+          profileData.license_number = contractorProfile.license_number || undefined;
+          profileData.years_experience = contractorProfile.years_experience || undefined;
+          profileData.service_area = contractorProfile.service_area || undefined;
+          profileData.insurance_verified = contractorProfile.insurance_verified;
+          profileData.rating = contractorProfile.rating || undefined;
+        } else if (userData.user.role.toLowerCase() === 'adjuster') {
+          const adjusterProfile = roleProfile as AdjusterProfile;
+          profileData.company_name = adjusterProfile.company_name;
+          profileData.license_number = adjusterProfile.adjuster_license || undefined;
+          profileData.territories = adjusterProfile.territories || undefined;
+          profileData.certification_verified = adjusterProfile.certification_verified;
         }
       }
 
       setProfile(profileData);
-      
+
+      // Set form state
       setFirstName(profileData.first_name || '');
       setLastName(profileData.last_name || '');
       setSelectedRole(profileData.role || 'homeowner');
@@ -229,7 +151,7 @@ const ProfilePage: React.FC = () => {
       const errorDetails = handleSupabaseError(error);
       setMessage({
         text: `Failed to load profile information: ${errorDetails.message}`,
-        type: 'error'
+        type: 'error',
       });
     } finally {
       setIsLoading(false);
@@ -245,62 +167,67 @@ const ProfilePage: React.FC = () => {
     setMessage(null);
     setIsLoading(true);
     setUpdateSuccess(false);
-    
+
     try {
       if (!profile) return;
-      
-      const territoriesArray = selectedRole === 'adjuster' 
-        ? territories.split(',').map(t => t.trim()).filter(t => t) 
-        : null;
 
-      const { data, error } = await supabase.rpc('manage_user_profile', {
-        p_user_id: profile.id,
+      const territoriesArray =
+        selectedRole === 'adjuster'
+          ? territories.split(',').map((t) => t.trim()).filter((t) => t)
+          : null;
+
+      // Use the create_user_profile function that handles creating profiles with the new schema
+      const { data, error } = await supabase.rpc('create_user_profile', {
         p_email: profile.email,
         p_first_name: firstName,
         p_last_name: lastName,
-        p_role: selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1),
+        p_role: selectedRole.toLowerCase(),
+        p_auth_user_id: profile.id,
         p_avatar_url: null,
+        p_phone: null, // Add this based on phone input if you add it to form
         p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : null,
         p_additional_notes: selectedRole === 'homeowner' ? additionalNotes : null,
-        p_company_name: (selectedRole === 'contractor' || selectedRole === 'adjuster') ? companyName : null,
+        p_company_name: selectedRole === 'contractor' || selectedRole === 'adjuster' ? companyName : null,
         p_license_number: selectedRole === 'contractor' ? licenseNumber : null,
-        p_specialties: null,
-        p_years_experience: selectedRole === 'contractor' ? (parseInt(yearsExperience) || 0) : null,
+        p_specialties: null, // Add this based on form input if needed
+        p_years_experience: selectedRole === 'contractor' ? parseInt(yearsExperience) || null : null,
         p_service_area: selectedRole === 'contractor' ? serviceArea : null,
+        p_insurance_verified: false, // This would be managed by admin
         p_adjuster_license: selectedRole === 'adjuster' ? licenseNumber : null,
-        p_territories: selectedRole === 'adjuster' ? territoriesArray : null
+        p_territories: selectedRole === 'adjuster' ? territoriesArray : null,
+        p_certification_verified: false, // This would be managed by admin
       });
-      
+
       if (error) {
         throw error;
       }
 
       console.log('Profile update result:', data);
-      
+
       if (showMessageTimeout) {
         clearTimeout(showMessageTimeout);
       }
-      
+
       const timeout = setTimeout(() => {
         setShowMessageTimeout(null);
       }, 5000);
-      
+
       setShowMessageTimeout(timeout);
-      
+
       setIsEditing(false);
       setUpdateSuccess(true);
       setMessage({
         text: 'Profile updated successfully!',
-        type: 'success'
+        type: 'success',
       });
-      
+
       fetchProfile();
     } catch (error: any) {
       console.error('Error updating profile:', error);
       const errorDetails = handleSupabaseError(error);
       setMessage({
         text: `Failed to update profile: ${errorDetails.message}`,
-        type: 'error'
+        type: 'error',
       });
       setUpdateSuccess(false);
     } finally {
@@ -311,14 +238,10 @@ const ProfilePage: React.FC = () => {
   const renderProfileView = () => {
     if (!profile) return <div>No profile information available.</div>;
 
-    const needsProfileCreation = profile.needsProfileCreation?.homeowner || 
-                               profile.needsProfileCreation?.contractor || 
-                               profile.needsProfileCreation?.adjuster;
-
-    if (needsProfileCreation) {
+    if (profile.needsProfileCompletion) {
       return (
         <div className="space-y-6">
-          <StatusMessage 
+          <StatusMessage
             type="info"
             text="Please complete your profile information to get the most out of SureSight."
             className="mb-4"
@@ -331,20 +254,18 @@ const ProfilePage: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Name</h3>
-              <p className="mt-1 text-lg">{profile.first_name} {profile.last_name}</p>
+              <p className="mt-1 text-lg">
+                {profile.first_name} {profile.last_name}
+              </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Account Type</h3>
               <p className="mt-1 text-lg capitalize">{profile.role || 'Unknown'}</p>
             </div>
           </div>
-          
+
           <div className="pt-4">
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setIsEditing(true)}
-            >
+            <button type="button" className="btn-primary" onClick={() => setIsEditing(true)}>
               Complete Profile
             </button>
           </div>
@@ -355,13 +276,9 @@ const ProfilePage: React.FC = () => {
     return (
       <div className="space-y-6">
         {updateSuccess && (
-          <StatusMessage
-            type="success"
-            text="Profile updated successfully!"
-            className="mb-4"
-          />
+          <StatusMessage type="success" text="Profile updated successfully!" className="mb-4" />
         )}
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Email</h3>
@@ -369,7 +286,9 @@ const ProfilePage: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Name</h3>
-            <p className="mt-1 text-lg">{profile.first_name} {profile.last_name}</p>
+            <p className="mt-1 text-lg">
+              {profile.first_name} {profile.last_name}
+            </p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Account Type</h3>
@@ -386,6 +305,12 @@ const ProfilePage: React.FC = () => {
                 <div className="col-span-2">
                   <h3 className="text-sm font-medium text-gray-500">Additional Notes</h3>
                   <p className="mt-1">{profile.additional_notes}</p>
+                </div>
+              )}
+              {profile.property_count !== undefined && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Number of Properties</h3>
+                  <p className="mt-1 text-lg">{profile.property_count}</p>
                 </div>
               )}
             </>
@@ -409,6 +334,16 @@ const ProfilePage: React.FC = () => {
                 <h3 className="text-sm font-medium text-gray-500">Service Area</h3>
                 <p className="mt-1 text-lg">{profile.service_area || 'Not provided'}</p>
               </div>
+              {profile.rating !== undefined && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Rating</h3>
+                  <p className="mt-1 text-lg">{profile.rating} / 5</p>
+                </div>
+              )}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Insurance Verified</h3>
+                <p className="mt-1 text-lg">{profile.insurance_verified ? 'Yes' : 'No'}</p>
+              </div>
             </>
           )}
 
@@ -428,16 +363,16 @@ const ProfilePage: React.FC = () => {
                   {profile.territories?.join(', ') || 'Not provided'}
                 </p>
               </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Certification Verified</h3>
+                <p className="mt-1 text-lg">{profile.certification_verified ? 'Yes' : 'No'}</p>
+              </div>
             </>
           )}
         </div>
-        
+
         <div className="pt-4">
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setIsEditing(true)}
-          >
+          <button type="button" className="btn-primary" onClick={() => setIsEditing(true)}>
             Edit Profile
           </button>
         </div>
@@ -480,7 +415,7 @@ const ProfilePage: React.FC = () => {
             options={[
               { value: 'homeowner', label: 'Homeowner' },
               { value: 'contractor', label: 'Contractor' },
-              { value: 'adjuster', label: 'Adjuster' }
+              { value: 'adjuster', label: 'Adjuster' },
             ]}
           />
           {selectedRole !== profile.role && (
@@ -503,7 +438,7 @@ const ProfilePage: React.FC = () => {
                 options={[
                   { value: 'email', label: 'Email' },
                   { value: 'phone', label: 'Phone' },
-                  { value: 'text', label: 'Text Message' }
+                  { value: 'sms', label: 'Text Message' },
                 ]}
               />
             </div>
@@ -533,9 +468,10 @@ const ProfilePage: React.FC = () => {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Your Company LLC"
+                required
               />
             </div>
-            
+
             <div>
               <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 License Number
@@ -547,7 +483,7 @@ const ProfilePage: React.FC = () => {
                 placeholder="e.g. CON-12345"
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="yearsExperience" className="block text-sm font-medium text-gray-700 mb-1">
@@ -588,9 +524,10 @@ const ProfilePage: React.FC = () => {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="e.g. State Farm Insurance"
+                required
               />
             </div>
-            
+
             <div>
               <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 Adjuster License Number
@@ -602,7 +539,7 @@ const ProfilePage: React.FC = () => {
                 placeholder="e.g. ADJ-12345"
               />
             </div>
-            
+
             <div>
               <label htmlFor="territories" className="block text-sm font-medium text-gray-700 mb-1">
                 Territories
@@ -619,11 +556,7 @@ const ProfilePage: React.FC = () => {
         )}
 
         <div className="flex justify-between pt-4">
-          <button
-            type="button"
-            onClick={() => setIsEditing(false)}
-            className="btn-outline"
-          >
+          <button type="button" onClick={() => setIsEditing(false)} className="btn-outline">
             Cancel
           </button>
           <button
@@ -650,27 +583,26 @@ const ProfilePage: React.FC = () => {
       <AuthGuard>
         <div className="container mx-auto px-4 py-6">
           <div className="max-w-3xl mx-auto">
-            <PageHeader 
-              title="My Profile" 
-              subtitle="View and manage your profile information" 
-            />
-            
+            <PageHeader title="My Profile" subtitle="View and manage your profile information" />
+
             {message && (
-              <StatusMessage 
-                type={message.type} 
-                text={message.text} 
-                className="mb-6" 
+              <StatusMessage
+                type={message.type}
+                text={message.text}
+                className="mb-6"
                 onDismiss={() => setMessage(null)}
               />
             )}
-            
+
             <Card>
               {isLoading && !profile ? (
                 <div className="flex justify-center items-center py-8">
                   <LoadingSpinner size="md" text="Loading profile..." />
                 </div>
+              ) : isEditing ? (
+                renderProfileForm()
               ) : (
-                isEditing ? renderProfileForm() : renderProfileView()
+                renderProfileView()
               )}
             </Card>
           </div>

@@ -32,28 +32,19 @@ const Layout = ({
       setIsLoggedIn(isAuthenticated);
       
       if (isAuthenticated && data.session?.user) {
-        // Fetch user role from database
+        // Fetch user role from the users table using the new schema
         try {
           const userId = data.session.user.id;
-          const { data: roleData, error: roleError } = await supabase
-            .from('user_roles')
-            .select('roles(name)')
-            .eq('user_id', userId)
-            .maybeSingle(); // Use maybeSingle instead of single to prevent errors
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .single();
           
-          if (roleError) {
-            console.error('Error fetching user role:', roleError);
-          } else if (roleData && roleData.roles) {
-            // Handle both object and array formats
-            if (typeof roleData.roles === 'object' && roleData.roles !== null) {
-              // If it's an array format
-              if (Array.isArray(roleData.roles)) {
-                setUserRole(roleData.roles[0]?.name || '');
-              } else {
-                // If it's an object format
-                setUserRole(roleData.roles.name || '');
-              }
-            }
+          if (userError) {
+            console.error('Error fetching user role:', userError);
+          } else if (userData && userData.role) {
+            setUserRole(userData.role.toLowerCase());
           }
         } catch (err) {
           console.error('Error in role processing:', err);
@@ -71,23 +62,14 @@ const Layout = ({
         // Fetch user role when auth state changes
         try {
           const userId = session.user.id;
-          const { data: roleData, error: roleError } = await supabase
-            .from('user_roles')
-            .select('roles(name)')
-            .eq('user_id', userId)
-            .maybeSingle(); // Use maybeSingle instead of single
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .single();
           
-          if (!roleError && roleData && roleData.roles) {
-            // Handle both object and array formats
-            if (typeof roleData.roles === 'object' && roleData.roles !== null) {
-              // If it's an array format
-              if (Array.isArray(roleData.roles)) {
-                setUserRole(roleData.roles[0]?.name || '');
-              } else {
-                // If it's an object format
-                setUserRole(roleData.roles.name || '');
-              }
-            }
+          if (!userError && userData && userData.role) {
+            setUserRole(userData.role.toLowerCase());
           } else {
             setUserRole('');
           }

@@ -20,7 +20,8 @@ jest.mock('../../../utils/supabaseClient', () => ({
     },
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis()
+    eq: jest.fn().mockReturnThis(),
+    single: jest.fn()
   }
 }));
 
@@ -109,17 +110,14 @@ describe('AuthGuard Component', () => {
       error: null
     });
 
-    // Mock role check
+    // Mock role check with new schema structure
     (supabase.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({
-        data: [
-          {
-            roles: {
-              name: 'homeowner'
-            }
-          }
-        ],
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({
+        data: {
+          role: 'homeowner'
+        },
         error: null
       })
     }));
@@ -135,8 +133,8 @@ describe('AuthGuard Component', () => {
       expect(screen.getByTestId('protected-content')).toBeInTheDocument();
     });
     
-    // Should have called the role check
-    expect(supabase.from).toHaveBeenCalledWith('user_roles');
+    // Should have called the users table for role check
+    expect(supabase.from).toHaveBeenCalledWith('users');
   });
 
   it('redirects to dashboard when user does not have required role', async () => {
@@ -152,17 +150,14 @@ describe('AuthGuard Component', () => {
       error: null
     });
 
-    // Mock role check (user has 'user' role but 'admin' is required)
+    // Mock role check (user has 'homeowner' role but 'admin' is required)
     (supabase.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({
-        data: [
-          {
-            roles: {
-              name: 'user'
-            }
-          }
-        ],
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({
+        data: {
+          role: 'homeowner'
+        },
         error: null
       })
     }));
@@ -220,7 +215,8 @@ describe('AuthGuard Component', () => {
     // Mock role check error
     (supabase.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({
         data: null,
         error: new Error('Role fetch error')
       })
