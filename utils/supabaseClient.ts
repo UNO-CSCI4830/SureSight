@@ -34,7 +34,7 @@ export const handleSupabaseError = (error: any) => {
 
 // Custom hook for Supabase authentication state
 export function useSupabaseAuth() {
-  const [user, setUser] = useState(supabase.auth.getUser() || null);
+  const [user, setUser] = useState<any>(undefined);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,13 +42,13 @@ export function useSupabaseAuth() {
     
     // Get current user
     supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user || null);
+      setUser(data?.user || undefined);
       setLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      setUser(session?.user || undefined);
       setLoading(false);
     });
 

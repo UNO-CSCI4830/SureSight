@@ -93,10 +93,10 @@ const SignUp: React.FC = () => {
       // Parse territories into an array if role is adjuster
       const territoriesArray = role === 'adjuster' 
         ? territories.split(',').map(t => t.trim()).filter(t => t) 
-        : null;
+        : undefined;
 
       // For contractors, we can specify specialties if needed
-      const specialtiesArray = role === 'contractor' ? ['roofing', 'siding'] : null;
+      const specialtiesArray = role === 'contractor' ? ['roofing', 'siding'] : undefined;
       
       // 2. Use the create_user_profile function from the new schema
       const { data, error } = await supabase.rpc('create_user_profile', {
@@ -105,17 +105,17 @@ const SignUp: React.FC = () => {
         p_last_name: lastName,
         p_role: role,
         p_auth_user_id: userId,
-        p_avatar_url: null,
-        p_phone: null, // We could collect phone on signup if needed
-        p_preferred_contact_method: role === 'homeowner' ? preferredContactMethod : null,
-        p_additional_notes: role === 'homeowner' ? null : null,
-        p_company_name: (role === 'contractor' || role === 'adjuster') ? companyName : null,
-        p_license_number: role === 'contractor' ? licenseNumber : null,
+        p_avatar_url: undefined,
+        p_phone: undefined, // We could collect phone on signup if needed
+        p_preferred_contact_method: role === 'homeowner' ? preferredContactMethod : undefined,
+        p_additional_notes: role === 'homeowner' ? undefined : undefined,
+        p_company_name: (role === 'contractor' || role === 'adjuster') ? companyName : undefined,
+        p_license_number: role === 'contractor' ? licenseNumber : undefined,
         p_specialties: specialtiesArray,
-        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || null) : null,
-        p_service_area: role === 'contractor' ? serviceArea : null,
+        p_years_experience: role === 'contractor' ? (parseInt(yearsExperience) || undefined) : undefined,
+        p_service_area: role === 'contractor' ? serviceArea : undefined,
         p_insurance_verified: false, // Default value, admin can update later
-        p_adjuster_license: role === 'adjuster' ? licenseNumber : null,
+        p_adjuster_license: role === 'adjuster' ? licenseNumber : undefined,
         p_territories: territoriesArray,
         p_certification_verified: false // Default value, admin can update later
       });

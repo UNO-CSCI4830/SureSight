@@ -94,8 +94,10 @@ const ProfilePage: React.FC = () => {
         throw new Error('Could not fetch profile data');
       }
 
-      // Parse the JSON result
-      const userData = completeProfile as CompleteUserProfile;
+      // Parse the JSON result properly
+      const userData: CompleteUserProfile = typeof completeProfile === 'string' 
+        ? JSON.parse(completeProfile) 
+        : completeProfile;
 
       // Create a unified profile object
       const profileData: Profile = {
@@ -174,7 +176,7 @@ const ProfilePage: React.FC = () => {
       const territoriesArray =
         selectedRole === 'adjuster'
           ? territories.split(',').map((t) => t.trim()).filter((t) => t)
-          : null;
+          : undefined;
 
       // Use the create_user_profile function that handles creating profiles with the new schema
       const { data, error } = await supabase.rpc('create_user_profile', {
@@ -183,18 +185,18 @@ const ProfilePage: React.FC = () => {
         p_last_name: lastName,
         p_role: selectedRole.toLowerCase(),
         p_auth_user_id: profile.id,
-        p_avatar_url: null,
-        p_phone: null, // Add this based on phone input if you add it to form
-        p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : null,
-        p_additional_notes: selectedRole === 'homeowner' ? additionalNotes : null,
-        p_company_name: selectedRole === 'contractor' || selectedRole === 'adjuster' ? companyName : null,
-        p_license_number: selectedRole === 'contractor' ? licenseNumber : null,
-        p_specialties: null, // Add this based on form input if needed
-        p_years_experience: selectedRole === 'contractor' ? parseInt(yearsExperience) || null : null,
-        p_service_area: selectedRole === 'contractor' ? serviceArea : null,
+        p_avatar_url: undefined,
+        p_phone: undefined, // Add this based on phone input if you add it to form
+        p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : undefined,
+        p_additional_notes: selectedRole === 'homeowner' ? additionalNotes : undefined,
+        p_company_name: selectedRole === 'contractor' || selectedRole === 'adjuster' ? companyName : undefined,
+        p_license_number: selectedRole === 'contractor' ? licenseNumber : undefined,
+        p_specialties: undefined, // Add this based on form input if needed
+        p_years_experience: selectedRole === 'contractor' ? parseInt(yearsExperience) || undefined : undefined,
+        p_service_area: selectedRole === 'contractor' ? serviceArea : undefined,
         p_insurance_verified: false, // This would be managed by admin
-        p_adjuster_license: selectedRole === 'adjuster' ? licenseNumber : null,
-        p_territories: selectedRole === 'adjuster' ? territoriesArray : null,
+        p_adjuster_license: selectedRole === 'adjuster' ? licenseNumber : undefined,
+        p_territories: selectedRole === 'adjuster' ? territoriesArray : undefined,
         p_certification_verified: false, // This would be managed by admin
       });
 
