@@ -41,7 +41,7 @@ const Dashboard: React.FC = () => {
                         const { data: reportData, error: reportError } = await supabase
                             .from('reports')
                             .select('id', { count: 'exact' })
-                            .eq('created_by', id);
+                            .eq('creator_id', id);
                             
                         if (!reportError) {
                             setReportsCount(reportData?.length || 0);
@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
                         .from('reports')
                         .insert([{ 
                             property_id: propertyId,
-                            created_by: userId,
+                            creator_id: userId,
                             status: 'pending',
                             title: `Inspection Report - ${new Date().toLocaleDateString()}`,
                             main_image_url: imageUrl
