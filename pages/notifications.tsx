@@ -40,41 +40,45 @@ const NotificationsPage = () => {
     }
   }, [user]);
       
-  const fetchMessages = async () => {
+   const fetchMessages = async () => {
     setLoading(true);
     setError(null);
-    
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('receiver_id', user?.id)
-      .order('created_at', { ascending: false });
 
-    if (error) {
-      setError('Error fetching messages:');
-      console.error(error);
-    }
-    else {
-      setMessages(data || []);
+    try {
+      // call the new API route
+      const response = await fetch(`/api/notis?user_id=${user.id}`);
+      if (!response.ok) {
+        throw new Error('Error fetching messages');
+      }
+      const data = await response.json();
+      setMessages(data);
+    } catch (err) {
+      setError('Error fetching messages');
+      console.error(err);
     }
 
     setLoading(false);
   };
 
   const markAsRead = async (id: string) => {
-    const { error } = await supabase
-      .from('messages')
-      .update({ is_read: true })
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('id', id);
 
-    if (!error) fetchMessages();
-    else setError('Error marking message as read');
+      if (!error) fetchMessages();
+      else setError('Error marking message as read');
+    } catch (err) {
+      setError('Error marking message as read');
+      console.error(err);
+    }
   };
 
   if (!user) {
-    return <p>Please log in to view your notifications.</p>
+    return <p>Please log in to view your notifications.</p>;
   }
-  
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Messages</h1>
