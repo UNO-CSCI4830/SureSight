@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/layout/Layout';
 import AuthGuard from '../components/auth/AuthGuard';
-import { supabase, handleSupabaseError } from '../utils/supabaseClient';
+import { supabase, handleSupabaseError, Database } from '../utils/supabaseClient';
 
 type Profile = {
   id: string;
@@ -284,7 +284,7 @@ const ProfilePage: React.FC = () => {
         // Adjuster fields
         p_adjuster_license: selectedRole === 'adjuster' ? licenseNumber : null,
         p_territories: selectedRole === 'adjuster' ? territoriesArray : null
-      });
+      }) as any; // Type assertion to resolve the type mismatch
       
       if (error) {
         throw error;

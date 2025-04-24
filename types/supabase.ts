@@ -236,9 +236,48 @@ export interface Database {
           }
         ]
       }
+      reports: {
+        Row: {
+          id: number
+          image_url: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          image_url: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          image_url?: string
+          created_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {}
-    Functions: {}
+    Functions: {
+      manage_user_profile: {
+        Args: {
+          p_user_id: string;
+          p_email: string;
+          p_first_name: string;
+          p_last_name: string;
+          p_role: string;
+          p_avatar_url?: string | null;
+          p_preferred_contact_method?: string | null;
+          p_additional_notes?: string | null;
+          p_company_name?: string | null;
+          p_license_number?: string | null;
+          p_specialties?: string[] | null;
+          p_years_experience?: number | null;
+          p_service_area?: string | null;
+          p_adjuster_license?: string | null;
+          p_territories?: string[] | null;
+        };
+        Returns: unknown;
+      };
+    }
     Enums: {}
   }
 }
