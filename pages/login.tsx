@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import Head from 'next/head';
 import Layout from '../components/layout/Layout';
-
-// Initialize Supabase client using environment variables
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+import { supabase } from '../utils/supabaseClient';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState<string>('');
@@ -27,7 +21,11 @@ const Login: React.FC = () => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       console.log('Login successful');
-      router.push('/Dashboard'); // Redirect to the dashboard
+      
+      // Add a slight delay before redirect to ensure auth state is updated
+      setTimeout(() => {
+        router.push('/Dashboard');
+      }, 100);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
