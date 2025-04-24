@@ -24,10 +24,12 @@ const NotificationsPage = () => {
       //real time message subscript
       const subscription = supabase
       .from('messages')
-      .on('INSERT', payload => {
+      .on('INSERT', (payload) => {
+        console.log('New message:', payload);
         fetchMessages(); 
       })
-      .on('UPDATE', payload => {
+      .on('UPDATE', (payload) => {
+        console.log('Message updated:', payload);
         fetchMessages();
       })
       .subscribe();
