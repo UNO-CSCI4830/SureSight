@@ -28,20 +28,22 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-  
+  const [error, setError] = useState<string | null>(null);
   //Fetch notifications
   useEffect(() => {
-    const fetchUnreadNotifications = async () => {
-      if (!isLoggedIn) return;
-      try {
-        const res = await fetch('/api/notifications');
-        const data = await res.json();
-        setUnreadCount(data.count || 0);
-      } catch (error) {
-        console.error('Failed to retrieve notifications:', error);
-      }
-    };
 
+    
+    const fetchUnreadNotifications = async () => {
+  if (!isLoggedIn) return;
+  try {
+    const res = await fetch('/api/notifications');
+    const data: { count: number } = await res.json();  
+    setUnreadCount(data.count || 0);
+  } catch (error) {
+    console.error('Failed to retrieve notifications:', error);
+    setError('Failed to fetch notifications. Please try again later.');
+  }
+};
     fetchUnreadNotifications();
   }, [isLoggedIn]);
 
@@ -56,7 +58,7 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
         console.error('Error logging out:', error.message);
       } else {
         console.log('User logged out');
-        router.push('/'); // Redirect to home page after logout
+        router.push('/login'); // Redirect to home page after logout
       }
     } catch (err) {
       console.error('Unexpected error during logout:', err);
@@ -117,9 +119,10 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
                       <Icon name="home" />
                       Dashboard
                       {unreadCount> 0 && (
-                      <span className= "ml-1 text-xs font-semibolg bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                        <span className= "ml-1 text-xs font-semibolg bg-red-500 text-white px-1.5 py-0.5 rounded-full">
                         {unreadCount}
                       </span>
+                       )} 
                     </Link>
                   </li>
                   {/* Conditional menu items based on user role */}
