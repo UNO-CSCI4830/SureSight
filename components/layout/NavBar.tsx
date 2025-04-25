@@ -118,18 +118,17 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
                     <Link href="/Dashboard" className="flex items-center gap-2">
                       <Icon name="home" />
                       Dashboard
-                    </Link>
-                  </li>
-                   {/* Notifications link with unread count */
-                  <li className="menu-item menu-item-border">
-                    <Link href="/notifications" className="flex items-center gap-2">
-                      <Icon name="bell" />
-                      Notifications
                       {unreadCount > 0 && (
                         <span className="ml-1 text-xs font-semibold bg-red-500 text-white px-1.5 py-0.5 rounded-full">
                           {unreadCount}
                         </span>
                       )}
+                    </Link>
+                  </li>
+                  <li className="menu-item menu-item-border">
+                    <Link href="/notifications" className="flex items-center gap-2">
+                      <Icon name="notifications" />
+                      Notifications
                     </Link>
                   </li>
                   {/* Conditional menu items based on user role */}
