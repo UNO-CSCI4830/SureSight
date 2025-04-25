@@ -36,7 +36,7 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
     const fetchUnreadNotifications = async () => {
   if (!isLoggedIn) return;
   try {
-    const res = await fetch('/api/notifications');
+    const response = await fetch(`/api/notis?user_id=${user.id}`);
     const data: { count: number } = await res.json();  
     setUnreadCount(data.count || 0);
   } catch (error) {
