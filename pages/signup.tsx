@@ -183,6 +183,7 @@ const SignUp: React.FC = () => {
                     { value: 'contractor', label: 'Contractor' },
                     { value: 'adjuster', label: 'Insurance Adjuster' }
                   ]}
+                  inputClassName="bg-white text-gray-900"
                   helpText="This helps us customize your experience"
                 />
               </div>

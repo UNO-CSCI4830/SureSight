@@ -18,6 +18,7 @@ interface SelectProps {
   error?: string;
   helpText?: string;
   placeholder?: string;
+  inputClassName?: string;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -32,7 +33,8 @@ const Select: React.FC<SelectProps> = ({
   className = '',
   error,
   helpText,
-  placeholder
+  placeholder,
+  inputClassName = ''
 }) => {
   return (
     <div className={`${className}`}>
@@ -49,7 +51,7 @@ const Select: React.FC<SelectProps> = ({
         onChange={onChange}
         required={required}
         disabled={disabled}
-        className={`form-input ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}`}
+        className={`form-input ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''} ${inputClassName}`}
         aria-label={label || id}
       >
         {placeholder && <option value="">{placeholder}</option>}
