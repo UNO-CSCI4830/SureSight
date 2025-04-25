@@ -45,7 +45,7 @@ const FormInput: React.FC<FormInputProps> = ({
   autoComplete,
   autoFocus,
   readOnly,
-  inputClassName = '',
+  inputClassName = ''
 }) => {
   return (
     <div className={`${className}`}>
