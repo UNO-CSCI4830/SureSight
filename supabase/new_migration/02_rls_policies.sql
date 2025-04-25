@@ -1,10 +1,38 @@
 -- Set up Row Level Security (RLS) policies
+-- Disable RLS on the public.users table to allow internal signup trigger to insert new user row
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+
 -- Enable RLS on all tables first
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+-- Allow public insert on users
+DROP POLICY IF EXISTS "Allow public signup" ON users;
+CREATE POLICY "Allow public signup" ON users
+  FOR INSERT WITH CHECK (true);
+
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- Allow public insert on profiles
+DROP POLICY IF EXISTS "Allow profile creation" ON profiles;
+CREATE POLICY "Allow profile creation" ON profiles
+  FOR INSERT WITH CHECK (true);
+
 ALTER TABLE homeowner_profiles ENABLE ROW LEVEL SECURITY;
+-- Allow public insert on homeowner_profiles
+DROP POLICY IF EXISTS "Allow homeowner profile creation" ON homeowner_profiles;
+CREATE POLICY "Allow homeowner profile creation" ON homeowner_profiles
+  FOR INSERT WITH CHECK (true);
+
 ALTER TABLE contractor_profiles ENABLE ROW LEVEL SECURITY;
+-- Allow public insert on contractor_profiles
+DROP POLICY IF EXISTS "Allow contractor profile creation" ON contractor_profiles;
+CREATE POLICY "Allow contractor profile creation" ON contractor_profiles
+  FOR INSERT WITH CHECK (true);
+
 ALTER TABLE adjuster_profiles ENABLE ROW LEVEL SECURITY;
+-- Allow public insert on adjuster_profiles
+DROP POLICY IF EXISTS "Allow adjuster profile creation" ON adjuster_profiles;
+CREATE POLICY "Allow adjuster profile creation" ON adjuster_profiles
+  FOR INSERT WITH CHECK (true);
+
 ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assessment_areas ENABLE ROW LEVEL SECURITY;
@@ -14,25 +42,27 @@ ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE estimates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE estimate_items ENABLE ROW LEVEL SECURITY;
 
+-- Remove admin policies on users
+DROP POLICY IF EXISTS "Admins can view all users" ON users;
+DROP POLICY IF EXISTS "Admins can update users" ON users;
+
+-- Remove legacy admin policies
+DROP POLICY IF EXISTS "Admins can view all users" ON users;
+DROP POLICY IF EXISTS "Admins can update users" ON users;
+DROP POLICY IF EXISTS "Admins can view all activities" ON activities;
+
 -- User policies
+DROP POLICY IF EXISTS "Users can view their own profile" ON users;
 CREATE POLICY "Users can view their own profile" ON users
   FOR SELECT USING (auth.uid() = auth_user_id);
 
-CREATE POLICY "Admins can view all users" ON users
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM users 
-      WHERE auth_user_id = auth.uid() AND role = 'admin'
-    )
-  );
+DROP POLICY IF EXISTS "Allow authenticated select" ON users;
+CREATE POLICY "Allow authenticated select" ON users
+  FOR SELECT USING (auth.uid() = auth_user_id);
 
-CREATE POLICY "Admins can update users" ON users
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM users 
-      WHERE auth_user_id = auth.uid() AND role = 'admin'
-    )
-  );
+DROP POLICY IF EXISTS "Allow authenticated update" ON users;
+CREATE POLICY "Allow authenticated update" ON users
+  FOR UPDATE USING (auth.uid() = auth_user_id);
 
 -- Profile policies
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -226,13 +256,7 @@ CREATE POLICY "Anyone involved can view comments" ON comments
   );
 
 -- Activities policies (audit trail - admins only)
-CREATE POLICY "Admins can view all activities" ON activities
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM users 
-      WHERE auth_user_id = auth.uid() AND role = 'admin'
-    )
-  );
+DROP POLICY IF EXISTS "Admins can view all activities" ON activities;
 
 -- Estimates policies
 CREATE POLICY "Contractors can create estimates" ON estimates

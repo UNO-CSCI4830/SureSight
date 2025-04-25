@@ -32,6 +32,7 @@
     ],
     "exclude": [
         "node_modules",
-        "pages/api/delete-user.ts" // Exclude the missing file to avoid errors
+        "pages/api/delete-user.ts", // Exclude the missing file to avoid errors
+        "supabase/functions/**" // Exclude Supabase Edge Functions that use Deno-specific imports
     ]
 }

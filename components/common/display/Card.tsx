@@ -3,8 +3,11 @@ import React from 'react';
 interface CardProps {
   children: React.ReactNode;
   className?: string;
-  hoverable?: boolean;
-  padded?: boolean;
+  padding?: string;
+  bgColor?: string;
+  rounded?: boolean;
+  shadow?: boolean;
+  width?: string;
 }
 
 /**
@@ -13,19 +16,25 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({
   children,
   className = '',
-  hoverable = true,
-  padded = true,
+  padding = 'p-4',
+  bgColor = 'bg-white',
+  rounded = false,
+  shadow = false,
+  width,
 }) => {
+  // Build the class string with individual space-separated classes
+  const classes = [
+    bgColor,
+    padding,
+    rounded ? 'rounded-lg' : '',
+    shadow ? 'shadow-md' : '',
+    width,
+    className
+  ].filter(Boolean).join(' ');
+
   return (
-    <div 
-      className={`
-        bg-white rounded-xl shadow-card
-        ${hoverable ? 'transition-shadow duration-200 hover:shadow-hover' : ''}
-        ${padded ? 'p-6' : ''}
-        ${className}
-      `}
-    >
-      {children}
+    <div className={classes}>
+      <div>{children}</div>
     </div>
   );
 };
