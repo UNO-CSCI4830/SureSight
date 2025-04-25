@@ -160,7 +160,7 @@ BEGIN
         END LOOP;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Function to safely migrate report data
 CREATE OR REPLACE FUNCTION migrate_reports_data() 
@@ -294,7 +294,7 @@ BEGIN
         END LOOP;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Main migration process
 DO $$

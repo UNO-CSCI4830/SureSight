@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface FooterProps {
@@ -6,6 +6,13 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({ className = '' }) => {
+  // Use client-side only rendering for the dynamic year
+  const [year, setYear] = useState<number | null>(null);
+  
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
+
   return (
     <footer className={`bg-white border-t border-gray-200 py-8 mt-auto ${className}`}>
       <div className="max-w-7xl mx-auto px-4 md:px-6">
@@ -20,7 +27,7 @@ const Footer: React.FC<FooterProps> = ({ className = '' }) => {
               <span className="font-bold text-primary-600">SureSight</span>
             </div>
             <p className="text-gray-600 text-sm">
-              © {new Date().getFullYear()} SureSight. All rights reserved.
+              © {year || '2025'} SureSight. All rights reserved.
             </p>
             <p className="text-gray-500 text-xs mt-1">
               Looking after your roofs since 2025
@@ -40,8 +47,9 @@ const Footer: React.FC<FooterProps> = ({ className = '' }) => {
             <div>
               <h3 className="font-medium text-sm mb-2">Legal</h3>
               <ul className="space-y-2">
-                <li><Link href="#" className="text-gray-500 text-sm hover:text-primary-600 transition-colors">Privacy Policy</Link></li>
-                <li><Link href="#" className="text-gray-500 text-sm hover:text-primary-600 transition-colors">Terms of Service</Link></li>
+                {/* Use just a hash to prevent hydration mismatch */}
+                <li><a href="#privacy" className="text-gray-500 text-sm hover:text-primary-600 transition-colors">Privacy Policy</a></li>
+                <li><a href="#terms" className="text-gray-500 text-sm hover:text-primary-600 transition-colors">Terms of Service</a></li>
               </ul>
             </div>
             

@@ -426,6 +426,44 @@ export interface Database {
           }
         ];
       };
+      image_analysis: {
+        Row: {
+          id: string;
+          image_id: string;
+          damage_detected: boolean;
+          confidence: number | null;
+          raw_results: Json | null;
+          analyzed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          image_id: string;
+          damage_detected: boolean;
+          confidence?: number | null;
+          raw_results?: Json | null;
+          analyzed_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          image_id?: string;
+          damage_detected?: boolean;
+          confidence?: number | null;
+          raw_results?: Json | null;
+          analyzed_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "image_analysis_image_id_fkey";
+            columns: ["image_id"];
+            isOneToOne: false;
+            referencedRelation: "images";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       messages: {
         Row: {
           content: string;
