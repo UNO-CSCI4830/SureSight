@@ -150,6 +150,7 @@ const SignUp: React.FC = () => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="your-email@example.com"
+          inputClassName="bg-white text-gray-900"
           required
         />
       </div>
@@ -163,6 +164,7 @@ const SignUp: React.FC = () => {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="John"
+            inputClassName="bg-white text-gray-900"
             required
           />
         </div>
@@ -174,6 +176,7 @@ const SignUp: React.FC = () => {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             placeholder="Doe"
+            inputClassName="bg-white text-gray-900"
             required
           />
         </div>
@@ -187,6 +190,7 @@ const SignUp: React.FC = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
+          inputClassName="bg-white text-gray-900"
           required
           helpText="Must be at least 8 characters"
         />
@@ -200,6 +204,7 @@ const SignUp: React.FC = () => {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="••••••••"
+          inputClassName="bg-white text-gray-900"
           required
         />
       </div>
@@ -343,6 +348,7 @@ const SignUp: React.FC = () => {
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="Your Company LLC"
+              inputClassName="bg-white text-gray-900"
               required
             />
           </div>
@@ -355,6 +361,7 @@ const SignUp: React.FC = () => {
               value={licenseNumber}
               onChange={(e) => setLicenseNumber(e.target.value)}
               placeholder="e.g. CON-12345"
+              inputClassName="bg-white text-gray-900"
             />
           </div>
           
@@ -367,6 +374,7 @@ const SignUp: React.FC = () => {
                 value={yearsExperience}
                 onChange={(e) => setYearsExperience(e.target.value)}
                 placeholder="5"
+                inputClassName="bg-white text-gray-900"
                 min="0"
               />
             </div>
@@ -378,6 +386,7 @@ const SignUp: React.FC = () => {
                 value={serviceArea}
                 onChange={(e) => setServiceArea(e.target.value)}
                 placeholder="e.g. Omaha Metro Area"
+                inputClassName="bg-white text-gray-900"
               />
             </div>
           </div>
@@ -423,6 +432,7 @@ const SignUp: React.FC = () => {
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="e.g. State Farm Insurance"
+              inputClassName="bg-white text-gray-900"
               required
             />
           </div>
@@ -435,6 +445,7 @@ const SignUp: React.FC = () => {
               value={licenseNumber}
               onChange={(e) => setLicenseNumber(e.target.value)}
               placeholder="e.g. ADJ-12345"
+              inputClassName="bg-white text-gray-900"
             />
           </div>
           
@@ -447,6 +458,7 @@ const SignUp: React.FC = () => {
               onChange={(e) => setTerritories(e.target.value)}
               placeholder="e.g. Nebraska, Iowa, Kansas"
               helpText="Comma separated list of territories you cover"
+              inputClassName="bg-white text-gray-900"
             />
           </div>
 

@@ -19,6 +19,7 @@ interface FormInputProps {
   autoComplete?: string;
   autoFocus?: boolean;
   readOnly?: boolean;
+  inputClassName?: string;
 }
 
 /**
@@ -44,6 +45,7 @@ const FormInput: React.FC<FormInputProps> = ({
   autoComplete,
   autoFocus,
   readOnly,
+  inputClassName = '',
 }) => {
   return (
     <div className={`${className}`}>
@@ -62,7 +64,7 @@ const FormInput: React.FC<FormInputProps> = ({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        className={`form-input ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}`}
+        className={`form-input ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''} ${inputClassName}`}
         min={min}
         max={max}
         pattern={pattern}

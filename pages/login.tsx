@@ -95,6 +95,7 @@ const Login: React.FC = () => {
                 placeholder="your-email@example.com"
                 required
                 autoComplete="email"
+                inputClassName="bg-white text-gray-900"
               />
             </div>
 
@@ -119,6 +120,7 @@ const Login: React.FC = () => {
                 placeholder="••••••••"
                 required
                 autoComplete="current-password"
+                inputClassName="bg-white text-gray-900"
               />
             </div>
 
