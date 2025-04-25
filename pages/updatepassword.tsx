@@ -121,7 +121,7 @@ const UpdatePassword: React.FC = () => {
                 name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="form-input"
+                className="form-input bg-white text-gray-900"
                 placeholder="••••••••"
                 required
               />
@@ -140,7 +140,7 @@ const UpdatePassword: React.FC = () => {
                 name="confirmPassword"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="form-input"
+                className="form-input bg-white text-gray-900"
                 placeholder="••••••••"
                 required
               />
