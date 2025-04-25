@@ -7,11 +7,13 @@ import Icon from '../ui/icons/Icon';
 interface NavBarProps {
   isLoggedIn?: boolean;
   userRole?: string;
+  user?: { id: string }; // Add user prop
 }
 
-const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) => {
+const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user }) => {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Handle clicks outside the menu to close it
@@ -27,6 +29,22 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  const [error, setError] = useState<string | null>(null);
+  //Fetch notifications
+  useEffect(() => {
+    const fetchUnreadNotifications = async () => {
+      if (!isLoggedIn || !user) return; // Ensure user is defined
+      try {
+        const response = await fetch(`/api/notis?user_id=${user.id}`);
+        const data: { count: number } = await response.json();  
+        setUnreadCount(data.count || 0);
+      } catch (error) {
+        console.error('Failed to retrieve notifications:', error);
+        setError('Failed to fetch notifications. Please try again later.');
+      }
+    };
+    fetchUnreadNotifications();
+  }, [isLoggedIn, user]); // Add user to dependency array
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
@@ -39,7 +57,7 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
         console.error('Error logging out:', error.message);
       } else {
         console.log('User logged out');
-        router.push('/'); // Redirect to home page after logout
+        router.push('/login'); // Redirect to home page after logout
       }
     } catch (err) {
       console.error('Unexpected error during logout:', err);
@@ -99,6 +117,17 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
                     <Link href="/Dashboard" className="flex items-center gap-2">
                       <Icon name="home" />
                       Dashboard
+                      {unreadCount > 0 && (
+                        <span className="ml-1 text-xs font-semibold bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                  <li className="menu-item menu-item-border">
+                    <Link href="/notifications" className="flex items-center gap-2">
+                      <Icon name="notifications" />
+                      Notifications
                     </Link>
                   </li>
                   {/* Conditional menu items based on user role */}
