@@ -178,7 +178,7 @@ const LoginPage: React.FC = () => {
                   Password
                 </label>
                 <Link 
-                  href="/reset-password"
+                  href="/updatepassword"
                   className="text-sm text-primary-600 hover:text-primary-500"
                 >
                   Forgot password?
