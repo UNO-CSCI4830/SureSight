@@ -137,6 +137,7 @@ const SignUp: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your-email@example.com"
+                  inputClassName="bg-white text-gray-900"
                   required
                   error={errors.email}
                 />
@@ -150,6 +151,7 @@ const SignUp: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  inputClassName="bg-white text-gray-900"
                   required
                   helpText="Must be at least 8 characters"
                   error={errors.password}
@@ -164,6 +166,7 @@ const SignUp: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
+                  inputClassName="bg-white text-gray-900"
                   required
                   error={errors.confirmPassword}
                 />
