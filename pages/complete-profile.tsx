@@ -408,6 +408,7 @@ const CompleteProfile = () => {
                     id="firstName" 
                     value={firstName} 
                     onChange={e => setFirstName(e.target.value)} 
+                    inputClassName="bg-white text-gray-900"
                     required 
                   />
                 </div>
@@ -418,6 +419,7 @@ const CompleteProfile = () => {
                     id="lastName" 
                     value={lastName} 
                     onChange={e => setLastName(e.target.value)} 
+                    inputClassName="bg-white text-gray-900"
                     required 
                   />
                 </div>
@@ -440,6 +442,7 @@ const CompleteProfile = () => {
                 value={phone} 
                 onChange={e => setPhone(e.target.value)} 
                 helpText="Optional: Format will be standardized" 
+                inputClassName="bg-white text-gray-900"
               />
               
               <Select
@@ -450,6 +453,7 @@ const CompleteProfile = () => {
                 options={roles}
                 required
                 helpText="Select the option that best describes you"
+                inputClassName="bg-white text-gray-900"
               />
             </div>
             
@@ -474,6 +478,7 @@ const CompleteProfile = () => {
                         { value: 'phone', label: 'Phone' }, 
                         { value: 'sms', label: 'SMS' }
                       ]}
+                      inputClassName="bg-white text-gray-900"
                     />
                     <FormInput
                       label="Additional Notes"
@@ -482,6 +487,7 @@ const CompleteProfile = () => {
                       value={additionalNotes}
                       onChange={e => setAdditionalNotes(e.target.value)}
                       placeholder="Any special instructions"
+                      inputClassName="bg-white text-gray-900"
                     />
                   </>
                 )}
@@ -494,6 +500,7 @@ const CompleteProfile = () => {
                       id="companyName" 
                       value={companyName} 
                       onChange={e => setCompanyName(e.target.value)} 
+                      inputClassName="bg-white text-gray-900"
                       required 
                     />
                     <FormInput 
@@ -502,6 +509,7 @@ const CompleteProfile = () => {
                       id="licenseNumber" 
                       value={licenseNumber} 
                       onChange={e => setLicenseNumber(e.target.value)} 
+                      inputClassName="bg-white text-gray-900"
                     />
                     <FormInput 
                       label="Years of Experience" 
@@ -509,6 +517,7 @@ const CompleteProfile = () => {
                       id="yearsExperience" 
                       value={yearsExperience} 
                       onChange={e => setYearsExperience(e.target.value)} 
+                      inputClassName="bg-white text-gray-900"
                     />
                     <FormInput 
                       label="Service Area" 
@@ -517,6 +526,7 @@ const CompleteProfile = () => {
                       value={serviceArea} 
                       onChange={e => setServiceArea(e.target.value)} 
                       placeholder="e.g., Northeast Ohio, Dallas Metro"
+                      inputClassName="bg-white text-gray-900"
                     />
                   </>
                 )}
@@ -529,6 +539,7 @@ const CompleteProfile = () => {
                       id="companyName" 
                       value={companyName} 
                       onChange={e => setCompanyName(e.target.value)} 
+                      inputClassName="bg-white text-gray-900"
                       required 
                     />
                     <FormInput 
@@ -537,6 +548,7 @@ const CompleteProfile = () => {
                       id="licenseNumber" 
                       value={licenseNumber} 
                       onChange={e => setLicenseNumber(e.target.value)} 
+                      inputClassName="bg-white text-gray-900"
                     />
                     <FormInput 
                       label="Territories (comma-separated)" 
@@ -544,6 +556,7 @@ const CompleteProfile = () => {
                       id="territories" 
                       value={territories} 
                       onChange={e => setTerritories(e.target.value)}
+                      inputClassName="bg-white text-gray-900"
                       placeholder="e.g., TX, OH, MI" 
                     />
                   </>
