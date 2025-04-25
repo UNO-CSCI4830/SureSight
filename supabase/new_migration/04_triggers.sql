@@ -7,7 +7,7 @@ BEGIN
    NEW.updated_at = NOW();
    RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Add update timestamp triggers to all tables with updated_at column
 CREATE TRIGGER update_users_timestamp
@@ -76,7 +76,7 @@ BEGIN
   END IF;
   RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 CREATE TRIGGER property_homeowner_trigger
 AFTER INSERT OR UPDATE OR DELETE ON properties
@@ -104,7 +104,7 @@ BEGIN
   END IF;
   RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 CREATE TRIGGER report_status_change_trigger
 AFTER UPDATE ON reports
@@ -121,7 +121,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 CREATE TRIGGER report_review_trigger
 BEFORE UPDATE ON reports
@@ -156,7 +156,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 CREATE TRIGGER queue_image_ai_trigger
 BEFORE INSERT ON images

@@ -109,7 +109,7 @@ BEGIN
   
   RETURN v_user_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
 -- Function to get user profile with role-specific data
 CREATE OR REPLACE FUNCTION get_complete_user_profile(p_user_id UUID) 
@@ -192,7 +192,7 @@ BEGIN
   
   RETURN v_result;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Function to create a new property
 CREATE OR REPLACE FUNCTION create_property(
@@ -256,7 +256,7 @@ BEGIN
   
   RETURN v_property_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Function to create a new report
 CREATE OR REPLACE FUNCTION create_report(
@@ -302,7 +302,7 @@ BEGIN
   
   RETURN v_report_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Function to assign a contractor to a report
 CREATE OR REPLACE FUNCTION assign_contractor_to_report(
@@ -374,7 +374,7 @@ BEGIN
   
   RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Function to submit a report (changing status from draft to submitted)
 CREATE OR REPLACE FUNCTION submit_report(
@@ -427,7 +427,7 @@ BEGIN
   
   RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
 
 -- Function to add an assessment area to a report
 CREATE OR REPLACE FUNCTION add_assessment_area(
@@ -489,4 +489,4 @@ BEGIN
   
   RETURN v_area_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, auth;
