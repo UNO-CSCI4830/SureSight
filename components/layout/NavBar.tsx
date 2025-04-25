@@ -7,9 +7,10 @@ import Icon from '../ui/icons/Icon';
 interface NavBarProps {
   isLoggedIn?: boolean;
   userRole?: string;
+  user?: { id: string }; // Add user prop
 }
 
-const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) => {
+const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user }) => {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -31,21 +32,19 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '' }) =>
   const [error, setError] = useState<string | null>(null);
   //Fetch notifications
   useEffect(() => {
-
-    
     const fetchUnreadNotifications = async () => {
-  if (!isLoggedIn) return;
-  try {
-    const response = await fetch(`/api/notis?user_id=${user.id}`);
-    const data: { count: number } = await res.json();  
-    setUnreadCount(data.count || 0);
-  } catch (error) {
-    console.error('Failed to retrieve notifications:', error);
-    setError('Failed to fetch notifications. Please try again later.');
-  }
-};
+      if (!isLoggedIn || !user) return; // Ensure user is defined
+      try {
+        const response = await fetch(`/api/notis?user_id=${user.id}`);
+        const data: { count: number } = await response.json();  
+        setUnreadCount(data.count || 0);
+      } catch (error) {
+        console.error('Failed to retrieve notifications:', error);
+        setError('Failed to fetch notifications. Please try again later.');
+      }
+    };
     fetchUnreadNotifications();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, user]); // Add user to dependency array
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);

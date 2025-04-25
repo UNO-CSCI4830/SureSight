@@ -21,21 +21,21 @@ const NotificationsPage = () => {
     if (user) {
       fetchMessages();
 
-      //real time message subscript
-      const subscription = supabase
-      .from('messages')
-      .on('INSERT', (payload) => {
-        console.log('New message:', payload);
-        fetchMessages(); 
-      })
-      .on('UPDATE', (payload) => {
-        console.log('Message updated:', payload);
-        fetchMessages();
-      })
-      .subscribe();
+      // Real-time message subscription using Supabase channel
+      const channel = supabase
+        .channel('realtime:messages')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+          console.log('New message:', payload);
+          fetchMessages();
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+          console.log('Message updated:', payload);
+          fetchMessages();
+        })
+        .subscribe();
 
-      return()=> {
-        supabase.removeSubscription(subscription);
+      return () => {
+        supabase.removeChannel(channel);
       };
     }
   }, [user]);
@@ -45,6 +45,12 @@ const NotificationsPage = () => {
     setError(null);
 
     try {
+      if (!user) {
+        setError('User is not logged in.');
+        setLoading(false);
+        return;
+      }
+
       // call the new API route
       const response = await fetch(`/api/notis?user_id=${user.id}`);
       if (!response.ok) {
