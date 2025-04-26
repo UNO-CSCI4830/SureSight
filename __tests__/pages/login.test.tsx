@@ -190,6 +190,6 @@ describe('Login Page', () => {
     
     const resetLink = screen.getByText(/forgot password/i);
     expect(resetLink).toBeInTheDocument();
-    expect(resetLink.closest('a')).toHaveAttribute('href', '/reset-password');
+    expect(resetLink.closest('a')).toHaveAttribute('href', '/forgotpassword');
   });
 });

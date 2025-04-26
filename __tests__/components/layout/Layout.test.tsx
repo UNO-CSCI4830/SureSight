@@ -15,6 +15,21 @@ jest.mock('../../../components/layout/Footer', () => {
   };
 });
 
+// Mock next/head to avoid errors in tests
+jest.mock('next/head', () => {
+  return function MockHead({ children }) {
+    return <div data-testid="mock-head">{children}</div>;
+  };
+});
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  clear: jest.fn()
+};
+Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+
 describe('Layout Component', () => {
   test('renders children content', () => {
     render(
@@ -54,21 +69,20 @@ describe('Layout Component', () => {
       </Layout>
     );
     
-    // Check that the container has min-h-screen class
-    const container = screen.getByTestId('layout-container');
-    expect(container).toBeInTheDocument();
-    expect(container).toHaveClass('min-h-screen');
+    // Check that the main element has min-h-screen class
+    const mainElement = screen.getByRole('main');
+    expect(mainElement).toBeInTheDocument();
+    expect(mainElement).toHaveClass('min-h-screen');
   });
 
-  test('applies custom className when provided', () => {
+  test('sets document title based on title prop', () => {
     render(
-      <Layout className="custom-layout-class">
+      <Layout title="Test Title">
         <div>Test Content</div>
       </Layout>
     );
     
-    // Check that the custom class is applied to the layout container
-    const container = screen.getByTestId('layout-container');
-    expect(container).toHaveClass('custom-layout-class');
+    // Check that the title is set in the Head component
+    expect(document.title).toBe('Test Title');
   });
 });

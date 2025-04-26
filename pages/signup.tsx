@@ -111,7 +111,7 @@ const SignUp: React.FC = () => {
   };
 
   return (
-    <Layout title="Sign Up | SureSight" description="Create your SureSight account">
+    <Layout title="Sign Up | SureSight">
       <div className="max-w-md mx-auto w-full">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Create an Account</h1>

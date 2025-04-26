@@ -43,7 +43,7 @@ const ForgotPassword: React.FC = () => {
   };
 
 return (
-  <Layout title="Forgot Password | SureSight" description="Forgot password for your SureSight account">
+  <Layout title="Forgot Password | SureSight">
     <div className="max-w-md mx-auto w-full">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Forgot Password</h1>

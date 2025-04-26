@@ -51,176 +51,182 @@ const CompleteProfile = () => {
   const [success, setSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    // Only run if router is ready and query params are available
+    // Only run if router is ready
     if (!router.isReady) return;
     
     async function getUserInfo() {
       setLoading(true);
       try {
+        // Get the currently authenticated user from Supabase auth
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError) {
+          console.error('Error fetching authenticated user:', authError);
+          throw new Error('Authentication error. Please log in again.');
+        }
+        
+        if (!authUser) {
+          throw new Error('You must be logged in to complete your profile');
+        }
+        
+        // Set auth user ID and email
+        const authUserId = authUser.id;
+        setAuthUserId(authUserId);
+        setEmail(authUser.email || '');
+        
+        console.log("Auth user ID:", authUserId);
+        
+        // Try to get the user's database ID from local storage (set during login)
+        const storedUserDbId = localStorage.getItem('supaUserDbId');
+        if (storedUserDbId) {
+          console.log("Found stored user DB ID:", storedUserDbId);
+        }
+        
+        // 1. First try to get user by their database ID from local storage
         let userRecord: UserRecord | null = null;
         
-        // First check if we have a userId in the URL
-        if (urlUserId && typeof urlUserId === 'string') {
-          console.log("Loading user from URL userId:", urlUserId);
-          
-          // First try to fetch user by primary ID
-          let { data: existingUser, error: existingUserError } = await supabase
+        if (storedUserDbId) {
+          const { data: userById, error: userByIdError } = await supabase
             .from('users')
             .select('id, auth_user_id, first_name, last_name, phone, role, email')
-            .eq('id', urlUserId)
+            .eq('id', storedUserDbId)
             .maybeSingle();
             
-          if (existingUserError) {
-            console.error('Error fetching user by primary ID:', existingUserError);
-          }
-          
-          // If not found by primary ID, try auth_user_id
-          if (!existingUser) {
-            console.log("User not found by primary ID, trying auth_user_id");
-            const { data: authUser, error: authUserError } = await supabase
-              .from('users')
-              .select('id, auth_user_id, first_name, last_name, phone, role, email')
-              .eq('auth_user_id', urlUserId)
-              .maybeSingle();
-              
-            if (authUserError) {
-              console.error('Error fetching user by auth_user_id:', authUserError);
-            }
-            
-            existingUser = authUser;
-            
-            // If still not found, try by email (useful when urlUserId actually contains an email)
-            if (!existingUser) {
-              console.log("User not found by auth_user_id, trying email lookup");
-              const { data: emailUser, error: emailUserError } = await supabase
-                .from('users')
-                .select('id, auth_user_id, first_name, last_name, phone, role, email')
-                .eq('email', urlUserId)
-                .maybeSingle();
-                
-              if (emailUserError) {
-                console.error('Error fetching user by email:', emailUserError);
-              }
-              
-              existingUser = emailUser;
-            }
-          }
-          
-          if (existingUser) {
-            userRecord = existingUser as UserRecord;
-            setUserId(existingUser.id);
-            setAuthUserId(existingUser.auth_user_id);
-            setEmail(existingUser.email || '');
-            
-            // Pre-fill form fields with existing data
-            if (existingUser.first_name) setFirstName(existingUser.first_name);
-            if (existingUser.last_name) setLastName(existingUser.last_name);
-            if (existingUser.phone) setPhone(existingUser.phone);
-            if (existingUser.role) setRole(existingUser.role);
-          } else {
-            console.error('User not found with the provided ID or email:', urlUserId);
-            setError('User not found. Please sign up or login first.');
-          }
-        } else {
-          // No userId in URL, use the current authenticated user
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          
-          if (userError) {
-            throw userError;
-          }
-          
-          if (!user) {
-            throw new Error('You must be logged in to complete your profile');
-          }
-          
-          // Set auth user ID
-          setAuthUserId(user.id);
-          setEmail(user.email || '');
-          
-          // Get role from user metadata if available
-          if (user.user_metadata?.role) {
-            setRole(user.user_metadata.role);
-          }
-          
-          // Check if a user record already exists in the DB
-          const { data: existingUser, error: existingUserError } = await supabase
-            .from('users')
-            .select('id, first_name, last_name, phone, role')
-            .eq('auth_user_id', user.id)
-            .maybeSingle();
-            
-          if (existingUserError) {
-            console.error('Error fetching existing user:', existingUserError);
-          }
-          
-          if (existingUser) {
-            userRecord = existingUser as UserRecord;
-            setUserId(existingUser.id);
-            
-            // Pre-fill form fields with existing data
-            if (existingUser.first_name) setFirstName(existingUser.first_name);
-            if (existingUser.last_name) setLastName(existingUser.last_name);
-            if (existingUser.phone) setPhone(existingUser.phone);
-            if (existingUser.role) setRole(existingUser.role);
+          if (userByIdError) {
+            console.error('Error fetching user by stored ID:', userByIdError);
+          } else if (userById) {
+            console.log("Found user by stored DB ID");
+            userRecord = userById;
           }
         }
         
-        // If we have a user record with a role, fetch the role-specific profile data
-        if (userRecord?.id && userRecord?.role) {
-          // Check if user already has a profile
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('user_id', userRecord.id)
+        // 2. If not found, try by auth_user_id
+        if (!userRecord) {
+          const { data: userByAuthId, error: userByAuthIdError } = await supabase
+            .from('users')
+            .select('id, auth_user_id, first_name, last_name, phone, role, email')
+            .eq('auth_user_id', authUserId)
             .maybeSingle();
             
-          if (profileError) {
-            console.error('Error checking profile:', profileError);
+          if (userByAuthIdError) {
+            console.error('Error fetching user by auth_user_id:', userByAuthIdError);
+          } else if (userByAuthId) {
+            console.log("Found user by auth_user_id");
+            userRecord = userByAuthId;
+          }
+        }
+        
+        // 3. If still not found, try by email
+        if (!userRecord && authUser.email) {
+          const { data: userByEmail, error: userByEmailError } = await supabase
+            .from('users')
+            .select('id, auth_user_id, first_name, last_name, phone, role, email')
+            .eq('email', authUser.email)
+            .maybeSingle();
+            
+          if (userByEmailError) {
+            console.error('Error fetching user by email:', userByEmailError);
+          } else if (userByEmail) {
+            console.log("Found user by email");
+            userRecord = userByEmail;
+            
+            // Update auth_user_id if it doesn't match
+            if (userByEmail.auth_user_id !== authUserId) {
+              console.log("Updating auth_user_id for existing user");
+              await supabase
+                .from('users')
+                .update({ auth_user_id: authUserId })
+                .eq('id', userByEmail.id);
+                
+              userRecord.auth_user_id = authUserId;
+            }
+          }
+        }
+        
+        // If we found a user record, populate form fields
+        if (userRecord) {
+          setUserId(userRecord.id);
+          // Store this ID in local storage for future use
+          localStorage.setItem('supaUserDbId', userRecord.id);
+          
+          // Pre-fill form fields with existing data
+          if (userRecord.first_name) setFirstName(userRecord.first_name);
+          if (userRecord.last_name) setLastName(userRecord.last_name);
+          if (userRecord.phone) setPhone(userRecord.phone);
+          if (userRecord.role) setRole(userRecord.role);
+          
+          // Get role from user metadata if available and not set in DB
+          if (!userRecord.role && authUser.user_metadata?.role) {
+            setRole(authUser.user_metadata.role);
           }
           
-          if (profileData?.id) {
-            // User has a profile, fetch role-specific data
-            const profileId = profileData.id;
+          console.log("User record:", userRecord);
+          
+          // If we have a user record with a role, fetch the role-specific profile data
+          if (userRecord.role) {
+            // Check if user already has a profile
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_id', userRecord.id)
+              .maybeSingle();
+              
+            if (profileError) {
+              console.error('Error checking profile:', profileError);
+            }
             
-            if (userRecord.role === 'homeowner') {
-              const { data: homeownerData } = await supabase
-                .from('homeowner_profiles')
-                .select('preferred_contact_method, additional_notes')
-                .eq('id', profileId)
-                .maybeSingle();
+            if (profileData?.id) {
+              // User has a profile, fetch role-specific data
+              const profileId = profileData.id;
               
-              if (homeownerData) {
-                setPreferredContactMethod(homeownerData.preferred_contact_method || 'email');
-                setAdditionalNotes(homeownerData.additional_notes || '');
+              if (userRecord.role === 'homeowner') {
+                const { data: homeownerData } = await supabase
+                  .from('homeowner_profiles')
+                  .select('preferred_contact_method, additional_notes')
+                  .eq('id', profileId)
+                  .maybeSingle();
+                
+                if (homeownerData) {
+                  setPreferredContactMethod(homeownerData.preferred_contact_method || 'email');
+                  setAdditionalNotes(homeownerData.additional_notes || '');
+                }
+              } 
+              else if (userRecord.role === 'contractor') {
+                const { data: contractorData } = await supabase
+                  .from('contractor_profiles')
+                  .select('company_name, license_number, years_experience, service_area')
+                  .eq('id', profileId)
+                  .maybeSingle();
+                
+                if (contractorData) {
+                  setCompanyName(contractorData.company_name || '');
+                  setLicenseNumber(contractorData.license_number || '');
+                  setYearsExperience(contractorData.years_experience?.toString() || '');
+                  setServiceArea(contractorData.service_area || '');
+                }
               }
-            } 
-            else if (userRecord.role === 'contractor') {
-              const { data: contractorData } = await supabase
-                .from('contractor_profiles')
-                .select('company_name, license_number, years_experience, service_area')
-                .eq('id', profileId)
-                .maybeSingle();
-              
-              if (contractorData) {
-                setCompanyName(contractorData.company_name || '');
-                setLicenseNumber(contractorData.license_number || '');
-                setYearsExperience(contractorData.years_experience?.toString() || '');
-                setServiceArea(contractorData.service_area || '');
+              else if (userRecord.role === 'adjuster') {
+                const { data: adjusterData } = await supabase
+                  .from('adjuster_profiles')
+                  .select('company_name, adjuster_license, territories')
+                  .eq('id', profileId)
+                  .maybeSingle();
+                
+                if (adjusterData) {
+                  setCompanyName(adjusterData.company_name || '');
+                  setLicenseNumber(adjusterData.adjuster_license || '');
+                  setTerritories(Array.isArray(adjusterData.territories) ? adjusterData.territories.join(', ') : '');
+                }
               }
             }
-            else if (userRecord.role === 'adjuster') {
-              const { data: adjusterData } = await supabase
-                .from('adjuster_profiles')
-                .select('company_name, adjuster_license, territories')
-                .eq('id', profileId)
-                .maybeSingle();
-              
-              if (adjusterData) {
-                setCompanyName(adjusterData.company_name || '');
-                setLicenseNumber(adjusterData.adjuster_license || '');
-                setTerritories(Array.isArray(adjusterData.territories) ? adjusterData.territories.join(', ') : '');
-              }
-            }
+          }
+        } else {
+          // No user record found, we'll create one on form submission
+          console.log("No existing user record found. Will create one on form submission.");
+          
+          // If role is in metadata, use it
+          if (authUser.user_metadata?.role) {
+            setRole(authUser.user_metadata.role);
           }
         }
       } catch (err: any) {
@@ -271,6 +277,7 @@ const CompleteProfile = () => {
         const { data, error: updateError } = await supabase
           .from('users')
           .update({ 
+            auth_user_id: authUserId, // Ensure auth_user_id is set correctly
             first_name: firstName,
             last_name: lastName,
             phone: phone || null,
@@ -284,7 +291,7 @@ const CompleteProfile = () => {
         if (updateError) throw updateError;
         userRecord = data;
       } else {
-        // Create new user record (should not happen with the new trigger)
+        // Create new user record
         const { data, error: insertError } = await supabase
           .from('users')
           .insert({ 
@@ -301,47 +308,118 @@ const CompleteProfile = () => {
           
         if (insertError) throw insertError;
         userRecord = data;
-      }
-      
-      // Step 3: Insert base profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .insert({ 
-          user_id: userRecord.id
-        })
-        .select('id')
-        .single();
         
-      if (profileError || !profileData?.id) {
-        throw profileError || new Error('Profile creation failed');
+        // Store the user ID in local storage
+        localStorage.setItem('supaUserDbId', userRecord.id);
       }
       
-      const profileId = profileData.id;
+      // Step 3: Check if profile already exists
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userRecord.id)
+        .maybeSingle();
+        
+      if (profileCheckError) {
+        console.error('Error checking for existing profile:', profileCheckError);
+      }
       
-      // Step 4: Insert role-specific profile
+      let profileId;
+      
+      // Create profile if it doesn't exist
+      if (!existingProfile) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .insert({ 
+            user_id: userRecord.id
+          })
+          .select('id')
+          .single();
+          
+        if (profileError || !profileData?.id) {
+          throw profileError || new Error('Profile creation failed');
+        }
+        
+        profileId = profileData.id;
+      } else {
+        profileId = existingProfile.id;
+      }
+      
+      // Step 4: Insert or update role-specific profile
       if (role === 'homeowner') {
-        await supabase.from('homeowner_profiles').insert({
-          id: profileId,
-          preferred_contact_method: preferredContactMethod,
-          additional_notes: additionalNotes || null
-        });
+        // Check if homeowner profile exists
+        const { data: existingHomeowner } = await supabase
+          .from('homeowner_profiles')
+          .select('id')
+          .eq('id', profileId)
+          .maybeSingle();
+          
+        if (existingHomeowner) {
+          // Update existing profile
+          await supabase.from('homeowner_profiles').update({
+            preferred_contact_method: preferredContactMethod,
+            additional_notes: additionalNotes || null
+          }).eq('id', profileId);
+        } else {
+          // Create new profile
+          await supabase.from('homeowner_profiles').insert({
+            id: profileId,
+            preferred_contact_method: preferredContactMethod,
+            additional_notes: additionalNotes || null
+          });
+        }
       } else if (role === 'contractor') {
-        await supabase.from('contractor_profiles').insert({
-          id: profileId,
-          company_name: companyName,
-          license_number: licenseNumber || null,
-          years_experience: yearsExperience ? parseInt(yearsExperience) : null,
-          service_area: serviceArea || null,
-          insurance_verified: false
-        });
+        // Check if contractor profile exists
+        const { data: existingContractor } = await supabase
+          .from('contractor_profiles')
+          .select('id')
+          .eq('id', profileId)
+          .maybeSingle();
+          
+        if (existingContractor) {
+          // Update existing profile
+          await supabase.from('contractor_profiles').update({
+            company_name: companyName,
+            license_number: licenseNumber || null,
+            years_experience: yearsExperience ? parseInt(yearsExperience) : null,
+            service_area: serviceArea || null
+          }).eq('id', profileId);
+        } else {
+          // Create new profile
+          await supabase.from('contractor_profiles').insert({
+            id: profileId,
+            company_name: companyName,
+            license_number: licenseNumber || null,
+            years_experience: yearsExperience ? parseInt(yearsExperience) : null,
+            service_area: serviceArea || null,
+            insurance_verified: false
+          });
+        }
       } else if (role === 'adjuster') {
-        await supabase.from('adjuster_profiles').insert({
-          id: profileId,
-          company_name: companyName,
-          adjuster_license: licenseNumber || null,
-          territories: territories ? territories.split(',').map(t => t.trim()).filter(t => t) : [],
-          certification_verified: false
-        });
+        // Check if adjuster profile exists
+        const { data: existingAdjuster } = await supabase
+          .from('adjuster_profiles')
+          .select('id')
+          .eq('id', profileId)
+          .maybeSingle();
+          
+        if (existingAdjuster) {
+          // Update existing profile
+          await supabase.from('adjuster_profiles').update({
+            company_name: companyName,
+            adjuster_license: licenseNumber || null,
+            territories: territories ? territories.split(',').map(t => t.trim()).filter(t => t) : []
+          }).eq('id', profileId);
+        } else {
+          // Create new profile
+          await supabase.from('adjuster_profiles').insert({
+            id: profileId,
+            company_name: companyName,
+            adjuster_license: licenseNumber || null,
+            territories: territories ? territories.split(',').map(t => t.trim()).filter(t => t) : [],
+            certification_verified: false
+          });
+        }
       }
       
       setSuccess(true);

@@ -101,26 +101,116 @@ const LoginPage: React.FC = () => {
       });
       
       if (error) throw error;
+
+      // Get auth user details
+      const authUser = data.user;
+      const authUserId = authUser.id;
+      const authUserEmail = authUser.email || '';
       
-      // Check if this user has completed their profile
+      console.log("Successfully authenticated with Supabase Auth, user ID:", authUserId);
+      
+      // First check if user exists in the users table with the correct auth_user_id
+      let { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, auth_user_id, email, role')
+        .eq('auth_user_id', authUserId)
+        .maybeSingle();
+      
+      if (userError) {
+        console.error("Error fetching user by auth_user_id:", userError);
+      }
+      
+      // If not found by auth_user_id, check by email
+      if (!userData) {
+        console.log("User not found by auth_user_id, checking by email");
+        
+        // Look for user by email
+        const { data: userByEmail, error: emailError } = await supabase
+          .from('users')
+          .select('id, auth_user_id, email, role')
+          .eq('email', authUserEmail)
+          .maybeSingle();
+          
+        if (emailError) {
+          console.error("Error fetching user by email:", emailError);
+        }
+        
+        // If found by email, update the auth_user_id
+        if (userByEmail) {
+          console.log("Found user by email, updating auth_user_id");
+          
+          // Update the auth_user_id to match the authenticated user
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ auth_user_id: authUserId })
+            .eq('id', userByEmail.id);
+            
+          if (updateError) {
+            console.error("Error updating auth_user_id:", updateError);
+          } else {
+            console.log("Successfully updated auth_user_id");
+            userData = userByEmail;
+            userData.auth_user_id = authUserId; // Update the local copy too
+          }
+        }
+      }
+      
+      // If user still not found, we need to create a new record
+      if (!userData) {
+        console.log("No user record found in database, creating one");
+        
+        // Get any available metadata
+        const firstName = authUser.user_metadata?.first_name || '';
+        const lastName = authUser.user_metadata?.last_name || '';
+        const role = authUser.user_metadata?.role || 'homeowner';
+        
+        // Create user record
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert({
+            auth_user_id: authUserId,
+            email: authUserEmail,
+            first_name: firstName,
+            last_name: lastName,
+            role: role,
+            email_confirmed: true
+          })
+          .select('id, auth_user_id, email, role')
+          .single();
+          
+        if (createError) {
+          console.error("Error creating user record:", createError);
+          throw new Error("Failed to set up your user account. Please contact support.");
+        }
+        
+        userData = newUser;
+        console.log("Created new user record with ID:", userData.id);
+      }
+      
+      // Now check if this user has completed their profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('user_id', data.user.id)
+        .eq('user_id', userData.id)
         .maybeSingle();
       
       if (profileError) {
         console.error('Error checking profile:', profileError);
       }
       
+      // Store the user ID in local storage for other parts of the app to use
+      // This helps ensure we're using the correct ID consistently
+      localStorage.setItem('supaUserDbId', userData.id);
+      
       // If no profile exists, redirect to complete-profile page
       if (!profileData) {
+        console.log("No profile found, redirecting to complete profile with auth ID:", authUserId);
         router.push({
           pathname: '/complete-profile',
-          query: { userId: data.user.id }
+          query: { userId: authUserId }
         });
       } else {
-        // Otherwise redirect to dashboard
+        console.log("Profile found, redirecting to dashboard");
         router.push('/dashboard');
       }
     } catch (err: any) {
