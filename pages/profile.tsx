@@ -184,7 +184,7 @@ const ProfilePage: React.FC = () => {
         p_first_name: firstName,
         p_last_name: lastName,
         p_role: selectedRole.toLowerCase(),
-        p_auth_user_id: profile.id,
+        p_auth_user_id: authUserId,
         p_avatar_url: undefined,
         p_phone: undefined, // Add this based on phone input if you add it to form
         p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : undefined,
