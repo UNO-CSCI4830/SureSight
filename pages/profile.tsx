@@ -173,16 +173,6 @@ const ProfilePage: React.FC = () => {
     try {
       if (!profile) return;
 
-      const {
-        data: { user },
-        error: userError
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        throw new Error('Unable to fetch user from Supabase auth.');
-      }
-      const authUserId = user.id;
-
       const territoriesArray =
         selectedRole === 'adjuster'
           ? territories.split(',').map((t) => t.trim()).filter((t) => t)
@@ -194,7 +184,7 @@ const ProfilePage: React.FC = () => {
         p_first_name: firstName,
         p_last_name: lastName,
         p_role: selectedRole.toLowerCase(),
-        p_auth_user_id: authUserId,
+        p_auth_user_id: profile.id,
         p_avatar_url: undefined,
         p_phone: undefined, // Add this based on phone input if you add it to form
         p_preferred_contact_method: selectedRole === 'homeowner' ? preferredContactMethod : undefined,
