@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import layout from '../components/layout/layout';
-import { card } from '../components/common';
-import button from '../components/ui/Button';
+import Layout from '../components/layout/layout';
+import { Card } from '../components/common';
+import Button from '../components/ui/Button';
+import Link from 'next/link';
 
 const Home: React.FC = () => {
-  const [weather, setWeather] = useState<{temp: Number; description: string} | null>(null);
+  const [weather, setWeather] = useState<{temp: number; description: string} | null>(null);
 
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        const apiKey = ProcessingInstruction.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+        const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
         const city = 'Council Bluffs';
         const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=imperial`);
         const data = await response.json();
