@@ -1,34 +1,40 @@
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Head from 'next/head';
+import { UserRole } from '../../types/supabase';
 import NavBar from './NavBar';
 import Footer from './Footer';
 import { supabase } from '../../utils/supabaseClient';
-import Head from 'next/head';
 
 interface LayoutProps {
-  children: ReactNode;
   title?: string;
-  description?: string;
-  className?: string;
+  children: React.ReactNode;
+  hideNavBar?: boolean;
+  hideFooter?: boolean;
 }
 
-const Layout = ({ 
-  children, 
+interface User {
+  id: string;
+}
+
+const Layout: React.FC<LayoutProps> = ({ 
   title = 'SureSight', 
-  description = 'Streamline roofing and siding damage assessment',
-  className = ''
-}: LayoutProps) => {
+  children,
+  hideNavBar = false,
+  hideFooter = false
+}) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [userRole, setUserRole] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [userRole, setUserRole] = useState<UserRole | ''>('');
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    // Check authentication status on component mount
     const checkAuth = async () => {
       try {
-        // Use the modern Supabase API
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error checking authentication:', error);
+          console.error('Error checking auth status:', error.message);
+          setIsLoading(false);
           return;
         }
         
@@ -38,28 +44,41 @@ const Layout = ({
         setIsLoggedIn(isAuthenticated);
         
         if (isAuthenticated && session?.user) {
-          // Fetch user role directly from the users table
+          // Store the auth user ID (from Supabase Auth)
+          const authUserId = session.user.id;
+          setUser({ id: authUserId });
+          
+          // Fetch user role from the users table using auth_user_id
           try {
-            const userId = session.user.id;
+            // Get the user from the users table using auth_user_id
             const { data: userData, error: userError } = await supabase
               .from('users')
               .select('role')
-              .eq('id', userId)
-              .single();
+              .eq('auth_user_id', authUserId)
+              .maybeSingle();
             
             if (userError) {
               console.error('Error fetching user role:', userError);
-              // Handle case where user has no role assigned yet
               setUserRole('');
-            } else if (userData) {
+            } else if (userData && userData.role) {
               setUserRole(userData.role);
+            } else {
+              setUserRole('');
+              console.log('User has no role assigned yet');
             }
           } catch (err) {
             console.error('Error in role processing:', err);
+            setUserRole('');
+          } finally {
+            setIsLoading(false);
           }
+        } else {
+          setUser(null);
+          setIsLoading(false);
         }
       } catch (err) {
         console.error('Error in auth check:', err);
+        setIsLoading(false);
       }
     };
     
@@ -78,67 +97,75 @@ const Layout = ({
     try {
       // Use the modern auth state change API
       authListener = supabase.auth.onAuthStateChange(async (event, session) => {
-        setIsLoggedIn(!!session);
+        const isAuthenticated = !!session;
+        setIsLoggedIn(isAuthenticated);
         
         if (session?.user) {
+          const authUserId = session.user.id;
+          setUser({ id: authUserId });
+          
           // Fetch user role when auth state changes
           try {
-            const userId = session.user.id;
+            // Get the user from the users table using auth_user_id
             const { data: userData, error: userError } = await supabase
               .from('users')
               .select('role')
-              .eq('id', userId)
-              .single();
+              .eq('auth_user_id', authUserId)
+              .maybeSingle();
             
-            if (!userError && userData) {
+            if (!userError && userData && userData.role) {
               setUserRole(userData.role);
             } else {
               setUserRole('');
-              console.log('User has no role assigned yet');
+              console.log('User has no role assigned yet or error fetching role');
             }
           } catch (err) {
-            console.error('Error in auth change role processing:', err);
+            console.error('Error in role processing:', err);
             setUserRole('');
           }
         } else {
+          setUser(null);
           setUserRole('');
         }
       });
-    } catch (e) {
-      console.error('Error setting up auth listener:', e);
+    } catch (err) {
+      console.error('Error setting up auth listener:', err);
     }
     
     return () => {
-      // Clean up subscription
-      if (authListener && authListener.data && authListener.data.subscription) {
-        authListener.data.subscription.unsubscribe();
-      } else if (authListener && typeof authListener.unsubscribe === 'function') {
-        authListener.unsubscribe();
+      // Clean up subscription based on which API we're using
+      if (authListener) {
+        if (authListener.data?.subscription) {
+          authListener.data.subscription.unsubscribe();
+        } else if (authListener.unsubscribe) {
+          authListener.unsubscribe();
+        }
       }
     };
   }, []);
 
   return (
-    <>
+    <div>
       <Head>
         <title>{title}</title>
-        <meta name="description" content={description} />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="SureSight - Property Damage Assessment" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      
-      <div className={`min-h-screen flex flex-col bg-gray-50 ${className}`} data-testid="layout-container">
-        <NavBar isLoggedIn={isLoggedIn} userRole={userRole} />
-        
-        <main className="flex-grow pt-16 px-4 md:px-6 max-w-7xl w-full mx-auto">
-          <div className="py-8">
-            {children}
-          </div>
-        </main>
-        
-        <Footer />
-      </div>
-    </>
+
+      {!hideNavBar && (
+        <NavBar
+          isLoggedIn={isLoggedIn}
+          userRole={userRole}
+          isLoading={isLoading}
+        />
+      )}
+
+      <main className="container mx-auto px-4 py-8 min-h-screen">
+        {children}
+      </main>
+
+      {!hideFooter && <Footer />}
+    </div>
   );
 };
 

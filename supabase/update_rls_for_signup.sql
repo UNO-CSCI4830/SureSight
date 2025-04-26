@@ -1,5 +1,6 @@
 -- SQL script to fix the "Database error saving new user" issue
 -- This script adds the necessary RLS policies to allow user registration
+-- Updated for the new database schema (April 2025)
 
 -- 1. Allow public (non-authenticated) access to create_user_profile function
 -- This makes the function accessible during signup

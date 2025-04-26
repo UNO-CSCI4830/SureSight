@@ -13,7 +13,9 @@
         "update-types": "npx supabase gen types typescript --project-id khqevpnoodeggshfxeaa --schema public > types/database.types.ts"
     },
     "dependencies": {
+        "@supabase/auth-helpers-nextjs": "^0.10.0",
         "@supabase/auth-helpers-react": "^0.5.0",
+        "@supabase/ssr": "^0.6.1",
         "@supabase/supabase-js": "^2.49.4",
         "next": "^15.3.1",
         "react": "^19.0.0",

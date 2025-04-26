@@ -7,7 +7,7 @@ import Icon from '../ui/icons/Icon';
 interface NavBarProps {
   isLoggedIn?: boolean;
   userRole?: string;
-  user?: { id: string }; // Add user prop
+  user?: { id: string };
 }
 
 const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user }) => {
@@ -15,6 +15,26 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Double-check authentication status directly with Supabase
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const authenticated = !!data.session;
+        setIsAuthenticated(authenticated);
+        setAuthChecked(true);
+      } catch (err) {
+        console.error("Error verifying authentication:", err);
+        setIsAuthenticated(false);
+        setAuthChecked(true);
+      }
+    };
+    
+    checkAuthentication();
+  }, [isLoggedIn]); // Re-check when isLoggedIn prop changes
 
   // Handle clicks outside the menu to close it
   useEffect(() => {
@@ -29,11 +49,13 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
   const [error, setError] = useState<string | null>(null);
+  
   //Fetch notifications
   useEffect(() => {
     const fetchUnreadNotifications = async () => {
-      if (!isLoggedIn || !user) return; // Ensure user is defined
+      if (!isAuthenticated || !user) return; // Use verified authentication status
       try {
         const response = await fetch(`/api/notis?user_id=${user.id}`);
         const data: { count: number } = await response.json();  
@@ -44,7 +66,7 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
       }
     };
     fetchUnreadNotifications();
-  }, [isLoggedIn, user]); // Add user to dependency array
+  }, [isAuthenticated, user]); // Use verified auth status
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
@@ -57,7 +79,8 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
         console.error('Error logging out:', error.message);
       } else {
         console.log('User logged out');
-        router.push('/login'); // Redirect to home page after logout
+        setIsAuthenticated(false);
+        router.push('/login');
       }
     } catch (err) {
       console.error('Unexpected error during logout:', err);
@@ -67,6 +90,9 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
   const handleChangePassword = () => {
     router.push('/updatepassword');
   };
+
+  // Use both the prop and our verified auth status
+  const actuallyLoggedIn = isLoggedIn && isAuthenticated;
 
   return (
     <nav className="nav-bar">
@@ -96,7 +122,7 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
         {menuOpen && (
           <div className="dropdown-menu">
             <ul className="menu-list">
-              {!isLoggedIn ? (
+              {!actuallyLoggedIn ? (
                 <>
                   <li className="menu-item menu-item-border">
                     <Link href="/login" className="flex items-center gap-2">

@@ -49,7 +49,8 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             return;
           }
 
-          const userId = session.user.id;
+          // This is the auth_user_id from Supabase Auth
+          const authUserId = session.user.id;
 
           // If no specific roles are required, just being authenticated is enough
           if (requiredRoles.length === 0 && !requireCompleteProfile) {
@@ -58,7 +59,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             return;
           }
 
-          // Check if user has the required role using the new schema
+          // Check if user has the required role using the correct user ID mapping
           try {
             // For testing purposes, auto-authorize in test environment
             // but only if not testing specific role requirements or profile completion
@@ -68,42 +69,27 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
               return;
             }
             
-            // Check the database schema to ensure columns exist
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('role, profile_complete')
-              .eq('user_id', userId)
-              .single();
-
-            if (profileError) {
-              console.error('Profile fetch error:', profileError);
+            // First, get the user record from the users table using auth_user_id
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('id, role, email_confirmed')
+              .eq('auth_user_id', authUserId)
+              .maybeSingle();
               
-              // Fallback to users table if profiles doesn't contain the data
-              const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', userId)
-                .single();
-                
-              if (userError) {
-                console.error('User data fetch error:', userError);
-                throw new Error('Failed to check user data');
-              }
-              
-              router.push('/dashboard');
+            if (userError || !userData) {
+              console.error('User fetch error:', userError);
+              router.push('/complete-profile');
               return;
             }
-
-            const typedProfileData = profileData as ProfileData;
-
+            
             // Check if profile completion is required
-            if (requireCompleteProfile && (!typedProfileData || !typedProfileData.profile_complete)) {
+            if (requireCompleteProfile && (!userData.email_confirmed)) {
               console.log('User profile is incomplete');
               router.push('/complete-profile');
               return;
             }
 
-            if (!typedProfileData || !typedProfileData.role) {
+            if (!userData || !userData.role) {
               console.log('No role found for user');
               // If we can't determine the role, redirect to a default dashboard
               router.push('/dashboard');
@@ -111,7 +97,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             }
 
             // Check if user has the required role
-            const userRole = typedProfileData.role.toLowerCase();
+            const userRole = userData.role.toLowerCase();
             const hasRequiredRole = requiredRoles.length === 0 || 
                                  requiredRoles.some(role => role.toLowerCase() === userRole);
 

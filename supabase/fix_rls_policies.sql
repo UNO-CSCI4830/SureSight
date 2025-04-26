@@ -21,6 +21,7 @@ WHERE
 DROP POLICY IF EXISTS "Allow public signup" ON public.users;
 DROP POLICY IF EXISTS "Auth users can insert user data" ON public.users;
 DROP POLICY IF EXISTS "User Creation Policy" ON public.users;
+DROP POLICY IF EXISTS "Allow user creation during signup" ON public.users;
 
 -- Create a single, clean INSERT policy for user creation
 CREATE POLICY "Allow user creation during signup" 
@@ -113,6 +114,60 @@ CREATE TRIGGER on_auth_user_created
 -- Make sure the users table has RLS enabled
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
+-- Enable RLS on role-specific profile tables
+ALTER TABLE homeowner_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contractor_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE adjuster_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing role-specific profile policies
+DROP POLICY IF EXISTS "Allow homeowner profile creation during signup" ON homeowner_profiles;
+DROP POLICY IF EXISTS "Allow contractor profile creation during signup" ON contractor_profiles;
+DROP POLICY IF EXISTS "Allow adjuster profile creation during signup" ON adjuster_profiles;
+DROP POLICY IF EXISTS "Users can view their own homeowner profile" ON homeowner_profiles;
+DROP POLICY IF EXISTS "Users can view their own contractor profile" ON contractor_profiles;
+DROP POLICY IF EXISTS "Users can view their own adjuster profile" ON adjuster_profiles;
+
+-- Allow creation of role-specific profiles during signup
+CREATE POLICY "Allow homeowner profile creation during signup" ON homeowner_profiles
+FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow contractor profile creation during signup" ON contractor_profiles
+FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow adjuster profile creation during signup" ON adjuster_profiles
+FOR INSERT WITH CHECK (true);
+
+-- Allow users to view their own role-specific profile
+CREATE POLICY "Users can view their own homeowner profile" ON homeowner_profiles
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE homeowner_profiles.id = p.id
+    AND u.auth_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view their own contractor profile" ON contractor_profiles
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE contractor_profiles.id = p.id
+    AND u.auth_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view their own adjuster profile" ON adjuster_profiles
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM profiles p
+    JOIN users u ON p.user_id = u.id
+    WHERE adjuster_profiles.id = p.id
+    AND u.auth_user_id = auth.uid()
+  )
+);
+
 -- Check final policies after our changes
 SELECT
     schemaname,
@@ -125,4 +180,4 @@ FROM
     pg_policies
 WHERE
     schemaname = 'public'
-    AND tablename = 'users';
+    AND tablename IN ('users', 'homeowner_profiles', 'contractor_profiles', 'adjuster_profiles');

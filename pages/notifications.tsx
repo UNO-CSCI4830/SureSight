@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { useUser } from '@supabase/auth-helpers-react';
+import { useRouter } from 'next/router';
+import Layout from '../components/layout/Layout';
+import AuthGuard from '../components/auth/AuthGuard';
 
 interface Message {
   id: string;
@@ -12,10 +14,27 @@ interface Message {
 }
 
 const NotificationsPage = () => {
-  const user = useUser();
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser(user);
+        }
+      } catch (err) {
+        console.error("Error checking user authentication:", err);
+        setError("Authentication error. Please try logging in again.");
+      }
+    };
+    
+    checkUser();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -32,7 +51,11 @@ const NotificationsPage = () => {
           console.log('Message updated:', payload);
           fetchMessages();
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') {
+            console.error('Failed to subscribe to real-time changes:', status);
+          }
+        });
 
       return () => {
         supabase.removeChannel(channel);
@@ -46,24 +69,27 @@ const NotificationsPage = () => {
 
     try {
       if (!user) {
-        setError('User is not logged in.');
         setLoading(false);
         return;
       }
 
-      // call the new API route
+      // call the API route with proper error handling
       const response = await fetch(`/api/notis?user_id=${user.id}`);
+      
       if (!response.ok) {
-        throw new Error('Error fetching messages');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error: ${response.status}`);
       }
+      
       const data = await response.json();
       setMessages(data);
     } catch (err) {
-      setError('Error fetching messages');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
+      setError(errorMessage);
+      console.error('Error fetching messages:', err);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const markAsRead = async (id: string) => {
@@ -73,52 +99,79 @@ const NotificationsPage = () => {
         .update({ is_read: true })
         .eq('id', id);
 
-      if (!error) fetchMessages();
-      else setError('Error marking message as read');
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state without re-fetching
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === id ? { ...msg, is_read: true } : msg
+        )
+      );
     } catch (err) {
       setError('Error marking message as read');
-      console.error(err);
+      console.error('Error marking message as read:', err);
     }
   };
 
-  if (!user) {
-    return <p>Please log in to view your notifications.</p>;
-  }
-
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Messages</h1>
-      {loading ? (
-        <p>Loading messages...</p>
-      ) : messages.length > 0 ? (
-        <ul className="space-y-4">
-          {messages.map((msg) => (
-            <li
-              key={msg.id}
-              className={`p-4 border rounded-lg shadow-sm ${
-                msg.is_read ? 'bg-gray-100' : 'bg-white'
-              }`}
-            >
-              <p className="font-semibold">From: {msg.sender_id}</p>
-              <p>{msg.content}</p>
-              <small className="text-gray-500">
-                {new Date(msg.created_at).toLocaleString()}
-              </small>
-              {!msg.is_read && (
-                <button
-                  onClick={() => markAsRead(msg.id)}
-                  className="mt-2 text-sm text-blue-600 hover:underline"
+    <Layout title="Messages | SureSight">
+      <AuthGuard>
+        <div className="container mx-auto p-4">
+          <h1 className="text-3xl font-bold mb-4">Messages</h1>
+          
+          {error && (
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+              <p>{error}</p>
+              <button 
+                onClick={fetchMessages}
+                className="mt-2 text-sm font-medium text-red-700 hover:text-red-900"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-pulse text-gray-500">Loading messages...</div>
+            </div>
+          ) : messages.length > 0 ? (
+            <ul className="space-y-4">
+              {messages.map((msg) => (
+                <li
+                  key={msg.id}
+                  className={`p-4 border rounded-lg shadow-sm ${
+                    msg.is_read ? 'bg-gray-50' : 'bg-white border-l-4 border-blue-500'
+                  }`}
                 >
-                  Mark as read
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No messages yet!</p>
-      )}
-    </div>
+                  <p className="font-semibold">From: {msg.sender_id}</p>
+                  <p className="my-2">{msg.content}</p>
+                  <div className="flex justify-between items-center mt-2">
+                    <small className="text-gray-500">
+                      {new Date(msg.created_at).toLocaleString()}
+                    </small>
+                    {!msg.is_read && (
+                      <button
+                        onClick={() => markAsRead(msg.id)}
+                        className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100"
+                      >
+                        Mark as read
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-gray-500">No messages yet!</p>
+            </div>
+          )}
+        </div>
+      </AuthGuard>
+    </Layout>
   );
 };
 
