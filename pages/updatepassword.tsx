@@ -18,13 +18,22 @@ const UpdatePassword: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   useEffect(() => {
-    const checkAuth = async () => {
+    const { access_token } = router.query;
+    const setAccessToken = async () => {
+      if (access_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: access_token as string,
+          refresh_token: '',
+        });
+        if (error) {
+          console.error('Error setting session:', error.message);
+        }
+      }
       const { data } = await supabase.auth.getSession();
       setIsLoggedIn(!!data.session);
     };
-    
-    checkAuth();
-  }, []);
+    setAccessToken();
+  }, [router.query]);
 
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
