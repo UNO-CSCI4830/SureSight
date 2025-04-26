@@ -29,11 +29,11 @@ const UpdatePassword: React.FC = () => {
           console.error('Error setting session:', error.message);
         }
       }
-      const { data } = await supabase.auth.getSession():
+      const { data } = await supabase.auth.getSession();
       setIsLoggedIn(!!data.session);
     };
     setAccessToken();
-  }; [router.query]);
+  }, [router.query]);
 
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
