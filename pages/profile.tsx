@@ -173,6 +173,16 @@ const ProfilePage: React.FC = () => {
     try {
       if (!profile) return;
 
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error('Unable to fetch user from Supabase auth.');
+      }
+      const authUserId = user.id;
+
       const territoriesArray =
         selectedRole === 'adjuster'
           ? territories.split(',').map((t) => t.trim()).filter((t) => t)
