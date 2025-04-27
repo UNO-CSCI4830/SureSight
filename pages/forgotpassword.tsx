@@ -44,7 +44,7 @@ const ForgotPassword: React.FC = () => {
 
 return (
   <Layout title="Forgot Password | SureSight">
-    <div className="max-w-md mx-auto w-full">
+    <div className="max-w-md mx-auto w-full mt-10">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Forgot Password</h1>
       </div>
@@ -65,6 +65,7 @@ return (
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="your-email@example.com"
+            inputClassName='bg-white text-gray-900'
           />
           <button
             type="submit"
