@@ -144,7 +144,7 @@ export default function Home(): ReactNode {
         {/* CTA Section */}
         <section className="py-16 bg-primary-600 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold mb-6">Ready to streamline your damage assessment process?</h2>
+            <h2 className="text-3xl font-bold text-white mb-6">Ready to streamline your damage assessment process?</h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
               Join thousands of homeowners, contractors, and insurance adjusters who are already using SureSight.
             </p>
