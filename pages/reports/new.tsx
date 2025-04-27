@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import Layout from "../../components/layout/Layout";
 import { supabase } from "../../utils/supabaseClient";
-import { Card, LoadingSpinner, StatusMessage } from "../../components/common";
+import { Card } from "../../components/common";
 import { FormInput, Button } from "../../components/ui";
-import formValidation from "../../utils/formValidation";
+import { FormField } from "../../components/common";
+
 export default function NewForm() {
+  const [address, setAddress] = useState("");
+
   return (
     <Layout>
       <Head>
@@ -22,6 +25,20 @@ export default function NewForm() {
             Please fill out the form below to file your claim
           </p>
         </div>
+        <Card>
+          <form>
+            <FormField id="address" label="Please Enter Your Address" required>
+              <FormInput
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Enter your address"
+                inputClassName="bg-white"
+                required
+              />
+            </FormField>
+          </form>
+        </Card>
       </div>
     </Layout>
   );

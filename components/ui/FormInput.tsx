@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface FormInputProps {
   id: string;
@@ -30,13 +30,13 @@ const FormInput: React.FC<FormInputProps> = ({
   id,
   name,
   label,
-  type = 'text',
+  type = "text",
   value,
   onChange,
-  placeholder = '',
+  placeholder = "",
   required = false,
   disabled = false,
-  className = '',
+  className = "",
   error,
   helpText,
   min,
@@ -45,12 +45,15 @@ const FormInput: React.FC<FormInputProps> = ({
   autoComplete,
   autoFocus,
   readOnly,
-  inputClassName = ''
+  inputClassName = "",
 }) => {
   return (
     <div className={`${className}`}>
       {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        <label
+          htmlFor={id}
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -64,7 +67,9 @@ const FormInput: React.FC<FormInputProps> = ({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        className={`form-input ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''} ${inputClassName}`}
+        className={`form-input ${
+          error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : ""
+        } ${inputClassName}`}
         min={min}
         max={max}
         pattern={pattern}
