@@ -423,7 +423,7 @@ const CompleteProfile = () => {
       }
       
       setSuccess(true);
-      setTimeout(() => router.push('/dashboard'), 1500);
+      setTimeout(() => router.push('/Dashboard'), 1500);
       
     } catch (err: any) {
       console.error('Error completing profile:', err);

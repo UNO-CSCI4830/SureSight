@@ -211,7 +211,7 @@ const LoginPage: React.FC = () => {
         });
       } else {
         console.log("Profile found, redirecting to dashboard");
-        router.push('/dashboard');
+        router.push('/Dashboard');
       }
     } catch (err: any) {
       console.error('Login error:', err.message);

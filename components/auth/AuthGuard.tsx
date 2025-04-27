@@ -92,7 +92,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             if (!userData || !userData.role) {
               console.log('No role found for user');
               // If we can't determine the role, redirect to a default dashboard
-              router.push('/dashboard');
+              router.push('/Dashboard');
               return;
             }
 
@@ -115,7 +115,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             if (requiredRoles.length === 0) {
               setIsAuthorized(true);
             } else {
-              router.push('/dashboard');
+              router.push('/Dashboard');
             }
           }
         } catch (e) {

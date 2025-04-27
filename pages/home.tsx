@@ -43,7 +43,7 @@ const Home: React.FC = () => {
           )}
             
           <div className="grid gap-4 max-w-md mx-auto">
-            <Link href="/dashboard">
+            <Link href="/Dashboard">
               <Button variant="primary" className="w-full">Go to Dashboard</Button>
             </Link>
 
