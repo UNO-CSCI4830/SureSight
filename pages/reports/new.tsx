@@ -7,7 +7,11 @@ import { supabase, useSupabaseAuth } from "../../utils/supabaseClient";
 import { Card } from "../../components/common";
 import { FormInput, Button } from "../../components/ui";
 import { FormField } from "../../components/common";
-
+/**
+ * Component handles displaying the logic for the new form component
+ * todo make database post request
+ * @returns XML
+ */
 export default function NewForm() {
   const { user } = useSupabaseAuth();
   const [address, setAddress] = useState("");
