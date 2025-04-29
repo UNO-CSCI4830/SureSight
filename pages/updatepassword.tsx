@@ -20,48 +20,49 @@ const UpdatePassword: React.FC = () => {
   
   useEffect(() => {
     async function verifyRecoveryLink() {
-      // Use the current Supabase API to get the session from the URL
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        setMessage({ text: error.message, type: 'error' });
-      } else if (data.session) {
-        setIsLoggedIn(true);
-        setIsReady(true);
-      } else {
-        // Check if we're in a password reset flow by examining URL parameters
-        const hash = window.location.hash;
-        if (hash && (hash.includes('type=recovery') || hash.includes('type=signup'))) {
-          // We have a recovery token in the URL
-          console.log("Recovery token detected in URL");
+      try {
+        // Extract hash parameters from URL for authentication
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        
+        let error = null;
+        let session = null;
+        
+        if (accessToken && refreshToken) {
+          const { data, error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
           
-          try {
-            // Extract the access token from the URL if present
-            const accessToken = new URLSearchParams(hash.substring(1)).get('access_token');
-            if (accessToken) {
-              // Set the session with the recovery token to enable password update
-              const { error: setSessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: '',
-              });
-              
-              if (setSessionError) {
-                console.error("Error setting session with recovery token:", setSessionError);
-                setMessage({ text: 'Invalid or expired recovery link. Please request a new one.', type: 'error' });
-                return;
-              }
-            }
-            
-            setIsReady(true);
-          } catch (err) {
-            console.error("Error processing recovery token:", err);
-            setMessage({ text: 'Error processing your recovery link. Please try again.', type: 'error' });
-          }
-        } else {
-          setMessage({ text: 'Invalid or expired password reset link.', type: 'error' });
+          session = data.session;
+          error = setSessionError;
         }
+          
+        if (error) {
+          console.error("Error getting session from URL:", error);
+          setMessage({ text: error.message, type: 'error' });
+        } else if (session) {
+          // Session successfully retrieved from URL
+          console.log("Session retrieved from URL");
+          setIsLoggedIn(true);
+          setIsReady(true);
+        } else {
+          // Fallback to checking current session
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session) {
+            setIsLoggedIn(true);
+            setIsReady(true);
+          } else {
+            setMessage({ text: 'Invalid or expired password reset link. Please request a new one.', type: 'error' });
+          }
+        }
+      } catch (err) {
+        console.error("Error in recovery link verification:", err);
+        setMessage({ text: 'An error occurred while processing your request.', type: 'error' });
       }
     }
+    
     verifyRecoveryLink();
   }, []);
 
