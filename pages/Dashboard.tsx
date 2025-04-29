@@ -214,23 +214,25 @@ const Dashboard: React.FC = () => {
   return (
     <Layout title="Dashboard - SureSight">
       <AuthGuard>
-        <div className="container mx-auto px-4 py-6">
-          <PageHeader
-            title="Dashboard"
-            subtitle="Manage your properties and reports"
-          />
+        <div className="containter mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <PageHeader
+              title="Dashboard"
+              subtitle="Manage your properties and reports"
+            />
 
-          {weather && (
-            <div className="mb-6">
-              <Card>
-                <div className="p-4 text-center">
-                  <h3 className="text-lg font-medium mb-1">Weather in {weather.city}</h3>
-                  <p className="text-2xl font-bold text-primary-600">{weather.temp}°F</p>
-                  <p className="text-sm text-gray-600 capitalize">{weather.description}</p>
-                </div>
-              </Card>
-            </div>
-          )}
+            {weather && (
+              <div className="mt-4 md:mt-0 md:ml-4">
+                <Card>
+                  <div className="p-4 text-center">
+                    <h3 className="text-sm font-medium text-gray-600">Weather in {weather.city}</h3>
+                    <p className="text-xl font-bold text-primary-600">{weather.temp}°F</p>
+                    <p className="text-gray-500 capitalize text-sm">{weather.description}</p>
+                  </div>
+                </Card>
+              </div>
+            )}
+          </div>
 
           {message && (
             <StatusMessage
