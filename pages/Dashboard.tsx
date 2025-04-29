@@ -221,27 +221,25 @@ const Dashboard: React.FC = () => {
               subtitle="Manage your properties and reports"
             />
 
-            {weather && (
-              <div className="mt-4 md:mt-0 md:ml-4">
-                <Card>
-                  <div className="p-4 text-center">
-                    <h3 className="text-sm font-medium text-gray-600">
-                      {weather ? `Weather in ${weather.city}` : "Fetching weather..."}
-                    </h3>
-                    {weather ? (
-                      <>
-                        <p className="text-xl font-bold text-primary-600">{weather.temp}°F</p>
-                        <p className="text-gray-500 capitalize text-sm">{weather.description}</p>
-                      </>
-                    ) : (
-                      <p>
-                        <p className="text-gray-400 text-sm">Loading weather...</p>
-                      </p>
-                    )}
-                  </div>
-                </Card>
-              </div>
-            )}
+            
+            <div className="mt-4 md:mt-0 md:ml-4">
+              <Card>
+                <div className="p-4 text-center">
+                  <h3 className="text-sm font-medium text-gray-600">
+                     {weather ? `Weather in ${weather.city}` : "Fetching weather..."}
+                  </h3>
+                  {weather ? (
+                    <>
+                      <p className="text-xl font-bold text-primary-600">{weather.temp}°F</p>
+                      <p className="text-gray-500 capitalize text-sm">{weather.description}</p>
+                    </>
+                  ) : (
+                      <p className="text-gray-400 text-sm">Loading weather...</p>
+                  )}
+                </div>
+              </Card>
+            </div>
+           
           </div>
 
           {message && (
