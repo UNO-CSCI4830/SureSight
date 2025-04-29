@@ -220,16 +220,14 @@ const Dashboard: React.FC = () => {
             subtitle="Manage your properties and reports"
           />
           {weather && (
-            <div className="mb-8">
-              <Card>
-                <div className="p-6 text-center">
-                  <h3 className="text-lg font-medium">Today's Weather</h3>
-                  <p className="text-3xl font-semibold text-primary-700 mb-2">{weather.city}</p>
-                  <p className="text-3xl font-bold text-primary-600 mt-2">{weather.temp}°F</p>
-                  <p className="text-gray-600 capitalize">{weather.description}</p>
-                </div>
-              </Card>
-            </div>
+            <Card className="mb-8">
+              <div className="p-6 text-center">
+                <h3 className="text-lg font-medium">Today's Weather</h3>
+                <p className="text-3xl font-semibold text-primary-700 mb-2">{weather.city}</p>
+                <p className="text-3xl font-bold text-primary-600 mt-2">{weather.temp}°F</p>
+                <p className="text-gray-600 capitalize">{weather.description}</p>
+              </div>
+            </Card>
           )}
 
           {message && (
