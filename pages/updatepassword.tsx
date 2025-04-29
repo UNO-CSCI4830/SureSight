@@ -16,21 +16,54 @@ const UpdatePassword: React.FC = () => {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   
   useEffect(() => {
-    const { code } = router.query;
-    const exchangeCode = async () => {
-      if (typeof code === 'string') {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          setMessage({ text: error.message, type: 'error' });
+    async function verifyRecoveryLink() {
+      // Use the current Supabase API to get the session from the URL
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        setMessage({ text: error.message, type: 'error' });
+      } else if (data.session) {
+        setIsLoggedIn(true);
+        setIsReady(true);
+      } else {
+        // Check if we're in a password reset flow by examining URL parameters
+        const hash = window.location.hash;
+        if (hash && (hash.includes('type=recovery') || hash.includes('type=signup'))) {
+          // We have a recovery token in the URL
+          console.log("Recovery token detected in URL");
+          
+          try {
+            // Extract the access token from the URL if present
+            const accessToken = new URLSearchParams(hash.substring(1)).get('access_token');
+            if (accessToken) {
+              // Set the session with the recovery token to enable password update
+              const { error: setSessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: '',
+              });
+              
+              if (setSessionError) {
+                console.error("Error setting session with recovery token:", setSessionError);
+                setMessage({ text: 'Invalid or expired recovery link. Please request a new one.', type: 'error' });
+                return;
+              }
+            }
+            
+            setIsReady(true);
+          } catch (err) {
+            console.error("Error processing recovery token:", err);
+            setMessage({ text: 'Error processing your recovery link. Please try again.', type: 'error' });
+          }
         } else {
-          setIsLoggedIn(true);
+          setMessage({ text: 'Invalid or expired password reset link.', type: 'error' });
         }
       }
-    };
-    exchangeCode();
-  }, [router.query]);
+    }
+    verifyRecoveryLink();
+  }, []);
 
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -116,62 +149,70 @@ const UpdatePassword: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleUpdatePassword} className="space-y-6">
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                New Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="form-input bg-white text-gray-900"
-                placeholder="••••••••"
-                required
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Must be at least 8 characters
+          {isReady ? (
+            <form onSubmit={handleUpdatePassword} className="space-y-6">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="form-input bg-white text-gray-900"
+                  placeholder="••••••••"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Must be at least 8 characters
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="form-input bg-white text-gray-900"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`btn-primary w-full ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </span>
+                  ) : (
+                    'Update Password'
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-gray-600">
+                {message ? message.text : "Verifying your recovery link..."}
               </p>
             </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="form-input bg-white text-gray-900"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`btn-primary w-full ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Updating...
-                  </span>
-                ) : (
-                  'Update Password'
-                )}
-              </button>
-            </div>
-          </form>
+          )}
         </div>
       </div>
     </Layout>

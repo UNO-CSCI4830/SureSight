@@ -18,8 +18,12 @@ const ForgotPassword: React.FC = () => {
     setMessage(null);
     setIsLoading(true);
 
+    // Use window.location.origin to ensure we have the correct base URL
+    const resetUrl = `${window.location.origin}/updatepassword`;
+    console.log("Reset password redirect URL:", resetUrl);
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/updatepassword`, // Email link sends to update password
+      redirectTo: resetUrl, // Using dynamically built URL instead of env variable
     });
 
     if (error) {
