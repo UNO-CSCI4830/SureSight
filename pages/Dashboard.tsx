@@ -225,8 +225,8 @@ const Dashboard: React.FC = () => {
               <div className="mt-4 md:mt-0 md:ml-4">
                 <Card>
                   <div className="p-4 text-center">
-                    <h3 className="text-sm font-medium text-gray-600">Weather in {weather.city}
-                      weather {weather ? `in ${weather.city}` : ""}
+                    <h3 className="text-sm font-medium text-gray-600">
+                      {weather ? `Weather in ${weather.city}` : "Fetching weather..."}
                     </h3>
                     {weather ? (
                       <>
