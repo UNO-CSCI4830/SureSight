@@ -18,18 +18,99 @@ export default function NewForm() {
   const [insuranceProvider, setInsuranceProvider] = useState("");
   const [image, setImage] = useState("");
   const [damageDate, setDamageDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const formData = {
-      user,
-      address,
-      insuranceProvider,
-      damageDate,
-      image,
-    };
-    console.log("Form submitted:", formData);
+    if (!user) {
+      console.error("User not logged in");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      // Get the user's properties
+      const { data: properties, error: propError } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("homeowner_id", user.id)
+        .limit(1);
+
+      if (propError) {
+        throw new Error("Error finding properties: " + propError.message);
+      }
+
+      // If no properties, create one first
+      let propertyId;
+      if (!properties || properties.length === 0) {
+        // Extract address components
+        const addressParts = address.split(',').map(part => part.trim());
+        const cityStateZip = addressParts.length > 1 ? addressParts[1].split(' ') : ['', '', ''];
+        const city = cityStateZip.slice(0, -2).join(' ') || 'Unknown';
+        const state = cityStateZip[cityStateZip.length - 2] || 'Unknown';
+        const postal = cityStateZip[cityStateZip.length - 1] || 'Unknown';
+
+        // Create a new property
+        const { data: newProperty, error: createError } = await supabase
+          .from("properties")
+          .insert({
+            homeowner_id: user.id,
+            address_line1: addressParts[0] || address,
+            city: city,
+            state: state, 
+            postal_code: postal,
+            property_type: "residential"
+          })
+          .select("id")
+          .single();
+
+        if (createError) {
+          throw new Error("Error creating property: " + createError.message);
+        }
+        
+        propertyId = newProperty.id;
+      } else {
+        propertyId = properties[0].id;
+      }
+
+      // Create a new report
+      const { data: report, error: reportError } = await supabase
+        .from("reports")
+        .insert({
+          property_id: propertyId,
+          creator_id: user.id,
+          title: `${insuranceProvider} Claim - ${new Date().toLocaleDateString()}`,
+          status: "draft",
+          incident_date: damageDate || null,
+          description: "Initial report created from form submission"
+        })
+        .select("id")
+        .single();
+
+      if (reportError) {
+        throw new Error("Error creating report: " + reportError.message);
+      }
+
+      // If there's an image, upload it
+      if (image) {
+        // TODO: Add image upload logic
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push(`/reports/${report.id}`);
+      }, 1500);
+    } catch (error: any) {
+      console.error("Form submission error:", error);
+      setError(error.message || "An error occurred while submitting the form");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

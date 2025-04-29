@@ -114,7 +114,7 @@ const LoginPage: React.FC = () => {
         .from('users')
         .select('id, auth_user_id, email, role')
         .eq('auth_user_id', authUserId)
-        .maybeSingle();
+        .single();
       
       if (userError) {
         console.error("Error fetching user by auth_user_id:", userError);
@@ -129,7 +129,7 @@ const LoginPage: React.FC = () => {
           .from('users')
           .select('id, auth_user_id, email, role')
           .eq('email', authUserEmail)
-          .maybeSingle();
+          .single();
           
         if (emailError) {
           console.error("Error fetching user by email:", emailError);
@@ -143,7 +143,8 @@ const LoginPage: React.FC = () => {
           const { error: updateError } = await supabase
             .from('users')
             .update({ auth_user_id: authUserId })
-            .eq('id', userByEmail.id);
+            .eq('id', userByEmail.id)
+            .select();
             
           if (updateError) {
             console.error("Error updating auth_user_id:", updateError);

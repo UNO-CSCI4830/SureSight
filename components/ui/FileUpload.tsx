@@ -10,6 +10,8 @@ interface FileUploadProps {
   storagePath?: string;
   maxFileSize?: number; // in MB
   multiple?: boolean; // Allow multiple file selection
+  buttonLabel?: string; // Custom label for the button
+  buttonClassName?: string; // Custom class for the button
 }
 
 interface FilePreview {
@@ -25,6 +27,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   storagePath = '',
   maxFileSize = 5, // 5MB default
   multiple = true, // Default to true for multiple file uploads
+  buttonLabel,
+  buttonClassName
 }) => {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
@@ -227,108 +231,147 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <div className="w-full">
-      <form onSubmit={handleUpload} className="space-y-6">
-        <div 
-          className={`border-2 border-dashed rounded-lg p-6 transition-all duration-200 flex flex-col items-center justify-center cursor-pointer
-            ${isDragging ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-300 hover:bg-gray-50'}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onClick={triggerFileInput}
-          tabIndex={0}
-          role="button"
-          aria-label="File upload area"
-        >
-          <Icon 
-            name="upload" 
-            className="h-12 w-12 text-primary-400" 
-            viewBox="0 0 24 24"
-            stroke="currentColor" 
-            fill="none" 
-          />
-          
-          <div className="mt-4 text-center">
-            <p className="text-sm font-medium text-gray-700">
-              {multiple ? (
-                <span>Drag & drop multiple files here, or <span className="text-primary-500">browse</span></span>
-              ) : (
-                <span>Drag & drop a file here, or <span className="text-primary-500">browse</span></span>
-              )}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">{acceptedFileTypes.replace('*', 'all')} (Max: {maxFileSize}MB)</p>
+      <form onSubmit={handleUpload} className={buttonLabel ? "" : "space-y-6"}>
+        {/* If buttonLabel is provided, render a simple button UI */}
+        {buttonLabel ? (
+          <div>
+            <button
+              type="button"
+              onClick={triggerFileInput}
+              className={buttonClassName || "px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"}
+              disabled={isUploading}
+            >
+              {buttonLabel}
+            </button>
+            
+            <input
+              ref={fileInputRef}
+              id="file-upload"
+              type="file"
+              onChange={handleFileChange}
+              accept={acceptedFileTypes}
+              disabled={isUploading}
+              multiple={multiple}
+              className="hidden"
+              title="Upload your files here"
+            />
+            
+            {message && (
+              <div className={`p-2 mt-2 text-xs rounded-md border ${getMessageClass()}`}>
+                <p>{message.text}</p>
+              </div>
+            )}
+            
+            {isUploading && (
+              <div className="mt-2 text-xs text-gray-500">Uploading...</div>
+            )}
           </div>
-          
-          <input
-            ref={fileInputRef}
-            id="file-upload"
-            type="file"
-            onChange={handleFileChange}
-            accept={acceptedFileTypes}
-            disabled={isUploading}
-            multiple={multiple}
-            className="hidden"
-            title="Upload your files here"
-          />
-        </div>
-        
-        {message && (
-          <div className={`p-3 rounded-md border ${getMessageClass()}`}>
-            <p className="text-sm">{message.text}</p>
-          </div>
-        )}
-
-        {files.length > 0 && (
+        ) : (
+          // Otherwise render the full drag-and-drop UI
           <>
-            <h3 className="text-lg font-medium text-gray-800">
-              Selected Files ({files.length})
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-              {files.map(file => (
-                <div key={file.id} className="relative group rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                  <div className="aspect-square w-full bg-gray-100 relative">
-                    <img 
-                      src={file.previewUrl} 
-                      alt={`Preview of ${file.file.name}`}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full w-8 h-8 flex items-center justify-center
-                                opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleRemoveFile(file.id); 
-                      }}
-                      title="Remove file"
-                      aria-label={`Remove ${file.file.name}`}
-                      disabled={isUploading}
-                    >
-                      <Icon name="close" className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <div className="p-2 bg-white">
-                    <p className="text-xs text-gray-600 truncate" title={file.file.name}>
-                      {file.file.name}
-                    </p>
-                  </div>
+            <div 
+              className={`border-2 border-dashed rounded-lg p-6 transition-all duration-200 flex flex-col items-center justify-center cursor-pointer
+                ${isDragging ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-300 hover:bg-gray-50'}`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={triggerFileInput}
+              tabIndex={0}
+              role="button"
+              aria-label="File upload area"
+            >
+              <Icon 
+                name="upload" 
+                className="h-12 w-12 text-primary-400" 
+                viewBox="0 0 24 24"
+                stroke="currentColor" 
+                fill="none" 
+              />
+              
+              <div className="mt-4 text-center">
+                <p className="text-sm font-medium text-gray-700">
+                  {multiple ? (
+                    <span>Drag & drop multiple files here, or <span className="text-primary-500">browse</span></span>
+                  ) : (
+                    <span>Drag & drop a file here, or <span className="text-primary-500">browse</span></span>
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">{acceptedFileTypes.replace('*', 'all')} (Max: {maxFileSize}MB)</p>
+              </div>
+              
+              <input
+                ref={fileInputRef}
+                id="file-upload"
+                type="file"
+                onChange={handleFileChange}
+                accept={acceptedFileTypes}
+                disabled={isUploading}
+                multiple={multiple}
+                className="hidden"
+                title="Upload your files here"
+              />
+            </div>
+            
+            {message && (
+              <div className={`p-3 rounded-md border ${getMessageClass()}`}>
+                <p className="text-sm">{message.text}</p>
+              </div>
+            )}
+
+            {files.length > 0 && (
+              <>
+                <h3 className="text-lg font-medium text-gray-800">
+                  Selected Files ({files.length})
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                  {files.map(file => (
+                    <div key={file.id} className="relative group rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="aspect-square w-full bg-gray-100 relative">
+                        <img 
+                          src={file.previewUrl} 
+                          alt={`Preview of ${file.file.name}`}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full w-8 h-8 flex items-center justify-center
+                                    opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            handleRemoveFile(file.id); 
+                          }}
+                          title="Remove file"
+                          aria-label={`Remove ${file.file.name}`}
+                          disabled={isUploading}
+                        >
+                          <Icon name="close" className="h-5 w-5" />
+                        </button>
+                      </div>
+                      <div className="p-2 bg-white">
+                        <p className="text-xs text-gray-600 truncate" title={file.file.name}>
+                          {file.file.name}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </>
+            )}
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={files.length === 0 || isUploading}
+                isLoading={isUploading}
+                className={files.length === 0 || isUploading ? 'opacity-50 cursor-not-allowed' : ''}
+              >
+                Upload
+              </Button>
             </div>
           </>
         )}
-
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={files.length === 0 || isUploading}
-            isLoading={isUploading}
-            className={files.length === 0 || isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-          >
-            Upload
-          </Button>
-        </div>
       </form>
     </div>
   );

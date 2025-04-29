@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import Head from 'next/head';
+import NavBar from '../components/layout/NavBar';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -9,9 +10,35 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function Home(): ReactNode {
   const [isMounted, setIsMounted] = useState<boolean>(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Check authentication status
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        setIsLoggedIn(true);
+        
+        // Get user data including role
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('id, role')
+          .eq('auth_user_id', session.user.id)
+          .single();
+          
+        if (!error && userData) {
+          setUserRole(userData.role);
+          setUserId(userData.id);
+        }
+      }
+    };
+    
+    checkAuth();
   }, []);
 
   if (!isMounted) {
@@ -24,6 +51,9 @@ export default function Home(): ReactNode {
         <title>SureSight - Streamline Roofing and Siding Damage Assessment</title>
         <meta name="description" content="SureSight connects homeowners, contractors, and insurance adjusters to streamline the process of identifying and reporting roofing and siding damage." />
       </Head>
+
+      {/* Add NavBar component */}
+      <NavBar isLoggedIn={isLoggedIn} userRole={userRole} user={userId ? { id: userId } : undefined} />
 
       <div className="bg-gradient-to-b from-gray-50 to-white">
         {/* Hero Section */}

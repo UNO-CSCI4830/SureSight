@@ -39,7 +39,7 @@ const NotificationsPage = () => {
   useEffect(() => {
     if (user) {
       fetchMessages();
-
+      
       // Real-time message subscription using Supabase channel
       const channel = supabase
         .channel('realtime:messages')

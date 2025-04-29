@@ -54,27 +54,78 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchUserData = async () => {
     try {
-      if (user?.id) {
-        // Fetch count of properties for this user
-        const { data: propertyData, error: propertyError } = await supabase
-          .from("properties")
-          .select("id", { count: "exact" })
-          .eq("owner_id", user.id);
+      if (user) {
+        // First get the user's profile ID from the database
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+          
+        if (userError) {
+          console.error("Error finding user record:", userError);
+          return;
+        }
+        
+        // Then get the profile ID
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', userData.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Error finding profile:", profileError);
+          return;
+        }
+        
+        // If user is homeowner, get their homeowner profile
+        const { data: homeownerData, error: homeownerError } = await supabase
+          .from('homeowner_profiles')
+          .select('id, property_count')
+          .eq('id', profileData.id)
+          .single();
+          
+        if (!homeownerError && homeownerData) {
+          // Use the property_count directly from homeowner profile if available
+          if (homeownerData.property_count !== null && homeownerData.property_count !== undefined) {
+            setPropertiesCount(homeownerData.property_count);
+          } else {
+            // Fallback to counting properties (should match property_count)
+            const { data: propertyData, error: propertyError } = await supabase
+              .from("properties")
+              .select("id")
+              .eq("homeowner_id", homeownerData.id);
 
-        if (!propertyError) {
-          setPropertiesCount(propertyData?.length || 0);
+            if (!propertyError) {
+              setPropertiesCount(propertyData?.length || 0);
+              
+              // Update the homeowner profile with the correct count if needed
+              if ((propertyData?.length || 0) !== homeownerData.property_count) {
+                await supabase
+                  .from('homeowner_profiles')
+                  .update({ property_count: propertyData?.length || 0 })
+                  .eq('id', homeownerData.id)
+                  .select();
+              }
+            } else {
+              console.error("Error fetching properties:", propertyError);
+            }
+          }
         }
 
         // Fetch count of reports for this user
         const { data: reportData, error: reportError } = await supabase
           .from("reports")
-          .select("id", { count: "exact" })
-          .eq("creator_id", user.id);
+          .select("id")
+          .eq("creator_id", userData.id);
 
         if (!reportError) {
           setReportsCount(reportData?.length || 0);
+        } else {
+          console.error("Error fetching reports:", reportError);
         }
       }
     } catch (err) {
@@ -112,7 +163,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchReports();
-      fetchDashboardData();
+      fetchUserData();
       fetchWeather();
     }
   }, [user, statusFilter]);
@@ -120,11 +171,44 @@ const Dashboard: React.FC = () => {
   const handleUploadComplete = async (urls: string[]) => {
     if (urls.length > 0 && user?.id) {
       try {
+        // First get the user record from database
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+          
+        if (userError) {
+          throw new Error("Could not find user record");
+        }
+        
+        // Get the profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', userData.id)
+          .single();
+          
+        if (profileError) {
+          throw new Error("Could not find user profile");
+        }
+        
+        // Get the homeowner profile
+        const { data: homeownerData, error: homeownerError } = await supabase
+          .from('homeowner_profiles')
+          .select('id')
+          .eq('id', profileData.id)
+          .single();
+          
+        if (homeownerError) {
+          throw new Error("You need a homeowner profile to create reports");
+        }
+
         // First check if the user has any properties
         const { data: properties, error: propertyError } = await supabase
           .from("properties")
           .select("id")
-          .eq("owner_id", user.id)
+          .eq("homeowner_id", homeownerData.id)
           .limit(1);
 
         if (propertyError) {
@@ -147,7 +231,7 @@ const Dashboard: React.FC = () => {
           const { error } = await supabase.from("reports").insert([
             {
               property_id: propertyId,
-              creator_id: user.id,
+              creator_id: userData.id,
               status: "submitted",
               title: `Inspection Report - ${new Date().toLocaleDateString()}`,
               main_image_url: imageUrl,
@@ -169,6 +253,7 @@ const Dashboard: React.FC = () => {
         });
 
         fetchReports();
+        fetchUserData(); // Also refresh the user data to update report counts
       } catch (err) {
         console.error("Unexpected error:", err);
         setMessage({

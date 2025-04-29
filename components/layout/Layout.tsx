@@ -99,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({
                     .from('users')
                     .select('id, role')
                     .eq('email', session.user.email)
-                    .maybeSingle()
+                    .single()
                 : { data: null, error: null };
               
               if (!emailError && userByEmail?.role) {
@@ -111,7 +111,8 @@ const Layout: React.FC<LayoutProps> = ({
                   const { error: updateError } = await supabase
                     .from('users')
                     .update({ auth_user_id: authUserId })
-                    .eq('id', userByEmail.id);
+                    .eq('id', userByEmail.id)
+                    .select();
                   
                   if (updateError) {
                     console.error('Error updating auth_user_id:', updateError);
@@ -207,7 +208,7 @@ const Layout: React.FC<LayoutProps> = ({
                     .from('users')
                     .select('id, role')
                     .eq('email', session.user.email)
-                    .maybeSingle()
+                    .single()
                 : { data: null, error: null };
                 
               if (!emailError && userByEmail?.role) {
@@ -221,7 +222,8 @@ const Layout: React.FC<LayoutProps> = ({
                   await supabase
                     .from('users')
                     .update({ auth_user_id: authUserId })
-                    .eq('id', userByEmail.id);
+                    .eq('id', userByEmail.id)
+                    .select();
                 }
               } else {
                 setUserRole('');

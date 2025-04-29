@@ -158,12 +158,20 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
                   </li>
                   {/* Conditional menu items based on user role */}
                   {userRole === 'homeowner' && (
-                    <li className="menu-item menu-item-border">
-                      <Link href="/reports" className="flex items-center gap-2">
-                        <Icon name="reports" />
-                        My Reports
-                      </Link>
-                    </li>
+                    <>
+                      <li className="menu-item menu-item-border">
+                        <Link href="/properties" className="flex items-center gap-2">
+                          <Icon name="home" />
+                          My Properties
+                        </Link>
+                      </li>
+                      <li className="menu-item menu-item-border">
+                        <Link href="/reports" className="flex items-center gap-2">
+                          <Icon name="reports" />
+                          My Reports
+                        </Link>
+                      </li>
+                    </>
                   )}
                   {userRole === 'contractor' && (
                     <li className="menu-item menu-item-border">
