@@ -288,22 +288,6 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
             </Card>
-
-            <Card>
-              <div className="p-6 text-center">
-                <h3 className="text-lg font-medium">Today's Weather</h3>
-                {weather ? (
-                  <>
-                  <p className="text-3xl font-semibold text-primary-700 mb-2">{weather.city}</p>
-                  <p className="text-3xl font-bold text-primary-600 mt-2">{weather.temp}°F</p>
-                  <p className="text-gray-600 capitalize">{weather.description}</p>
-                  </>
-                ) : (
-                  <p className="text-gray-600 mt-2">Loading Weather...</p>
-                )
-              }
-              </div>
-            </Card>
             
           </div>
 
