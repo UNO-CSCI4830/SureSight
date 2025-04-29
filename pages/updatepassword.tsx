@@ -21,7 +21,7 @@ const UpdatePassword: React.FC = () => {
     const { code } = router.query;
     const exchangeCode = async () => {
       if (typeof code === 'string') {
-        const { error } = await supabase.auth.exchangeCodeForSession(code;)
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           setMessage({ text: error.message, type: 'error' });
         } else {
