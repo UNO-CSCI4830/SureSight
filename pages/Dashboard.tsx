@@ -21,7 +21,8 @@ const Dashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [propertiesCount, setPropertiesCount] = useState<number>(0);
   const [reportsCount, setReportsCount] = useState<number>(0);
-
+  const [weather, setWeather] = useState<{temp: number; description: string; city: string} | null>(null);
+  
   const fetchReports = async () => {
     try {
       setLoading(true);
@@ -53,13 +54,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchReports();
-      fetchDashboardData();
-    }
-  }, [user, statusFilter]);
-
   const fetchDashboardData = async () => {
     try {
       if (user?.id) {
@@ -87,6 +81,41 @@ const Dashboard: React.FC = () => {
       console.error("Error fetching user data:", err);
     }
   };
+
+  const fetchWeather = async () => {
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+      if(!apiKey) {
+        console.error('Missing OpenWeather API Key');
+        return;
+      }
+      const locationResponse = await fetch('https://ipapi.co/json/');
+      const locationData = await locationResponse.json();
+      const userCity = locationData.city;
+
+      const weatherResponse = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(userCity)}&appid=${apiKey}&units=imperial`);
+      if (!weatherResponse.ok) {
+        throw new Error('Failed to fetch weather');
+      }
+
+      const weatherData = await weatherResponse.json();
+      setWeather({
+        temp: weatherData.main.temp,
+        description: weatherData.weather[0].description,
+        city: weatherData.name,
+      });
+    } catch (error) {
+      console.error('Error fetching weather:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchReports();
+      fetchDashboardData();
+      fetchWeather();
+    }
+  }, [user, statusFilter]);
 
   const handleUploadComplete = async (urls: string[]) => {
     if (urls.length > 0 && user?.id) {
@@ -185,11 +214,33 @@ const Dashboard: React.FC = () => {
   return (
     <Layout title="Dashboard - SureSight">
       <AuthGuard>
-        <div className="container mx-auto px-4 py-6">
-          <PageHeader
-            title="Dashboard"
-            subtitle="Manage your properties and reports"
-          />
+        <div className="containter mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <PageHeader
+              title="Dashboard"
+              subtitle="Manage your properties and reports"
+            />
+
+            
+            <div className="mt-4 md:mt-0 md:ml-4">
+              <Card>
+                <div className="p-4 text-center">
+                  <h3 className="text-sm font-medium text-gray-600">
+                     {weather ? `Weather in ${weather.city}` : "Fetching weather..."}
+                  </h3>
+                  {weather ? (
+                    <>
+                      <p className="text-xl font-bold text-primary-600">{weather.temp}°F</p>
+                      <p className="text-gray-500 capitalize text-sm">{weather.description}</p>
+                    </>
+                  ) : (
+                      <p className="text-gray-400 text-sm">Loading weather...</p>
+                  )}
+                </div>
+              </Card>
+            </div>
+           
+          </div>
 
           {message && (
             <StatusMessage
@@ -245,6 +296,7 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
             </Card>
+            
           </div>
 
           {/* Recent Reports Section */}
