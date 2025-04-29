@@ -41,28 +41,7 @@ const Home: React.FC = () => {
               </div>
             </Card>
           )}
-            
-          <div className="grid gap-4 max-w-md mx-auto">
-            <Link href="/Dashboard">
-              <Button variant="primary" className="w-full">Go to Dashboard</Button>
-            </Link>
-
-            <Link href="/profile">
-              <Button variant="secondary" className="w-full">View Profile</Button>
-            </Link>
-
-            <Link href="/updatepassword">
-              <Button variant="secondary" className="w-full">Update Password</Button>
-            </Link>
-
-            <Link href="/notifications">
-              <Button variant="secondary" className="w-full">Notifications</Button>
-            </Link>
-
-            <Link href="/">
-              <Button variant="secondary" className="w-full">Home</Button>
-            </Link>
-          </div>
+          
         </div>
     </Layout>
   );
