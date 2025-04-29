@@ -1,5 +1,25 @@
 // Import jest-dom for extended DOM element assertions
 import '@testing-library/jest-dom';
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Load environment variables from .env files
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '.env.local'),
+  path.resolve(process.cwd(), '.env.test'),
+  path.resolve(process.cwd(), '.env.test.local')
+];
+
+// Load the first .env file found
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    console.log(`Jest: Loading environment variables from ${envPath}`);
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
 
 // Mock the Supabase client
 jest.mock('../../utils/supabaseClient', () => ({

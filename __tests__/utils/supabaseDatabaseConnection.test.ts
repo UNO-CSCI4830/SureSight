@@ -13,32 +13,35 @@ jest.mock('../../utils/supabaseClient', () => {
     return {
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
-          single: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null })),
+          single: jest.fn(() => Promise.resolve({ data: mockData[tableName][0], error: null })),
           limit: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null })),
           order: jest.fn(() => ({
             limit: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
-          }))
+          })),
+          // Direct query for assessment_areas
+          match: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null })),
+          // Simple return for direct queries
+          then: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
         })),
-        match: jest.fn(() => ({
-          single: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null })),
-          limit: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
+        single: jest.fn(() => Promise.resolve({ data: mockData[tableName][0], error: null })),
+        limit: jest.fn(() => ({
+          eq: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
         })),
-        gte: jest.fn(() => ({
-          lt: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
-        })),
-        limit: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null })),
         order: jest.fn(() => ({
           limit: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
-        })),
-        textSearch: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null })),
-        filter: jest.fn(() => ({
-          order: jest.fn(() => Promise.resolve({ data: mockData[tableName], error: null }))
-        })),
-      }),
+        }))
+      })),
       insert: jest.fn(() => Promise.resolve({ data: { id: 'new-id' }, error: null })),
-      update: jest.fn(() => Promise.resolve({ data: { updated: true }, error: null })),
+      update: jest.fn(() => ({
+        eq: jest.fn(() => Promise.resolve({ data: { updated: true }, error: null })),
+        select: jest.fn(() => ({
+          eq: jest.fn(() => Promise.resolve({ data: { updated: true }, error: null }))
+        }))
+      })),
       upsert: jest.fn(() => Promise.resolve({ data: { id: 'upsert-id' }, error: null })),
-      delete: jest.fn(() => Promise.resolve({ data: { deleted: true }, error: null }))
+      delete: jest.fn(() => ({
+        eq: jest.fn(() => Promise.resolve({ data: { deleted: true }, error: null }))
+      })),
     };
   };
 
@@ -149,10 +152,10 @@ describe('Supabase Database Connection Tests', () => {
         .select()
         .eq('email', 'user1@example.com')
         .single();
-      
+
       expect(error).toBeNull();
-      expect(data).toBeDefined();
-      expect(data.email).toBe('user1@example.com');
+      expect(data).not.toBeNull(); // Ensure data is not null
+      expect(data?.email).toBe('user1@example.com');
     });
 
     test('should query profiles table', async () => {
@@ -161,10 +164,10 @@ describe('Supabase Database Connection Tests', () => {
         .select()
         .eq('user_id', 'user-1')
         .single();
-      
+
       expect(error).toBeNull();
-      expect(data).toBeDefined();
-      expect(data.first_name).toBe('John');
+      expect(data).not.toBeNull(); // Ensure data is not null
+      expect((data as any)?.first_name).toBe('John');
     });
 
     test('should query properties table', async () => {
@@ -177,7 +180,7 @@ describe('Supabase Database Connection Tests', () => {
       expect(error).toBeNull();
       expect(data).toBeDefined();
       expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBeGreaterThan(0);
+      expect(data?.length).toBeGreaterThan(0);
     });
 
     test('should query reports table with filters', async () => {
@@ -193,7 +196,24 @@ describe('Supabase Database Connection Tests', () => {
       expect(Array.isArray(data)).toBe(true);
     });
 
+    // Fixed the specific assessment areas test
     test('should query assessment areas', async () => {
+      // Mock the specific implementation just for this test
+      const mockData = [
+        { id: 'area-1', report_id: 'report-1', damage_type: 'hail', severity: 'moderate' },
+        { id: 'area-2', report_id: 'report-1', damage_type: 'wind', severity: 'severe' }
+      ];
+      
+      // Use the jest.spyOn approach to override the implementation just for this test
+      jest.spyOn(supabase, 'from').mockImplementationOnce(() => ({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({
+            data: mockData,
+            error: null
+          })
+        })
+      } as any));
+
       const { data, error } = await supabase
         .from('assessment_areas')
         .select()
@@ -211,16 +231,18 @@ describe('Supabase Database Connection Tests', () => {
       const newUser = {
         auth_user_id: 'auth-user-3',
         email: 'new@example.com',
-        role: 'homeowner'
-      };
+        role: 'homeowner',
+        first_name: 'New',
+        last_name: 'User'
+      }; // Added required fields
 
       const { data, error } = await supabase
         .from('users')
         .insert(newUser);
       
       expect(error).toBeNull();
-      expect(data).toBeDefined();
-      expect(data.id).toBe('new-id');
+      expect(data).not.toBeNull(); // Ensure data is not null
+      expect(data && (data as { id: string }).id).toBe('new-id');
     });
 
     test('should create profile for user', async () => {
@@ -254,12 +276,14 @@ describe('Supabase Database Connection Tests', () => {
       
       expect(error).toBeNull();
       expect(data).toBeDefined();
-      expect(data.updated).toBe(true);
+      expect(data).not.toBeNull();
+      expect((data as any).updated).toBe(true);
     });
 
     test('should update profile information', async () => {
       const updateData = {
-        phone: '9998887777'
+        phone: '9998887777',
+        updated_at: new Date().toISOString() // Added required field
       };
 
       const { data, error } = await supabase
@@ -268,7 +292,7 @@ describe('Supabase Database Connection Tests', () => {
         .eq('user_id', 'user-1');
       
       expect(error).toBeNull();
-      expect(data).toBeDefined();
+      expect(data).not.toBeNull(); // Ensure data is not null
     });
   });
 
@@ -279,10 +303,10 @@ describe('Supabase Database Connection Tests', () => {
         .from('assessment_areas')
         .delete()
         .eq('id', 'area-1');
-      
+
       expect(error).toBeNull();
-      expect(data).toBeDefined();
-      expect(data.deleted).toBe(true);
+      expect(data).not.toBeNull(); // Ensure data is not null
+      expect(data && (data as { deleted: boolean }).deleted).toBe(true);
     });
   });
 
@@ -351,7 +375,8 @@ describe('Supabase Database Connection Tests', () => {
       
       expect(error).toBeNull();
       expect(data).toBeDefined();
-      expect(data.path).toBe('mock/path.jpg');
+      expect(data).not.toBeNull();
+      expect(data!.path).toBe('mock/path.jpg');
     });
 
     test('should get public URL for a file', () => {
@@ -365,7 +390,7 @@ describe('Supabase Database Connection Tests', () => {
     });
   });
 
-  // Test Edge Function invocation
+  // Test Edge Functions
   describe('Edge Functions', () => {
     test('should invoke analyze-image-damage function', async () => {
       const { data, error } = await supabase
@@ -405,7 +430,7 @@ describe('Supabase Database Connection Tests', () => {
         .single();
       
       expect(error).toBeDefined();
-      expect(error.message).toBe('Database error');
+      expect(error?.message).toBe('Database error');
       expect(data).toBeNull();
     });
   });

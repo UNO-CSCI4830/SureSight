@@ -227,7 +227,7 @@ class DatabaseService {
       // Upload the file to storage
       const { data: uploadData, error: uploadError } = await supabase
         .storage
-        .from('report-images')
+        .from('reports')
         .upload(filePath, image, { cacheControl: '3600', upsert: false });
       
       if (uploadError) throw uploadError;
@@ -235,7 +235,7 @@ class DatabaseService {
       // Get the public URL
       const { data: urlData } = supabase
         .storage
-        .from('report-images')
+        .from('reports')
         .getPublicUrl(uploadData.path);
         
       // Add record to images table
@@ -303,6 +303,96 @@ class DatabaseService {
       };
     }
   }
+
+  /**
+   * Sends a message from one user to another
+   */
+  async sendMessage(messageData: {
+    sender_id: string;
+    receiver_id: string;
+    content: string;
+    is_read?: boolean;
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: messageData.sender_id,
+          receiver_id: messageData.receiver_id,
+          content: messageData.content,
+          is_read: messageData.is_read !== undefined ? messageData.is_read : false
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to send message',
+      };
+    }
+  }
+  
+  /**
+   * Gets all messages for a user
+   */
+  async getUserMessages(userId: string, unreadOnly: boolean = false) {
+    try {
+      let query = supabase
+        .from('messages')
+        .select('*')
+        .eq('receiver_id', userId);
+        
+      if (unreadOnly) {
+        query = query.eq('is_read', false);
+      }
+        
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get messages',
+      };
+    }
+  }
+  
+  /**
+   * Marks a message as read
+   */
+  async markMessageAsRead(messageId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('id', messageId)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to mark message as read',
+      };
+    }
+  }
 }
 
 describe('DatabaseService', () => {
@@ -343,10 +433,23 @@ describe('DatabaseService', () => {
 
   describe('User Management', () => {
     test('should create a user successfully', async () => {
-      // Mock the response for the createUser method
-      mockSingle.mockResolvedValue({
+      // Setup proper mock chain for new Supabase API
+      const mockSingleAfterSelect = jest.fn().mockResolvedValue({
         data: { id: 'user-1', auth_user_id: 'auth-1', email: 'test@example.com', role: 'homeowner' },
         error: null
+      });
+      
+      const mockSelectAfterInsert = jest.fn().mockReturnValue({
+        single: mockSingleAfterSelect
+      });
+      
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelectAfterInsert
+      });
+      
+      // Reset and rebuild the mock chain for this specific test
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: mockInsert
       });
       
       const userData = {
@@ -372,13 +475,27 @@ describe('DatabaseService', () => {
         first_name: 'John',
         last_name: 'Doe'
       }));
+      expect(mockSelectAfterInsert).toHaveBeenCalledWith('*');
     });
     
     test('should handle error when creating a user', async () => {
-      // Mock an error response
-      mockSingle.mockResolvedValue({
+      // Setup proper mock chain for new Supabase API with error
+      const mockSingleAfterSelect = jest.fn().mockResolvedValue({
         data: null,
         error: { message: 'Email already exists' }
+      });
+      
+      const mockSelectAfterInsert = jest.fn().mockReturnValue({
+        single: mockSingleAfterSelect
+      });
+      
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelectAfterInsert
+      });
+      
+      // Reset and rebuild the mock chain for this specific test
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: mockInsert
       });
       
       const userData = {
@@ -643,6 +760,265 @@ describe('DatabaseService', () => {
         p_location: assessmentData.location,
         p_severity: assessmentData.severity
       }));
+    });
+  });
+
+  describe('Message Management', () => {
+    test('should send a message successfully', async () => {
+      // Setup proper mock chain for new Supabase API
+      const mockSingleAfterSelect = jest.fn().mockResolvedValue({
+        data: {
+          id: 'msg-123',
+          sender_id: 'user-1',
+          receiver_id: 'user-2',
+          content: 'This is a test message',
+          is_read: false,
+          created_at: new Date().toISOString()
+        },
+        error: null
+      });
+      
+      const mockSelectAfterInsert = jest.fn().mockReturnValue({
+        single: mockSingleAfterSelect
+      });
+      
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelectAfterInsert
+      });
+      
+      // Reset and rebuild the mock chain for this specific test
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: mockInsert
+      });
+      
+      // Test data
+      const messageData = {
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'This is a test message'
+      };
+      
+      // Execute test
+      const result = await service.sendMessage(messageData);
+      
+      // Assert results
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe('msg-123');
+      expect(result.data.content).toBe('This is a test message');
+      
+      // Verify supabase calls
+      expect(supabase.from).toHaveBeenCalledWith('messages');
+      expect(mockInsert).toHaveBeenCalledWith({
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'This is a test message',
+        is_read: false
+      });
+      expect(mockSelectAfterInsert).toHaveBeenCalledWith('*');
+    });
+    
+    test('should handle error when sending a message', async () => {
+      // Setup proper mock chain for new Supabase API with error
+      const mockSingleAfterSelect = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Receiver not found' }
+      });
+      
+      const mockSelectAfterInsert = jest.fn().mockReturnValue({
+        single: mockSingleAfterSelect
+      });
+      
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelectAfterInsert
+      });
+      
+      // Reset and rebuild the mock chain for this specific test
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: mockInsert
+      });
+      
+      // Test data
+      const messageData = {
+        sender_id: 'user-1',
+        receiver_id: 'non-existent-user',
+        content: 'This is a test message'
+      };
+      
+      // Execute test
+      const result = await service.sendMessage(messageData);
+      
+      // Assert results
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Receiver not found');
+    });
+    
+    test('should get user messages successfully', async () => {
+      // Mock messages
+      const mockMessages = [
+        {
+          id: 'msg-1',
+          sender_id: 'user-2',
+          receiver_id: 'user-1',
+          content: 'Hello there',
+          is_read: false,
+          created_at: '2025-04-29T10:00:00Z'
+        },
+        {
+          id: 'msg-2',
+          sender_id: 'system',
+          receiver_id: 'user-1',
+          content: 'Welcome to the system',
+          is_read: true,
+          created_at: '2025-04-28T10:00:00Z'
+        }
+      ];
+      
+      // Setup the complete chain of mock methods
+      const mockOrder = jest.fn().mockResolvedValue({
+        data: mockMessages,
+        error: null
+      });
+      
+      const mockEqReturnValue = { order: mockOrder };
+      const mockSelectReturnValue = { eq: jest.fn().mockReturnValue(mockEqReturnValue) };
+      
+      // Reset mock chain completely
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue(mockSelectReturnValue)
+      });
+      
+      // Execute test
+      const result = await service.getUserMessages('user-1');
+      
+      // Assert results
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].id).toBe('msg-1');
+      
+      // Verify the chain of method calls
+      expect(supabase.from).toHaveBeenCalledWith('messages');
+    });
+    
+    test('should get only unread messages when specified', async () => {
+      // Mock unread messages
+      const mockMessages = [
+        {
+          id: 'msg-1',
+          sender_id: 'user-2',
+          receiver_id: 'user-1',
+          content: 'Hello there',
+          is_read: false,
+          created_at: '2025-04-29T10:00:00Z'
+        }
+      ];
+      
+      // Setup the complete chain properly for filtering unread messages
+      const mockOrder = jest.fn().mockResolvedValue({
+        data: mockMessages,
+        error: null
+      });
+      
+      // Create proper nested mock objects for the chain
+      const mockEqUnread = jest.fn().mockReturnValue({
+        order: mockOrder
+      });
+      
+      const mockEqReceiver = jest.fn().mockReturnValue({
+        eq: mockEqUnread
+      });
+      
+      const mockSelect = jest.fn().mockReturnValue({
+        eq: mockEqReceiver
+      });
+      
+      // Reset the mock implementation completely
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: mockSelect
+      });
+      
+      // Execute test
+      const result = await service.getUserMessages('user-1', true);
+      
+      // Assert results
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockMessages);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].is_read).toBe(false);
+      
+      // Verify the chain of method calls
+      expect(supabase.from).toHaveBeenCalledWith('messages');
+      expect(mockSelect).toHaveBeenCalledWith('*');
+      expect(mockEqReceiver).toHaveBeenCalledWith('receiver_id', 'user-1');
+      expect(mockEqUnread).toHaveBeenCalledWith('is_read', false);
+      expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+    });
+    
+    test('should mark a message as read successfully', async () => {
+      // Setup proper mock chain for new Supabase API
+      const mockSingleAfterEq = jest.fn().mockResolvedValue({
+        data: {
+          id: 'msg-1',
+          sender_id: 'user-2',
+          receiver_id: 'user-1',
+          content: 'Hello there',
+          is_read: true,
+          created_at: '2025-04-29T10:00:00Z'
+        },
+        error: null
+      });
+      
+      const mockEqAfterUpdate = jest.fn().mockReturnValue({
+        single: mockSingleAfterEq
+      });
+      
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: mockEqAfterUpdate
+      });
+      
+      // Reset mock chain completely
+      (supabase.from as jest.Mock).mockReturnValue({
+        update: mockUpdate
+      });
+      
+      // Execute test
+      const result = await service.markMessageAsRead('msg-1');
+      
+      // Assert results
+      expect(result.success).toBe(true);
+      expect(result.data.is_read).toBe(true);
+      
+      // Verify supabase calls
+      expect(supabase.from).toHaveBeenCalledWith('messages');
+      expect(mockUpdate).toHaveBeenCalledWith({ is_read: true });
+      expect(mockEqAfterUpdate).toHaveBeenCalledWith('id', 'msg-1');
+    });
+    
+    test('should handle error when marking a message as read', async () => {
+      // Setup proper mock chain for new Supabase API with error
+      const mockSingleAfterEq = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Message not found' }
+      });
+      
+      const mockEqAfterUpdate = jest.fn().mockReturnValue({
+        single: mockSingleAfterEq
+      });
+      
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: mockEqAfterUpdate
+      });
+      
+      // Reset mock chain completely
+      (supabase.from as jest.Mock).mockReturnValue({
+        update: mockUpdate
+      });
+      
+      // Execute test
+      const result = await service.markMessageAsRead('invalid-msg-id');
+      
+      // Assert results
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Message not found');
     });
   });
 });
