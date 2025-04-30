@@ -265,7 +265,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleCreateNewReport = () => {
-    router.push("/reports/new");
+    router.push("/reports/create");
   };
 
   // Helper function to format status display
