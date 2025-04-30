@@ -96,27 +96,139 @@ const ProfilePage: React.FC = () => {
       const userId = session.user.id;
       const userEmail = session.user.email || "";
 
-      // Get the complete user profile using the new function that aggregates all data
-      const { data: completeProfile, error: profileError } = await supabase.rpc(
-        "get_complete_user_profile",
-        {
-          p_user_id: userId,
+      // First try to get the user record from the database
+      let userData: any = null;
+
+      // Try to get the user from the users table - first by auth_user_id
+      const { data: userByAuthId, error: userAuthIdError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("auth_user_id", userId)
+        .single();
+
+      if (userAuthIdError) {
+        console.warn(
+          "Error finding user by auth_user_id:",
+          userAuthIdError.message
+        );
+
+        // If not found by auth_user_id, try by email
+        if (userEmail) {
+          const { data: userByEmail, error: userEmailError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("email", userEmail)
+            .single();
+
+          if (!userEmailError && userByEmail) {
+            userData = userByEmail;
+
+            // Update the auth_user_id to match this session
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({ auth_user_id: userId })
+              .eq("id", userByEmail.id)
+              .select();
+
+            if (updateError) {
+              console.error(
+                "Failed to update auth_user_id:",
+                updateError.message
+              );
+            } else {
+              console.log("Updated auth_user_id for user");
+            }
+          } else {
+            console.warn(
+              "Error finding user by email:",
+              userEmailError?.message
+            );
+          }
         }
-      );
-
-      if (profileError) {
-        throw profileError;
+      } else {
+        userData = userByAuthId;
       }
 
-      if (!completeProfile) {
-        throw new Error("Could not fetch profile data");
+      // If still no user data, try the RPC function as fallback
+      if (!userData) {
+        const { data: completeProfile, error: profileError } =
+          await supabase.rpc("get_complete_user_profile", {
+            p_user_id: userId,
+          });
+
+        if (profileError) {
+          throw profileError;
+        }
+
+        if (!completeProfile) {
+          throw new Error("Could not fetch profile data");
+        }
+
+        // Parse the JSON result properly
+        userData =
+          typeof completeProfile === "string"
+            ? JSON.parse(completeProfile)
+            : completeProfile;
       }
 
-      // Parse the JSON result properly
-      const userData: CompleteUserProfile =
-        typeof completeProfile === "string"
-          ? JSON.parse(completeProfile)
-          : completeProfile;
+      // Now look for profile information
+      let profileInfo = null;
+      let roleSpecificProfile = null;
+
+      if (userData.id) {
+        // Look for the base profile
+        const { data: baseProfile, error: baseProfileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", userData.id)
+          .single();
+
+        if (!baseProfileError && baseProfile) {
+          profileInfo = baseProfile;
+
+          // Get role-specific profile based on user's role
+          const role = userData.role ? userData.role.toLowerCase() : "";
+
+          if (role === "homeowner") {
+            const { data: homeownerData, error: homeownerError } =
+              await supabase
+                .from("homeowner_profiles")
+                .select("*")
+                .eq("id", baseProfile.id)
+                .single();
+
+            if (!homeownerError && homeownerData) {
+              roleSpecificProfile = homeownerData;
+            }
+          } else if (role === "contractor") {
+            const { data: contractorData, error: contractorError } =
+              await supabase
+                .from("contractor_profiles")
+                .select("*")
+                .eq("id", baseProfile.id)
+                .single();
+
+            if (!contractorError && contractorData) {
+              roleSpecificProfile = contractorData;
+            }
+          } else if (role === "adjuster") {
+            const { data: adjusterData, error: adjusterError } = await supabase
+              .from("adjuster_profiles")
+              .select("*")
+              .eq("id", baseProfile.id)
+              .single();
+
+            if (!adjusterError && adjusterData) {
+              roleSpecificProfile = adjusterData;
+            }
+          }
+        } else {
+          console.warn(
+            "Failed to find base profile:",
+            baseProfileError?.message
+          );
+        }
+      }
 
       // Create a unified profile object
       const profileData: Profile = {
@@ -129,18 +241,18 @@ const ProfilePage: React.FC = () => {
       };
 
       // Add role-specific data based on the user's role
-      if (userData.roleProfile) {
-        const roleProfile = userData.roleProfile;
-
-        if (userData.user.role.toLowerCase() === "homeowner") {
-          const homeownerProfile = roleProfile as HomeownerProfile;
+      if (roleSpecificProfile) {
+        if (profileData.role === "homeowner") {
+          // Type guard to ensure we're working with a HomeownerProfile
+          const homeownerProfile = roleSpecificProfile as HomeownerProfile;
           profileData.preferred_contact_method =
             homeownerProfile.preferred_contact_method;
           profileData.additional_notes =
             homeownerProfile.additional_notes || undefined;
           profileData.property_count = homeownerProfile.property_count;
-        } else if (userData.user.role.toLowerCase() === "contractor") {
-          const contractorProfile = roleProfile as ContractorProfile;
+        } else if (profileData.role === "contractor") {
+          // Type guard to ensure we're working with a ContractorProfile
+          const contractorProfile = roleSpecificProfile as ContractorProfile;
           profileData.company_name = contractorProfile.company_name;
           profileData.license_number =
             contractorProfile.license_number || undefined;
@@ -150,8 +262,9 @@ const ProfilePage: React.FC = () => {
             contractorProfile.service_area || undefined;
           profileData.insurance_verified = contractorProfile.insurance_verified;
           profileData.rating = contractorProfile.rating || undefined;
-        } else if (userData.user.role.toLowerCase() === "adjuster") {
-          const adjusterProfile = roleProfile as AdjusterProfile;
+        } else if (profileData.role === "adjuster") {
+          // Type guard to ensure we're working with an AdjusterProfile
+          const adjusterProfile = roleSpecificProfile as AdjusterProfile;
           profileData.company_name = adjusterProfile.company_name;
           profileData.license_number =
             adjusterProfile.adjuster_license || undefined;
@@ -225,55 +338,236 @@ const ProfilePage: React.FC = () => {
     setUpdateSuccess(false);
 
     try {
-      if (!profile) return;
+      if (!profile) {
+        throw new Error("Profile data not loaded");
+      }
 
-      const territoriesArray =
-        selectedRole === "adjuster"
+      // First, update the basic user information
+      const { data: updatedUser, error: userUpdateError } = await supabase
+        .from("users")
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+          role: selectedRole.toLowerCase(),
+        })
+        .eq("id", profile.id)
+        .select()
+        .single();
+
+      if (userUpdateError) {
+        console.error("Error updating user:", userUpdateError);
+        throw userUpdateError;
+      }
+
+      console.log("Updated user information successfully");
+
+      // Check if profile already exists
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", profile.id)
+        .single();
+
+      let profileId = null;
+
+      // Create or update base profile
+      if (profileCheckError) {
+        // Profile doesn't exist, create it
+        console.log("Creating new profile...");
+        const { data: newProfile, error: createProfileError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: profile.id,
+          })
+          .select()
+          .single();
+
+        if (createProfileError) {
+          console.error("Error creating profile:", createProfileError);
+          throw createProfileError;
+        }
+
+        profileId = newProfile.id;
+        console.log("Created new base profile:", profileId);
+      } else {
+        profileId = existingProfile.id;
+        console.log("Found existing profile:", profileId);
+      }
+
+      // Now handle the role-specific profile
+      if (selectedRole === "homeowner") {
+        // Check if homeowner profile exists
+        const { data: existingHomeowner, error: homeownerCheckError } =
+          await supabase
+            .from("homeowner_profiles")
+            .select("id")
+            .eq("id", profileId)
+            .maybeSingle();
+
+        if (!existingHomeowner) {
+          // Create new homeowner profile
+          const { error: createHomeownerError } = await supabase
+            .from("homeowner_profiles")
+            .insert({
+              id: profileId,
+              preferred_contact_method: preferredContactMethod,
+              additional_notes: additionalNotes || null,
+            })
+            .select();
+
+          if (createHomeownerError) {
+            console.error(
+              "Error creating homeowner profile:",
+              createHomeownerError
+            );
+            throw createHomeownerError;
+          }
+
+          console.log("Created new homeowner profile");
+        } else {
+          // Update existing homeowner profile
+          const { error: updateHomeownerError } = await supabase
+            .from("homeowner_profiles")
+            .update({
+              preferred_contact_method: preferredContactMethod,
+              additional_notes: additionalNotes || null,
+            })
+            .eq("id", profileId)
+            .select();
+
+          if (updateHomeownerError) {
+            console.error(
+              "Error updating homeowner profile:",
+              updateHomeownerError
+            );
+            throw updateHomeownerError;
+          }
+
+          console.log("Updated homeowner profile");
+        }
+      } else if (selectedRole === "contractor") {
+        // Check if contractor profile exists
+        const { data: existingContractor, error: contractorCheckError } =
+          await supabase
+            .from("contractor_profiles")
+            .select("id")
+            .eq("id", profileId)
+            .maybeSingle();
+
+        if (!existingContractor) {
+          // Create new contractor profile
+          const { error: createContractorError } = await supabase
+            .from("contractor_profiles")
+            .insert({
+              id: profileId,
+              company_name: companyName,
+              license_number: licenseNumber || null,
+              years_experience: yearsExperience
+                ? parseInt(yearsExperience)
+                : null,
+              service_area: serviceArea || null,
+              insurance_verified: false, // Default value
+            })
+            .select();
+
+          if (createContractorError) {
+            console.error(
+              "Error creating contractor profile:",
+              createContractorError
+            );
+            throw createContractorError;
+          }
+
+          console.log("Created new contractor profile");
+        } else {
+          // Update existing contractor profile
+          const { error: updateContractorError } = await supabase
+            .from("contractor_profiles")
+            .update({
+              company_name: companyName,
+              license_number: licenseNumber || null,
+              years_experience: yearsExperience
+                ? parseInt(yearsExperience)
+                : null,
+              service_area: serviceArea || null,
+            })
+            .eq("id", profileId)
+            .select();
+
+          if (updateContractorError) {
+            console.error(
+              "Error updating contractor profile:",
+              updateContractorError
+            );
+            throw updateContractorError;
+          }
+
+          console.log("Updated contractor profile");
+        }
+      } else if (selectedRole === "adjuster") {
+        // Parse territories string into array
+        const territoriesArray = territories
           ? territories
               .split(",")
               .map((t) => t.trim())
               .filter((t) => t)
-          : undefined;
+          : [];
 
-      // Use the create_user_profile function that handles creating profiles with the new schema
-      const { data, error } = await supabase.rpc("create_user_profile", {
-        p_email: profile.email,
-        p_first_name: firstName,
-        p_last_name: lastName,
-        p_role: selectedRole.toLowerCase(),
-        p_auth_user_id: profile.id,
-        p_avatar_url: undefined,
-        p_phone: undefined, // Add this based on phone input if you add it to form
-        p_preferred_contact_method:
-          selectedRole === "homeowner" ? preferredContactMethod : undefined,
-        p_additional_notes:
-          selectedRole === "homeowner" ? additionalNotes : undefined,
-        p_company_name:
-          selectedRole === "contractor" || selectedRole === "adjuster"
-            ? companyName
-            : undefined,
-        p_license_number:
-          selectedRole === "contractor" ? licenseNumber : undefined,
-        p_specialties: undefined, // Add this based on form input if needed
-        p_years_experience:
-          selectedRole === "contractor"
-            ? parseInt(yearsExperience) || undefined
-            : undefined,
-        p_service_area: selectedRole === "contractor" ? serviceArea : undefined,
-        p_insurance_verified: false, // This would be managed by admin
-        p_adjuster_license:
-          selectedRole === "adjuster" ? licenseNumber : undefined,
-        p_territories:
-          selectedRole === "adjuster" ? territoriesArray : undefined,
-        p_certification_verified: false, // This would be managed by admin
-      });
+        // Check if adjuster profile exists
+        const { data: existingAdjuster, error: adjusterCheckError } =
+          await supabase
+            .from("adjuster_profiles")
+            .select("id")
+            .eq("id", profileId)
+            .maybeSingle();
 
-      if (error) {
-        throw error;
+        if (!existingAdjuster) {
+          // Create new adjuster profile
+          const { error: createAdjusterError } = await supabase
+            .from("adjuster_profiles")
+            .insert({
+              id: profileId,
+              company_name: companyName,
+              adjuster_license: licenseNumber || null,
+              territories: territoriesArray,
+              certification_verified: false, // Default value
+            })
+            .select();
+
+          if (createAdjusterError) {
+            console.error(
+              "Error creating adjuster profile:",
+              createAdjusterError
+            );
+            throw createAdjusterError;
+          }
+
+          console.log("Created new adjuster profile");
+        } else {
+          // Update existing adjuster profile
+          const { error: updateAdjusterError } = await supabase
+            .from("adjuster_profiles")
+            .update({
+              company_name: companyName,
+              adjuster_license: licenseNumber || null,
+              territories: territoriesArray,
+            })
+            .eq("id", profileId)
+            .select();
+
+          if (updateAdjusterError) {
+            console.error(
+              "Error updating adjuster profile:",
+              updateAdjusterError
+            );
+            throw updateAdjusterError;
+          }
+
+          console.log("Updated adjuster profile");
+        }
       }
 
-      console.log("Profile update result:", data);
-
+      // Clear any existing timeout for messages
       if (showMessageTimeout) {
         clearTimeout(showMessageTimeout);
       }
@@ -300,7 +594,9 @@ const ProfilePage: React.FC = () => {
       console.error("Error updating profile:", error);
       const errorDetails = handleSupabaseError(error);
       setMessage({
-        text: `Failed to update profile: ${errorDetails.message}`,
+        text: `Failed to update profile: ${
+          errorDetails.message || "Unknown error"
+        }`,
         type: "error",
       });
       setUpdateSuccess(false);
