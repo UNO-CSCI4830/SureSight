@@ -1,4 +1,4 @@
-import handler from '../../pages/api/notis';
+import handler from '../../../pages/api/notis.ts';
 import { createMocks } from 'node-mocks-http';
 
 const mockSelect = jest.fn();
