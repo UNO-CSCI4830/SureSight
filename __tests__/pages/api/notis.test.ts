@@ -5,7 +5,7 @@ const mockSelect = jest.fn();
 const mockEq = jest.fn();
 const mockOrder = jest.fn();
 
-jest.mock('../../utils/supabaseClient', () => ({
+jest.mock('../../../utils/supabaseClient', () => ({
   supabase: {
     from: jest.fn(() => ({
       select: mockSelect.mockReturnThis(),
