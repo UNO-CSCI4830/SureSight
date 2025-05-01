@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ForgotPassword from '../../pages/forgotpassword';
-import userEvent from '@testing-library/user-event';
 import { supabase } from '../../utils/supabaseClient';
 
 jest.mock('../../utils/supabaseClient', () => ({
@@ -14,18 +13,22 @@ jest.mock('../../utils/supabaseClient', () => ({
   
 
 jest.mock('../../components/layout/Layout', () => ({
-    __esModule:true,
-    default: ({ children }) => <div>{children}</div>
+    __esModule: true,
+    default: ({ children }) => <div data-testid="mocked-layout">{children}</div>
 }));
 
 jest.mock('../../components/ui', () => ({
     __esModule:true,
-    FormInput: ({ value,onChange, ...props }) => (
+    FormInput: ({ value, onChange, ...props }) => (
         <input value={value} onChange={onChange} {...props} data-testid="email-input" />
     )
 }));
 
 describe('ForgotPassword Page', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
     test('submits email, calls supabase reset', async () => {
         (supabase.auth.resetPasswordForEmail as jest.Mock).mockResolvedValueOnce({ error: null });
         render(<ForgotPassword />);
@@ -45,5 +48,3 @@ describe('ForgotPassword Page', () => {
         });
     });
 });
-    
- 
