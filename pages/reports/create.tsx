@@ -64,7 +64,6 @@ export default function NewForm() {
         .select("id") // This is refrencing the incorrect id then what is passed through
         .eq("homeowner_id", profileId)
         .limit(1);
-      console.log("Here are properties", properties);
 
       if (propError) {
         throw new Error("Error finding properties: " + propError.message);
@@ -73,7 +72,6 @@ export default function NewForm() {
       // If no properties, create one first
       let propertyId;
       if (!properties || properties.length === 0) {
-        console.log("This should not be running");
         // Extract address components
         const addressParts = address.split(",").map((part) => part.trim());
         const cityStateZip =
