@@ -3,7 +3,12 @@ import { useRouter } from "next/router";
 import Layout from "../../components/layout/Layout";
 import AuthGuard from "../../components/auth/AuthGuard";
 import { supabase, handleSupabaseError } from "../../utils/supabaseClient";
-import { PageHeader, Card, LoadingSpinner, StatusMessage } from "../../components/common";
+import {
+  PageHeader,
+  Card,
+  LoadingSpinner,
+  StatusMessage,
+} from "../../components/common";
 import { FormInput, Select, Button } from "../../components/ui";
 import { Report } from "../../types/supabase";
 
@@ -21,10 +26,14 @@ const ReportsPage: React.FC = () => {
   const router = useRouter();
   const [reports, setReports] = useState<ExtendedReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
+  const [message, setMessage] = useState<{
+    text: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
-  const [showMessageTimeout, setShowMessageTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showMessageTimeout, setShowMessageTimeout] =
+    useState<NodeJS.Timeout | null>(null);
 
   const statusOptions = [
     { value: "all", label: "All Statuses" },
@@ -37,7 +46,7 @@ const ReportsPage: React.FC = () => {
 
   useEffect(() => {
     fetchReports();
-    
+
     // Clear any existing message timeout when component unmounts
     return () => {
       if (showMessageTimeout) {
@@ -50,37 +59,42 @@ const ReportsPage: React.FC = () => {
     setIsLoading(true);
     try {
       // First, get the current user session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
       if (sessionError) {
         throw sessionError;
       }
-      
+
       if (!session) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
       // Get the database user ID from the auth user ID
       const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', session.user.id)
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", session.user.id)
         .single();
-      
+
       if (userError) {
         throw userError;
       }
-      
+
       // Build the query for reports
       let query = supabase
         .from("reports")
-        .select(`
+        .select(
+          `
           *,
           property:properties(address_line1, city, state),
           assessment_areas:assessment_areas(id),
           images:images(id)
-        `)
+        `
+        )
         .eq("creator_id", userData.id);
 
       // Apply status filter if not "all"
@@ -101,7 +115,7 @@ const ReportsPage: React.FC = () => {
       const formattedReports = (data || []).map((report: any) => ({
         ...report,
         assessment_areas_count: report.assessment_areas?.length || 0,
-        images_count: report.images?.length || 0
+        images_count: report.images?.length || 0,
       }));
 
       setReports(formattedReports);
@@ -118,18 +132,22 @@ const ReportsPage: React.FC = () => {
   };
 
   const handleCreateNewReport = () => {
-    router.push("/reports/new");
+    router.push("/reports/create");
   };
 
   const handleViewReport = (reportId: string) => {
     router.push(`/reports/${reportId}`);
   };
-  
+
   const handleDeleteReport = async (reportId: string) => {
-    if (!window.confirm("Are you sure you want to delete this report? This action cannot be undone.")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this report? This action cannot be undone."
+      )
+    ) {
       return;
     }
-    
+
     setIsLoading(true);
     try {
       // First check if there are any assessment areas for this report
@@ -137,62 +155,65 @@ const ReportsPage: React.FC = () => {
         .from("assessment_areas")
         .select("id")
         .eq("report_id", reportId);
-        
+
       if (areasError) {
         throw areasError;
       }
-      
+
       // Delete any assessment areas first (cascade may handle this, but being explicit)
       if (assessmentAreas && assessmentAreas.length > 0) {
         const { error: deleteAreasError } = await supabase
           .from("assessment_areas")
           .delete()
-          .in("id", assessmentAreas.map(area => area.id));
-          
+          .in(
+            "id",
+            assessmentAreas.map((area) => area.id)
+          );
+
         if (deleteAreasError) {
           throw deleteAreasError;
         }
       }
-      
+
       // Delete images associated with the report
       const { error: deleteImagesError } = await supabase
         .from("images")
         .delete()
         .eq("report_id", reportId);
-        
+
       if (deleteImagesError) {
         throw deleteImagesError;
       }
-      
+
       // Delete the report itself
       const { error: deleteError } = await supabase
         .from("reports")
         .delete()
         .eq("id", reportId);
-        
+
       if (deleteError) {
         throw deleteError;
       }
-      
+
       // Show success message
       setMessage({
         text: "Report deleted successfully",
-        type: "success"
+        type: "success",
       });
-      
+
       // Refresh the list of reports
       fetchReports();
-      
+
       // Clear any existing message timeout
       if (showMessageTimeout) {
         clearTimeout(showMessageTimeout);
       }
-      
+
       // Set a new timeout to clear the message after 5 seconds
       const timeout = setTimeout(() => {
         setMessage(null);
       }, 5000);
-      
+
       setShowMessageTimeout(timeout);
     } catch (error: any) {
       console.error("Error deleting report:", error);
@@ -208,7 +229,7 @@ const ReportsPage: React.FC = () => {
 
   // Helper function to format status display
   const formatStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+    return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ");
   };
 
   // Helper function to determine badge color by status
@@ -230,12 +251,12 @@ const ReportsPage: React.FC = () => {
   };
 
   const renderReportCard = (report: ExtendedReport) => {
-    const propertyAddress = report.property ? 
-      `${report.property.address_line1}, ${report.property.city}, ${report.property.state}` : 
-      "No property address";
-    
+    const propertyAddress = report.property
+      ? `${report.property.address_line1}, ${report.property.city}, ${report.property.state}`
+      : "No property address";
+
     const createdDate = new Date(report.created_at).toLocaleDateString();
-    
+
     return (
       <Card key={report.id} className="mb-4">
         <div className="p-4">
@@ -248,7 +269,8 @@ const ReportsPage: React.FC = () => {
               </p>
               {report.incident_date && (
                 <p className="text-sm text-gray-500">
-                  Incident Date: {new Date(report.incident_date).toLocaleDateString()}
+                  Incident Date:{" "}
+                  {new Date(report.incident_date).toLocaleDateString()}
                 </p>
               )}
             </div>
@@ -261,7 +283,9 @@ const ReportsPage: React.FC = () => {
                 {formatStatus(report.status)}
               </span>
               <div className="mt-2 text-sm text-gray-500">
-                <span className="mr-3">{report.assessment_areas_count} Areas</span>
+                <span className="mr-3">
+                  {report.assessment_areas_count} Areas
+                </span>
                 <span>{report.images_count} Images</span>
               </div>
             </div>
@@ -293,7 +317,10 @@ const ReportsPage: React.FC = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="max-w-4xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-              <PageHeader title="My Reports" subtitle="View and manage your property damage reports" />
+              <PageHeader
+                title="My Reports"
+                subtitle="View and manage your property damage reports"
+              />
               <div className="mt-4 md:mt-0">
                 <Button variant="primary" onClick={handleCreateNewReport}>
                   Create New Report
@@ -323,10 +350,13 @@ const ReportsPage: React.FC = () => {
               <div className="flex items-center">
                 <span className="mr-3 text-sm text-gray-600">Sort by:</span>
                 <button
-                  onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+                  onClick={() =>
+                    setSortOrder(sortOrder === "desc" ? "asc" : "desc")
+                  }
                   className="flex items-center text-sm text-blue-600 hover:text-blue-800"
                 >
-                  Date {sortOrder === "desc" ? "▼ Newest first" : "▲ Oldest first"}
+                  Date{" "}
+                  {sortOrder === "desc" ? "▼ Newest first" : "▲ Oldest first"}
                 </button>
               </div>
             </div>
@@ -338,7 +368,9 @@ const ReportsPage: React.FC = () => {
             ) : reports.length === 0 ? (
               <Card>
                 <div className="p-8 text-center">
-                  <h3 className="text-lg font-medium text-gray-500 mb-4">No reports found</h3>
+                  <h3 className="text-lg font-medium text-gray-500 mb-4">
+                    No reports found
+                  </h3>
                   <p className="mb-6 text-gray-500">
                     {statusFilter !== "all"
                       ? `No reports with status "${formatStatus(

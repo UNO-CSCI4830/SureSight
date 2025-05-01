@@ -35,11 +35,36 @@ export default function NewForm() {
 
     try {
       // Get the user's properties
+      console.log("This should be running ", user.id);
+      const { data: userID, error: userIdError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .limit(1);
+      const authToUserId = userID?.[0]?.id;
+      if (!authToUserId) {
+        throw new Error(
+          "No matching profile found for authToUserId = " + authToUserId
+        );
+      }
+
+      const { data: profiles, error: userLocatorError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", authToUserId)
+        .limit(1);
+      const profileId = profiles?.[0]?.id;
+
+      if (!profileId) {
+        throw new Error("No matching profile found for user.id = " + user.id);
+      }
+
       const { data: properties, error: propError } = await supabase
         .from("properties")
-        .select("id")
-        .eq("homeowner_id", user.id)
+        .select("id") // This is refrencing the incorrect id then what is passed through
+        .eq("homeowner_id", profileId)
         .limit(1);
+      console.log("Here are properties", properties);
 
       if (propError) {
         throw new Error("Error finding properties: " + propError.message);
@@ -48,6 +73,7 @@ export default function NewForm() {
       // If no properties, create one first
       let propertyId;
       if (!properties || properties.length === 0) {
+        console.log("This should not be running");
         // Extract address components
         const addressParts = address.split(",").map((part) => part.trim());
         const cityStateZip =
@@ -84,7 +110,7 @@ export default function NewForm() {
         .from("reports")
         .insert({
           property_id: propertyId,
-          creator_id: user.id,
+          creator_id: authToUserId,
           title: `${insuranceProvider} Claim - ${new Date().toLocaleDateString()}`,
           status: "draft",
           incident_date: damageDate || null,
@@ -99,7 +125,17 @@ export default function NewForm() {
 
       // If there's an image, upload it
       if (image) {
-        // TODO: Add image upload logic
+        const fileExt = image.name.split(".").pop();
+        const fileName = `${report.id}-${Date.now()}.${fileExt}`;
+        const filePath = `Homeowners/${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("photos")
+          .upload(filePath, image);
+
+        if (uploadError) {
+          throw new Error("Image upload failed: " + uploadError.message);
+        }
       }
 
       setSuccess(true);
