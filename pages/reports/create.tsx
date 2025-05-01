@@ -16,7 +16,7 @@ export default function NewForm() {
   const { user } = useSupabaseAuth();
   const [address, setAddress] = useState("");
   const [insuranceProvider, setInsuranceProvider] = useState("");
-  const [image, setImage] = useState("");
+  const [image, setImage] = useState<File | null>(null);
   const [damageDate, setDamageDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -49,11 +49,12 @@ export default function NewForm() {
       let propertyId;
       if (!properties || properties.length === 0) {
         // Extract address components
-        const addressParts = address.split(',').map(part => part.trim());
-        const cityStateZip = addressParts.length > 1 ? addressParts[1].split(' ') : ['', '', ''];
-        const city = cityStateZip.slice(0, -2).join(' ') || 'Unknown';
-        const state = cityStateZip[cityStateZip.length - 2] || 'Unknown';
-        const postal = cityStateZip[cityStateZip.length - 1] || 'Unknown';
+        const addressParts = address.split(",").map((part) => part.trim());
+        const cityStateZip =
+          addressParts.length > 1 ? addressParts[1].split(" ") : ["", "", ""];
+        const city = cityStateZip.slice(0, -2).join(" ") || "Unknown";
+        const state = cityStateZip[cityStateZip.length - 2] || "Unknown";
+        const postal = cityStateZip[cityStateZip.length - 1] || "Unknown";
 
         // Create a new property
         const { data: newProperty, error: createError } = await supabase
@@ -62,9 +63,9 @@ export default function NewForm() {
             homeowner_id: user.id,
             address_line1: addressParts[0] || address,
             city: city,
-            state: state, 
+            state: state,
             postal_code: postal,
-            property_type: "residential"
+            property_type: "residential",
           })
           .select("id")
           .single();
@@ -72,7 +73,7 @@ export default function NewForm() {
         if (createError) {
           throw new Error("Error creating property: " + createError.message);
         }
-        
+
         propertyId = newProperty.id;
       } else {
         propertyId = properties[0].id;
@@ -87,7 +88,7 @@ export default function NewForm() {
           title: `${insuranceProvider} Claim - ${new Date().toLocaleDateString()}`,
           status: "draft",
           incident_date: damageDate || null,
-          description: "Initial report created from form submission"
+          description: "Initial report created from form submission",
         })
         .select("id")
         .single();
@@ -175,6 +176,19 @@ export default function NewForm() {
                   inputClassName="bg-white"
                   required
                 />
+                <div className="mt-5 flex justify-center">
+                  <input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setImage(e.target.files[0]);
+                      }
+                    }}
+                    className="file-input bg-white text-black file-input-neutral"
+                  />
+                </div>
               </FormField>
             </div>
             <div className="mb-5 flex items-center justify-center">
