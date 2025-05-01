@@ -35,8 +35,8 @@ export default function NewForm() {
 
     try {
       // Get the user's properties
-      console.log("This should be running ", user.id);
-      const { data: userID, error: userIdError } = await supabase
+
+      const { data: userID, error: userIdError } = await supabase // user.id refrences the auth_user_id in supabase this function grabs the original ID
         .from("users")
         .select("id")
         .eq("auth_user_id", user.id)
@@ -48,7 +48,7 @@ export default function NewForm() {
         );
       }
 
-      const { data: profiles, error: userLocatorError } = await supabase
+      const { data: profiles, error: userLocatorError } = await supabase // Takes the userid and grabs the profile id
         .from("profiles")
         .select("id")
         .eq("user_id", authToUserId)
@@ -59,7 +59,7 @@ export default function NewForm() {
         throw new Error("No matching profile found for user.id = " + user.id);
       }
 
-      const { data: properties, error: propError } = await supabase
+      const { data: properties, error: propError } = await supabase // Using the profile id we can now get the correct propertie
         .from("properties")
         .select("id") // This is refrencing the incorrect id then what is passed through
         .eq("homeowner_id", profileId)
