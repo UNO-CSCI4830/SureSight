@@ -225,7 +225,7 @@ describe('Dashboard Page', () => {
     
     // Verify navigation occurs - needs to be outside the waitFor to give time for the onClick handler
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/reports/new');
+      expect(mockPush).toHaveBeenCalledWith('/reports/create');
     });
   });
 });
