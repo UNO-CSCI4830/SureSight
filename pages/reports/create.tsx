@@ -128,7 +128,7 @@ export default function NewForm() {
         const filePath = `Homeowners/${user.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from("photos")
+          .from("reports")
           .upload(filePath, image);
 
         if (uploadError) {
