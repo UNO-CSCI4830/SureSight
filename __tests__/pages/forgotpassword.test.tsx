@@ -19,8 +19,8 @@ jest.mock('../../components/layout/Layout', () => ({
 
 jest.mock('../../components/ui', () => ({
     __esModule:true,
-    FormInput: ({ value, onChange, ...props }) => (
-        <input value={value} onChange={onChange} {...props} data-testid="email-input" />
+    FormInput: ({ value, onChange, type, id, name, placeholder, required }) => (
+        <input value={value} onChange={onChange} type={type} id={id} name={name} placeholder={placeholder} required={required} data-testid="email-input" />
     )
 }));
 
