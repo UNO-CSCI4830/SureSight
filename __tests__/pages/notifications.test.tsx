@@ -1,9 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import NotificationsPage from '../../pages/notifications';
 import userEvent from '@testing-library/user-event';
 
-// Mocks
+// Define mocks before importing the component
 const mockGetUser = jest.fn();
 const mockFrom = jest.fn();
 const mockUpdate = jest.fn();
@@ -11,7 +10,7 @@ const mockEq = jest.fn();
 const mockChannel = jest.fn();
 const mockRemoveChannel = jest.fn();
 
-// Mock Supabase client
+// Mock the module before importing the component
 jest.mock('../../utils/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -25,6 +24,9 @@ jest.mock('../../utils/supabaseClient', () => ({
     removeChannel: mockRemoveChannel,
   }
 }));
+
+// Now import the component after mocking
+import NotificationsPage from '../../pages/notifications';
 
 // Mock fetch for API calls
 global.fetch = jest.fn(() =>
