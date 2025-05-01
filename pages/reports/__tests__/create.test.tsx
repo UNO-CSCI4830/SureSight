@@ -2,17 +2,34 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import NewForm from "../create";
 
 jest.mock("../../../utils/supabaseClient", () => {
+  const insertReport = jest.fn(() => ({
+    select: jest.fn(() => ({
+      single: () => Promise.resolve({ data: { id: "report-id" }, error: null }),
+    })),
+  }));
+
+  const insertProperty = jest.fn(() => ({
+    select: jest.fn(() => ({
+      single: () =>
+        Promise.resolve({ data: { id: "new-property-id" }, error: null }),
+    })),
+  }));
+
   const mockUpload = jest.fn().mockResolvedValue({ data: {}, error: null });
 
-  const mockLimit = jest.fn(() =>
-    Promise.resolve({ data: [{ id: "user-db-id" }], error: null })
-  );
-  const mockEq = jest.fn(() => ({ limit: mockLimit }));
-  const mockSelect = jest.fn(() => ({ eq: mockEq }));
-
   const mockFrom = jest.fn((table: string) => {
-    if (table === "users") return { select: mockSelect };
-    if (table === "profiles")
+    if (table === "users") {
+      return {
+        select: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            limit: jest.fn(() =>
+              Promise.resolve({ data: [{ id: "user-db-id" }], error: null })
+            ),
+          })),
+        })),
+      };
+    }
+    if (table === "profiles") {
       return {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
@@ -22,29 +39,22 @@ jest.mock("../../../utils/supabaseClient", () => {
           })),
         })),
       };
-    if (table === "properties")
+    }
+    if (table === "properties") {
       return {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
             limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
           })),
         })),
-        insert: jest.fn(() => ({
-          select: jest.fn(() => ({
-            single: () =>
-              Promise.resolve({ data: { id: "new-property-id" }, error: null }),
-          })),
-        })),
+        insert: insertProperty,
       };
-    if (table === "reports")
+    }
+    if (table === "reports") {
       return {
-        insert: jest.fn(() => ({
-          select: jest.fn(() => ({
-            single: () =>
-              Promise.resolve({ data: { id: "report-id" }, error: null }),
-          })),
-        })),
+        insert: insertReport,
       };
+    }
     return {};
   });
 
@@ -56,10 +66,27 @@ jest.mock("../../../utils/supabaseClient", () => {
           upload: mockUpload,
         })),
       },
+      auth: {
+        getSession: jest.fn().mockResolvedValue({
+          data: { session: { user: { id: "auth-user-id" } } },
+          error: null,
+        }),
+        onAuthStateChange: jest.fn(() => ({
+          data: {
+            subscription: {
+              unsubscribe: jest.fn(),
+            },
+          },
+        })),
+      },
     },
     useSupabaseAuth: jest.fn(() => ({
       user: { id: "auth-user-id" },
     })),
+    __mocks: {
+      insertReport,
+      insertProperty,
+    },
   };
 });
 
@@ -69,7 +96,6 @@ describe("NewForm", () => {
   it("calls Supabase with correct user ID on form submit", async () => {
     render(<NewForm />);
 
-    // Fill out the form
     fireEvent.change(screen.getByLabelText(/address/i), {
       target: { value: "123 Main St, Omaha NE 68101" },
     });
@@ -103,6 +129,35 @@ describe("NewForm", () => {
 
     await waitFor(() => {
       expect(supabase.from).toHaveBeenCalledWith("profiles");
+    });
+  });
+  it("creates a report after property creation", async () => {
+    const { __mocks } = require("../../../utils/supabaseClient");
+
+    render(<NewForm />);
+
+    fireEvent.change(screen.getByLabelText(/address/i), {
+      target: { value: "123 Main St, Omaha NE 68101" },
+    });
+    fireEvent.change(screen.getByLabelText(/insurance provider/i), {
+      target: { value: "AllState" },
+    });
+    fireEvent.change(screen.getByLabelText(/damage occur/i), {
+      target: { value: "2024-01-01" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /submit claim/i }));
+
+    await waitFor(() => {
+      expect(__mocks.insertReport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          property_id: "new-property-id",
+          creator_id: "user-db-id",
+          status: "draft",
+          title: expect.stringContaining("AllState"),
+          incident_date: "2024-01-01",
+        })
+      );
     });
   });
 });
