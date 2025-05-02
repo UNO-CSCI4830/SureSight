@@ -160,6 +160,23 @@ describe("NewForm", () => {
       );
     });
   });
+
+  it("displays the form title", () => {
+    render(<NewForm />);
+    expect(
+      screen.getByRole("heading", { name: /new form/i })
+    ).toBeInTheDocument();
+  });
+  it("renders the form", () => {
+    render(<NewForm />);
+
+    expect(screen.getByLabelText(/address/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/insurance provider/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/damage occur/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /submit claim/i })
+    ).toBeInTheDocument();
+  });
   it("uploads an image if one is selected", async () => {
     const { supabase } = require("../../../utils/supabaseClient");
 
@@ -188,22 +205,5 @@ describe("NewForm", () => {
       expect(supabase.storage.from).toHaveBeenCalledWith("reports");
       expect(supabase.storage.from("reports").upload).toHaveBeenCalled();
     });
-  });
-
-  it("displays the form title", () => {
-    render(<NewForm />);
-    expect(
-      screen.getByRole("heading", { name: /new form/i })
-    ).toBeInTheDocument();
-  });
-  it("renders the form", () => {
-    render(<NewForm />);
-
-    expect(screen.getByLabelText(/address/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/insurance provider/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/damage occur/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /submit claim/i })
-    ).toBeInTheDocument();
   });
 });
