@@ -41,21 +41,34 @@ describe('Signup form test', () => {
   test('should allow typing into input fields', async () => {
     const user = userEvent.setup();
     render(<SignUp />);
-  
+
     const emailInput = screen.getByLabelText(/email address/i);
-    const passwordInput = screen.getByLabelText(/^password/i); // Use precise regex
+    const passwordInput = screen.getByLabelText(/^password/i);
     const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-  
+
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'securepassword123');
     await user.type(confirmPasswordInput, 'securepassword123');
-  
+
     expect(emailInput).toHaveValue('test@example.com');
     expect(passwordInput).toHaveValue('securepassword123');
     expect(confirmPasswordInput).toHaveValue('securepassword123');
   });
 
- test('should display error if password is too short', async () => {
+  test('should allow selecting a role', async () => {
+
+    const user = userEvent.setup();
+    render(<SignUp />);
+    const roleSelect = screen.getByLabelText(/i am a.../i);
+
+    await user.selectOptions(roleSelect, 'contractor');
+    expect(roleSelect).toHaveValue('contractor');
+
+    await user.selectOptions(roleSelect, screen.getByRole('option', { name: 'Insurance Adjuster' }));
+    expect(roleSelect).toHaveValue('adjuster');
+  });
+
+  test('should display error if password is too short', async () => {
     const user = userEvent.setup();
     render(<SignUp />);
 
@@ -69,30 +82,49 @@ describe('Signup form test', () => {
     await user.type(confirmPasswordInput, 'short');
     await user.click(submitButton);
 
-   // Check for the password length error message
-   expect(await screen.findByText('Password must be at least 8 characters long')).toBeInTheDocument();
- });
+    // Check for the password length error message
+    expect(await screen.findByText('Password must be at least 8 characters long')).toBeInTheDocument();
+  });
 
+  test('should display error if password does not match', async () => {
+    const user = userEvent.setup();
+    render(<SignUp />);
+
+    const emailInput = screen.getByLabelText(/email address/i);
+    const passwordInput = screen.getByLabelText(/^password/i);
+    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
+    const submitButton = screen.getByRole('button', { name: /sign up/i });
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'password1');
+    await user.type(confirmPasswordInput, 'password2');
+    await user.click(submitButton);
+
+    // Check for the password mismatch message
+    expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
+  });
+
+  //This test doesn't work
   test('should display success message', async () => {
     const user = userEvent.setup();
     const mockHandleSignUp = jest.fn(() => {
-       // render(<SignUp onSubmitSuccess={() => { setIsSubmitted(true); }} />);
-       // mockApiCall.mockResolvedValue({ success: true });
-       return Promise.resolve({ success: true });
+      // render(<SignUp onSubmitSuccess={() => { setIsSubmitted(true); }} />);
+      // mockApiCall.mockResolvedValue({ success: true });
+      return Promise.resolve({ success: true });
     });
-  
+
     render(<SignUp handleSignUp={mockHandleSignUp} />);
     await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
     await user.type(screen.getByLabelText(/^password/i), 'securepassword123');
     await user.type(screen.getByLabelText(/confirm password/i), 'securepassword123');
     await user.selectOptions(screen.getByLabelText(/i am a.../i), 'contractor');
-  
+
     const submitButton = screen.getByRole('button', { name: /sign up/i });
     await user.click(submitButton);
-    
+
     //const successHeading = await screen.getByLabelText(/verification email sent/i);
     //expect(successHeading).toBeInTheDocument();
- 
-  });
 
   });
+
+});
