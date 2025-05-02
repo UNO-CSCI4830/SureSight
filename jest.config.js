@@ -5,9 +5,11 @@ export default {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   // Excluding setup files from test patterns
   testMatch: [
-    '**/__tests__/**/*.ts?(x)',
-    '**/?(*.)+(spec|test).ts?(x)',
-  ],
+  '**/__tests__/**/*.ts?(x)',  
+  '**/__tests__/pages/api/**/*.ts?(x)', 
+  '**/?(*.)+(spec|test).ts?(x)',  
+],
+
   testPathIgnorePatterns: [
     '/node_modules/',
     '/__tests__/setup/'
