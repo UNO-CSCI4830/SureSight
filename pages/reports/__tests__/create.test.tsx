@@ -189,4 +189,20 @@ describe("NewForm", () => {
       expect(supabase.storage.from("reports").upload).toHaveBeenCalled();
     });
   });
+  it("renders the form", () => {
+    render(<NewForm />);
+
+    expect(screen.getByLabelText(/address/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/insurance provider/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/damage occur/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /submit claim/i })
+    ).toBeInTheDocument();
+  });
+  it("displays the form title", () => {
+    render(<NewForm />);
+    expect(
+      screen.getByRole("heading", { name: /new form/i })
+    ).toBeInTheDocument();
+  });
 });
