@@ -212,6 +212,7 @@ export default function NewForm() {
                 />
                 <div className="mt-5 flex justify-center">
                   <input
+                    data-testid="image-upload"
                     id="image"
                     type="file"
                     accept="image/*"

@@ -160,4 +160,33 @@ describe("NewForm", () => {
       );
     });
   });
+  it("uploads an image if one is selected", async () => {
+    const { supabase } = require("../../../utils/supabaseClient");
+
+    render(<NewForm />);
+
+    fireEvent.change(screen.getByLabelText(/address/i), {
+      target: { value: "123 Main St, Omaha NE 68101" },
+    });
+    fireEvent.change(screen.getByLabelText(/insurance provider/i), {
+      target: { value: "AllState" },
+    });
+    fireEvent.change(screen.getByLabelText(/damage occur/i), {
+      target: { value: "2024-01-01" },
+    });
+
+    const file = new File(["dummy content"], "damage.jpg", {
+      type: "image/jpeg",
+    });
+    const fileInput = screen.getByTestId("image-upload");
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole("button", { name: /submit claim/i }));
+
+    await waitFor(() => {
+      expect(supabase.storage.from).toHaveBeenCalledWith("reports");
+      expect(supabase.storage.from("reports").upload).toHaveBeenCalled();
+    });
+  });
 });
