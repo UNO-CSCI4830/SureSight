@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import NewForm from "../create";
+import NewForm from "../../../../pages/reports/create";
 
-jest.mock("../../../utils/supabaseClient", () => {
+jest.mock("../../../../utils/supabaseClient", () => {
   const insertReport = jest.fn(() => ({
     select: jest.fn(() => ({
       single: () => Promise.resolve({ data: { id: "report-id" }, error: null }),
@@ -90,7 +90,7 @@ jest.mock("../../../utils/supabaseClient", () => {
   };
 });
 
-import { supabase } from "../../../utils/supabaseClient";
+import { supabase } from "../../../../utils/supabaseClient";
 
 describe("NewForm", () => {
   it("displays the form title", () => {
@@ -110,7 +110,7 @@ describe("NewForm", () => {
     ).toBeInTheDocument();
   });
   it("uploads an image if one is selected", async () => {
-    const { supabase } = require("../../../utils/supabaseClient");
+    const { supabase } = require("../../../../utils/supabaseClient");
 
     render(<NewForm />);
 
@@ -139,7 +139,7 @@ describe("NewForm", () => {
     });
   });
   it("creates a report after property creation", async () => {
-    const { __mocks } = require("../../../utils/supabaseClient");
+    const { __mocks } = require("../../../../utils/supabaseClient");
 
     render(<NewForm />);
 
