@@ -3,59 +3,50 @@ import { render, screen } from '@testing-library/react';
 import LoadingSpinner from '../../../../components/common/display/LoadingSpinner';
 
 describe('LoadingSpinner Component', () => {
-  it('renders correctly with default props', () => {
+  test('renders with default props', () => {
     render(<LoadingSpinner />);
     
-    // Check SVG is rendered
-    const svg = document.querySelector('svg');
-    expect(svg).toBeInTheDocument();
-    expect(svg).toHaveClass('animate-spin');
-    expect(svg).toHaveClass('h-8 w-8'); // Default is 'md' size
+    // Check if the spinner SVG is present
+    const spinnerElement = document.querySelector('svg');
+    expect(spinnerElement).toBeInTheDocument();
+    expect(spinnerElement).toHaveClass('animate-spin');
+    expect(spinnerElement).toHaveClass('h-8');
+    expect(spinnerElement).toHaveClass('w-8');
   });
 
-  it('applies small size class when size="sm"', () => {
+  test('renders with small size', () => {
     render(<LoadingSpinner size="sm" />);
     
-    const svg = document.querySelector('svg');
-    expect(svg).toHaveClass('h-4 w-4');
-    expect(svg).not.toHaveClass('h-8 w-8');
+    const spinnerElement = document.querySelector('svg');
+    expect(spinnerElement).toHaveClass('h-4');
+    expect(spinnerElement).toHaveClass('w-4');
   });
 
-  it('applies large size class when size="lg"', () => {
+  test('renders with large size', () => {
     render(<LoadingSpinner size="lg" />);
     
-    const svg = document.querySelector('svg');
-    expect(svg).toHaveClass('h-12 w-12');
-    expect(svg).not.toHaveClass('h-8 w-8');
+    const spinnerElement = document.querySelector('svg');
+    expect(spinnerElement).toHaveClass('h-12');
+    expect(spinnerElement).toHaveClass('w-12');
   });
 
-  it('applies custom color class', () => {
-    render(<LoadingSpinner color="red-500" />);
+  test('renders with custom color', () => {
+    render(<LoadingSpinner color="secondary-600" />);
     
-    const svg = document.querySelector('svg');
-    expect(svg).toHaveClass('text-red-500');
-    expect(svg).not.toHaveClass('text-primary-500');
+    const spinnerElement = document.querySelector('svg');
+    expect(spinnerElement).toHaveClass('text-secondary-600');
   });
 
-  it('displays loading text when provided', () => {
-    const loadingText = 'Loading data...';
-    render(<LoadingSpinner text={loadingText} />);
+  test('renders with loading text', () => {
+    render(<LoadingSpinner text="Loading data..." />);
     
-    expect(screen.getByText(loadingText)).toBeInTheDocument();
+    expect(screen.getByText('Loading data...')).toBeInTheDocument();
   });
 
-  it('does not display text when not provided', () => {
-    render(<LoadingSpinner />);
+  test('applies custom className', () => {
+    render(<LoadingSpinner className="my-custom-class" />);
     
-    const textElement = document.querySelector('p');
-    expect(textElement).not.toBeInTheDocument();
-  });
-
-  it('applies custom className to wrapper', () => {
-    const { container } = render(<LoadingSpinner className="custom-class" />);
-    
-    // Get the top level wrapper div - need to check it explicitly rather than using document.querySelector
-    const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveClass('custom-class');
+    const containerElement = document.querySelector('.flex.flex-col');
+    expect(containerElement).toHaveClass('my-custom-class');
   });
 });

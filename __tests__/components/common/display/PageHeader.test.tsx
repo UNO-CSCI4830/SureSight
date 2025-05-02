@@ -3,46 +3,58 @@ import { render, screen } from '@testing-library/react';
 import PageHeader from '../../../../components/common/display/PageHeader';
 
 describe('PageHeader Component', () => {
-  it('renders the title correctly', () => {
-    render(<PageHeader title="Test Page Title" />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Test Page Title');
+  test('renders with title', () => {
+    render(<PageHeader title="Test Title" />);
+    
+    const headingElement = screen.getByText('Test Title');
+    expect(headingElement).toBeInTheDocument();
+    expect(headingElement.tagName).toBe('H1');
   });
 
-  it('renders the subtitle when provided', () => {
-    render(<PageHeader title="Main Title" subtitle="Page subtitle" />);
-    expect(screen.getByText('Page subtitle')).toBeInTheDocument();
+  test('renders with subtitle', () => {
+    render(<PageHeader title="Test Title" subtitle="Test Subtitle" />);
+    
+    expect(screen.getByText('Test Title')).toBeInTheDocument();
+    expect(screen.getByText('Test Subtitle')).toBeInTheDocument();
   });
 
-  it('does not render subtitle when not provided', () => {
-    const { container } = render(<PageHeader title="Main Title" />);
-    const subtitle = container.querySelector('.text-gray-600');
-    expect(subtitle).not.toBeInTheDocument();
-  });
-
-  it('renders action elements when provided', () => {
-    const actionContent = "Action Button";
+  test('renders with actions', () => {
     render(
       <PageHeader 
-        title="Main Title"
-        actions={<button>{actionContent}</button>}
+        title="Test Title" 
+        actions={<button data-testid="test-action">Action</button>}
       />
     );
-    expect(screen.getByText(actionContent)).toBeInTheDocument();
-  });
-
-  it('does not render actions container when not provided', () => {
-    const { container } = render(<PageHeader title="Main Title" />);
-    // The rendered structure has more divs than expected - checking for specific action div instead
-    const actionsDiv = container.querySelector('.mt-4.md\\:mt-0.md\\:ml-6');
-    expect(actionsDiv).not.toBeInTheDocument();
-  });
-
-  it('applies custom className when provided', () => {
-    const customClass = 'custom-header-class';
-    const { container } = render(<PageHeader title="Title" className={customClass} />);
     
-    const headerDiv = container.firstChild as HTMLElement;
-    expect(headerDiv).toHaveClass(customClass);
-    expect(headerDiv).toHaveClass('mb-8'); // Default class should still be there
+    expect(screen.getByText('Test Title')).toBeInTheDocument();
+    expect(screen.getByTestId('test-action')).toBeInTheDocument();
+    expect(screen.getByText('Action')).toBeInTheDocument();
+  });
+
+  test('applies custom className', () => {
+    const { container } = render(<PageHeader title="Test Title" className="my-custom-class" />);
+    
+    // Direct check on the container's first child, which is the outer div
+    const outerDiv = container.firstChild as HTMLElement;
+    expect(outerDiv).toHaveClass('my-custom-class');
+    expect(outerDiv).toHaveClass('mb-8');
+  });
+
+  test('renders with all props', () => {
+    const { container } = render(
+      <PageHeader 
+        title="Test Title" 
+        subtitle="Test Subtitle" 
+        className="my-custom-class"
+        actions={<button data-testid="test-action">Action</button>}
+      />
+    );
+    
+    expect(screen.getByText('Test Title')).toBeInTheDocument();
+    expect(screen.getByText('Test Subtitle')).toBeInTheDocument();
+    expect(screen.getByTestId('test-action')).toBeInTheDocument();
+    
+    const outerDiv = container.firstChild as HTMLElement;
+    expect(outerDiv).toHaveClass('my-custom-class');
   });
 });

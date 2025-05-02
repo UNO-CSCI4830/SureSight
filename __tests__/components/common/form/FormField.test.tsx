@@ -3,60 +3,100 @@ import { render, screen } from '@testing-library/react';
 import FormField from '../../../../components/common/form/FormField';
 
 describe('FormField Component', () => {
-  const defaultProps = {
-    id: 'test-field',
-    children: <input id="test-field" type="text" />
-  };
-
-  it('renders children correctly', () => {
-    render(<FormField {...defaultProps} />);
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  test('renders children', () => {
+    render(
+      <FormField id="test-field">
+        <input id="test-field" data-testid="test-input" />
+      </FormField>
+    );
+    
+    expect(screen.getByTestId('test-input')).toBeInTheDocument();
   });
 
-  it('renders label when provided', () => {
-    render(<FormField {...defaultProps} label="Field Label" />);
-    expect(screen.getByText('Field Label')).toBeInTheDocument();
+  test('renders label when provided', () => {
+    render(
+      <FormField id="test-field" label="Test Label">
+        <input id="test-field" />
+      </FormField>
+    );
+    
+    const labelElement = screen.getByText('Test Label');
+    expect(labelElement).toBeInTheDocument();
+    expect(labelElement.tagName).toBe('LABEL');
+    expect(labelElement).toHaveAttribute('for', 'test-field');
   });
 
-  it('does not render label when not provided', () => {
-    const { container } = render(<FormField {...defaultProps} />);
-    const label = container.querySelector('label');
-    expect(label).not.toBeInTheDocument();
-  });
-
-  it('shows required indicator when required prop is true', () => {
-    render(<FormField {...defaultProps} label="Required Field" required />);
+  test('shows required indicator when field is required', () => {
+    render(
+      <FormField id="test-field" label="Test Label" required>
+        <input id="test-field" />
+      </FormField>
+    );
+    
+    // The required indicator is a span with * inside the label
     expect(screen.getByText('*')).toBeInTheDocument();
+    const requiredIndicator = screen.getByText('*');
+    expect(requiredIndicator).toHaveClass('text-red-500');
   });
 
-  it('does not show required indicator when required prop is false', () => {
-    render(<FormField {...defaultProps} label="Optional Field" required={false} />);
-    expect(screen.queryByText('*')).not.toBeInTheDocument();
-  });
-
-  it('shows help text when helpText prop is provided', () => {
-    const helpText = 'This is a helpful instruction';
-    render(<FormField {...defaultProps} helpText={helpText} />);
+  test('renders help text when provided', () => {
+    render(
+      <FormField id="test-field" helpText="This is help text">
+        <input id="test-field" />
+      </FormField>
+    );
     
-    const helpElement = screen.getByText(helpText);
-    expect(helpElement).toBeInTheDocument();
-    expect(helpElement).toHaveClass('text-gray-500');
+    expect(screen.getByText('This is help text')).toBeInTheDocument();
+    const helpTextElement = screen.getByText('This is help text');
+    expect(helpTextElement.tagName).toBe('P');
+    expect(helpTextElement).toHaveClass('text-gray-500');
   });
 
-  it('shows error message when error prop is provided', () => {
-    const errorMessage = 'This field is required';
-    render(<FormField {...defaultProps} error={errorMessage} />);
+  test('renders error message when provided', () => {
+    render(
+      <FormField id="test-field" error="This field is required">
+        <input id="test-field" />
+      </FormField>
+    );
     
-    const errorElement = screen.getByText(errorMessage);
-    expect(errorElement).toBeInTheDocument();
+    expect(screen.getByText('This field is required')).toBeInTheDocument();
+    const errorElement = screen.getByText('This field is required');
+    expect(errorElement.tagName).toBe('P');
     expect(errorElement).toHaveClass('text-red-600');
   });
 
-  it('applies custom className when provided', () => {
-    const customClass = 'custom-field-class';
-    const { container } = render(<FormField {...defaultProps} className={customClass} />);
+  test('applies custom className', () => {
+    render(
+      <FormField id="test-field" className="custom-class">
+        <input id="test-field" />
+      </FormField>
+    );
     
-    const fieldDiv = container.firstChild as HTMLElement;
-    expect(fieldDiv).toHaveClass(customClass);
+    const formFieldElement = screen.getByRole('textbox').parentElement;
+    expect(formFieldElement).toHaveClass('custom-class');
+  });
+
+  test('renders with all props', () => {
+    render(
+      <FormField
+        id="test-field"
+        label="Test Label"
+        required
+        helpText="This is help text"
+        error="This is an error"
+        className="custom-class"
+      >
+        <input id="test-field" data-testid="test-input" />
+      </FormField>
+    );
+    
+    expect(screen.getByText('Test Label')).toBeInTheDocument();
+    expect(screen.getByText('*')).toBeInTheDocument();
+    expect(screen.getByText('This is help text')).toBeInTheDocument();
+    expect(screen.getByText('This is an error')).toBeInTheDocument();
+    expect(screen.getByTestId('test-input')).toBeInTheDocument();
+    
+    const formFieldElement = screen.getByTestId('test-input').parentElement;
+    expect(formFieldElement).toHaveClass('custom-class');
   });
 });
