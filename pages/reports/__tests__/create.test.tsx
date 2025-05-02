@@ -131,35 +131,6 @@ describe("NewForm", () => {
       expect(supabase.from).toHaveBeenCalledWith("profiles");
     });
   });
-  it("creates a report after property creation", async () => {
-    const { __mocks } = require("../../../utils/supabaseClient");
-
-    render(<NewForm />);
-
-    fireEvent.change(screen.getByLabelText(/address/i), {
-      target: { value: "123 Main St, Omaha NE 68101" },
-    });
-    fireEvent.change(screen.getByLabelText(/insurance provider/i), {
-      target: { value: "AllState" },
-    });
-    fireEvent.change(screen.getByLabelText(/damage occur/i), {
-      target: { value: "2024-01-01" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /submit claim/i }));
-
-    await waitFor(() => {
-      expect(__mocks.insertReport).toHaveBeenCalledWith(
-        expect.objectContaining({
-          property_id: "new-property-id",
-          creator_id: "user-db-id",
-          status: "draft",
-          title: expect.stringContaining("AllState"),
-          incident_date: "2024-01-01",
-        })
-      );
-    });
-  });
 
   it("displays the form title", () => {
     render(<NewForm />);
@@ -204,6 +175,35 @@ describe("NewForm", () => {
     await waitFor(() => {
       expect(supabase.storage.from).toHaveBeenCalledWith("reports");
       expect(supabase.storage.from("reports").upload).toHaveBeenCalled();
+    });
+  });
+  it("creates a report after property creation", async () => {
+    const { __mocks } = require("../../../utils/supabaseClient");
+
+    render(<NewForm />);
+
+    fireEvent.change(screen.getByLabelText(/address/i), {
+      target: { value: "123 Main St, Omaha NE 68101" },
+    });
+    fireEvent.change(screen.getByLabelText(/insurance provider/i), {
+      target: { value: "AllState" },
+    });
+    fireEvent.change(screen.getByLabelText(/damage occur/i), {
+      target: { value: "2024-01-01" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /submit claim/i }));
+
+    await waitFor(() => {
+      expect(__mocks.insertReport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          property_id: "new-property-id",
+          creator_id: "user-db-id",
+          status: "draft",
+          title: expect.stringContaining("AllState"),
+          incident_date: "2024-01-01",
+        })
+      );
     });
   });
 });
