@@ -206,7 +206,15 @@ export const getReportDamageStatistics = async (reportId: string): Promise<{
     const { data, error } = await supabase
       .from('image_analysis')
       .select('damage_detected, damage_severity, damage_types, confidence')
-      .eq('report_id', reportId);
+      .eq('report_id', reportId) as unknown as {
+        data: {
+          damage_detected: boolean;
+          damage_severity: string;
+          damage_types: string[];
+          confidence: number;
+        }[];
+        error: any;
+      };
 
     if (error) throw new Error(error.message);
 
@@ -235,7 +243,7 @@ export const getReportDamageStatistics = async (reportId: string): Promise<{
     const damageTypeCounts: Record<string, number> = {};
     data.forEach(item => {
       if (item.damage_types && Array.isArray(item.damage_types)) {
-        item.damage_types.forEach(type => {
+        item.damage_types.forEach((type: string) => {
           damageTypeCounts[type] = (damageTypeCounts[type] || 0) + 1;
         });
       }

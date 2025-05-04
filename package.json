@@ -15,12 +15,18 @@
         "update-types": "npx supabase gen types typescript --project-id khqevpnoodeggshfxeaa --schema public > types/database.types.ts"
     },
     "dependencies": {
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.0",
+        "@mui/icons-material": "^7.0.2",
+        "@mui/material": "^7.0.2",
         "@supabase/auth-helpers-nextjs": "^0.10.0",
         "@supabase/auth-helpers-react": "^0.5.0",
         "@supabase/ssr": "^0.6.1",
         "@supabase/supabase-js": "^2.49.4",
+        "chart.js": "^4.4.9",
         "next": "^15.3.1",
         "react": "^19.0.0",
+        "react-chartjs-2": "^5.3.0",
         "react-dom": "^19.0.0",
         "vercel": "^25.2.0"
     },
@@ -28,6 +34,7 @@
         "@testing-library/jest-dom": "^6.6.3",
         "@testing-library/react": "^16.3.0",
         "@testing-library/user-event": "^14.6.1",
+        "@types/chart.js": "^2.9.41",
         "@types/jest": "^29.5.14",
         "@types/node": "^20.17.28",
         "@types/react": "^19.0.12",

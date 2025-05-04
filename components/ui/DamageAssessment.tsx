@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Box, Card, CardContent, CardHeader, Chip, Grid, LinearProgress, Typography } from '@mui/material';
+import { Badge, Box, Card, CardContent, CardHeader, Chip, LinearProgress, Typography } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HomeIcon from '@mui/icons-material/Home';
@@ -103,9 +103,9 @@ const DamageAssessment: React.FC<DamageAssessmentProps> = ({ analysis, isLoading
       />
       
       <CardContent>
-        <Grid container spacing={3}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Damage Status */}
-          <Grid item xs={12}>
+          <Box>
             <Typography variant="body1" sx={{ mb: 1 }}>
               <strong>Status:</strong> {analysis.damage_detected ? 'Damage Detected' : 'No Damage Detected'}
             </Typography>
@@ -120,47 +120,50 @@ const DamageAssessment: React.FC<DamageAssessmentProps> = ({ analysis, isLoading
             <Typography variant="caption" color="text.secondary">
               Confidence: {Math.round(analysis.confidence * 100)}%
             </Typography>
-          </Grid>
+          </Box>
 
-          {/* Damage Types if damage detected */}
-          {analysis.damage_detected && analysis.damage_types.length > 0 && (
-            <Grid item xs={12} sm={6}>
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                <strong>Damage Types:</strong>
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {analysis.damage_types.map((type, index) => (
-                  <Chip 
-                    key={index} 
-                    label={type} 
-                    color={getSeverityColor(analysis.damage_severity)} 
-                    size="small"
-                    variant="outlined"
-                  />
-                ))}
+          {/* Damage Details Section */}
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 3 }}>
+            {/* Damage Types if damage detected */}
+            {analysis.damage_detected && analysis.damage_types.length > 0 && (
+              <Box sx={{ flexBasis: '50%' }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  <strong>Damage Types:</strong>
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {analysis.damage_types.map((type, index) => (
+                    <Chip 
+                      key={index} 
+                      label={type} 
+                      color={getSeverityColor(analysis.damage_severity)} 
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
               </Box>
-            </Grid>
-          )}
+            )}
 
-          {/* Affected Areas if any */}
-          {analysis.affected_areas.length > 0 && (
-            <Grid item xs={12} sm={6}>
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                <strong>Affected Areas:</strong>
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {analysis.affected_areas.map((area, index) => (
-                  <Chip 
-                    key={index} 
-                    label={area} 
-                    icon={<HomeIcon />}
-                    size="small"
-                  />
-                ))}
+            {/* Affected Areas if any */}
+            {analysis.affected_areas.length > 0 && (
+              <Box sx={{ flexBasis: '50%' }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  <strong>Affected Areas:</strong>
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {analysis.affected_areas.map((area, index) => (
+                    <Chip 
+                      key={index} 
+                      label={area} 
+                      icon={<HomeIcon />}
+                      size="small"
+                    />
+                  ))}
+                </Box>
               </Box>
-            </Grid>
-          )}
-        </Grid>
+            )}
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   );
