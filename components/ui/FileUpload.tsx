@@ -1,21 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, FormEvent } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import Icon from './icons/Icon';
-import Button from './Button';
 
 interface FileUploadProps {
   bucket: string;
   onUploadComplete?: (urls: string[]) => void;
   acceptedFileTypes?: string;
-  storagePath?: string;
+  multiple?: boolean;
   maxFileSize?: number; // in MB
-  multiple?: boolean; // Allow multiple file selection
-  buttonLabel?: string; // Custom label for the button
-  buttonClassName?: string; // Custom class for the button
+  className?: string;
 }
 
-interface FilePreview {
-  id: string;
+interface FileWithPreview {
   file: File;
   previewUrl: string;
 }
@@ -24,354 +19,265 @@ const FileUpload: React.FC<FileUploadProps> = ({
   bucket,
   onUploadComplete,
   acceptedFileTypes = 'image/*',
-  storagePath = '',
-  maxFileSize = 5, // 5MB default
-  multiple = true, // Default to true for multiple file uploads
-  buttonLabel,
-  buttonClassName
+  multiple = true,
+  maxFileSize = 5, // Default 5MB
+  className = '',
 }) => {
-  const [files, setFiles] = useState<FilePreview[]>([]);
-  const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [files, setFiles] = useState<FileWithPreview[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<{ text: string, type: 'info' | 'success' | 'error' } | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files;
-    processFiles(selectedFiles);
+    if (event.target.files) {
+      handleFiles(event.target.files);
+    }
   };
 
-  const processFiles = (selectedFiles: FileList | null) => {
-    if (!selectedFiles || selectedFiles.length === 0) {
-      return;
-    }
+  const handleFiles = (fileList: FileList) => {
+    const filesArray = Array.from(fileList);
+    let errorOccurred = false;
     
-    const newFiles: FilePreview[] = [];
-    const invalidFiles: string[] = [];
-    
-    Array.from(selectedFiles).forEach(file => {
-      // Check file size
-      if (file.size > maxFileSize * 1024 * 1024) {
-        invalidFiles.push(`${file.name} (exceeds ${maxFileSize}MB)`);
-        return;
+    // Filter files by size
+    const validFiles = filesArray.filter((file) => {
+      const fileSizeInMB = file.size / (1024 * 1024);
+      if (fileSizeInMB > maxFileSize) {
+        errorOccurred = true;
+        return false;
       }
-      
-      // Create preview URL for images
-      const previewUrl = URL.createObjectURL(file);
-      
-      newFiles.push({
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        file,
-        previewUrl
-      });
+      return true;
     });
-    
-    if (invalidFiles.length > 0) {
-      setMessage({
-        text: `Some files were too large: ${invalidFiles.join(', ')}`,
-        type: 'error'
+
+    if (errorOccurred) {
+      setMessage({ 
+        text: `Some files were too large (maximum size is ${maxFileSize}MB)`, 
+        type: 'error' 
       });
-    } else if (newFiles.length > 0) {
+    }
+
+    const newFiles = validFiles.map(file => ({
+      file,
+      previewUrl: URL.createObjectURL(file)
+    }));
+
+    setFiles(prevFiles => [...prevFiles, ...newFiles]);
+    // Clear any success/info messages when new files are added
+    if (message?.type === 'success' || message?.type === 'info') {
       setMessage(null);
     }
+  };
+
+  const removeFile = (fileToRemove: FileWithPreview) => {
+    setFiles(files.filter(f => f !== fileToRemove));
+    URL.revokeObjectURL(fileToRemove.previewUrl);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
     
-    // If multiple is false, replace existing files, otherwise add to array
-    setFiles(prevFiles => multiple ? [...prevFiles, ...newFiles] : newFiles);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
   };
 
-  const handleRemoveFile = (id: string) => {
-    setFiles(prevFiles => {
-      const updatedFiles = prevFiles.filter(f => f.id !== id);
-      
-      // Find the file to remove and revoke its object URL to prevent memory leaks
-      const fileToRemove = prevFiles.find(f => f.id === id);
-      if (fileToRemove) {
-        URL.revokeObjectURL(fileToRemove.previewUrl);
-      }
-      
-      return updatedFiles;
-    });
-  };
-
-  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setMessage(null);
+  const uploadFiles = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
     
     if (files.length === 0) {
-      setMessage({
-        text: 'Please select at least one file to upload',
-        type: 'info'
-      });
+      setMessage({ text: 'Please select at least one file to upload', type: 'info' });
       return;
     }
-    
-    setIsUploading(true);
+
+    setUploading(true);
+    setMessage(null);
+
     const uploadedUrls: string[] = [];
-    const failedUploads: string[] = [];
-    
+    let successCount = 0;
+    let errorMessages: string[] = [];
+
     try {
-      for (const filePreview of files) {
-        const file = filePreview.file;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${storagePath}${storagePath ? '/' : ''}${Date.now()}-${filePreview.id}.${fileExt}`;
+      for (const fileObj of files) {
+        const file = fileObj.file;
+        const filePath = `${Date.now()}-${file.name}`;
         
-        const { error: uploadError } = await supabase.storage
+        const { error } = await supabase.storage
           .from(bucket)
-          .upload(fileName, file);
+          .upload(filePath, file);
         
-        if (uploadError) {
-          failedUploads.push(file.name);
+        if (error) {
+          errorMessages.push(error.message);
           continue;
         }
-        
-        const { data: publicUrlData } = supabase.storage
+
+        const { data } = supabase.storage
           .from(bucket)
-          .getPublicUrl(fileName);
-        
-        const imageUrl = publicUrlData?.publicUrl;
-        
-        if (!imageUrl) {
-          failedUploads.push(file.name);
-          continue;
+          .getPublicUrl(filePath);
+          
+        if (data?.publicUrl) {
+          uploadedUrls.push(data.publicUrl);
+          successCount++;
         }
-        
-        uploadedUrls.push(imageUrl);
       }
-      
-      // Clean up previews after upload
-      files.forEach(file => {
-        URL.revokeObjectURL(file.previewUrl);
-      });
-      
-      // Report success or partial success
-      if (failedUploads.length === 0) {
-        setMessage({
-          text: `${uploadedUrls.length} file(s) uploaded successfully!`,
-          type: 'success'
+
+      if (successCount > 0) {
+        setMessage({ 
+          text: `${successCount} file(s) uploaded successfully!${errorMessages.length > 0 ? ' Some files failed.' : ''}`, 
+          type: 'success' 
         });
+        
+        // Clear files after successful upload
+        files.forEach(f => URL.revokeObjectURL(f.previewUrl));
         setFiles([]);
-      } else {
-        setMessage({
-          text: `${uploadedUrls.length} file(s) uploaded. Failed: ${failedUploads.join(', ')}`,
-          type: 'error'
-        });
-        // Remove only successfully uploaded files
-        const successIds = new Set(uploadedUrls.map(url => {
-          const parts = url.split('/');
-          const fileNameWithExt = parts[parts.length - 1];
-          return fileNameWithExt.split('.')[0]; // Extract the ID part
-        }));
         
-        setFiles(prevFiles => prevFiles.filter(f => !successIds.has(f.id)));
+        if (onUploadComplete) {
+          onUploadComplete(uploadedUrls);
+        }
+      } else {
+        setMessage({ 
+          text: `0 file(s) uploaded. Failed: ${errorMessages.join(', ')}`, 
+          type: 'error' 
+        });
       }
-      
-      // Call the callback with URLs if provided
-      if (onUploadComplete && uploadedUrls.length > 0) {
-        onUploadComplete(uploadedUrls);
-      }
-    } catch (error: any) {
-      setMessage({
-        text: `Upload failed: ${error.message}`,
-        type: 'error'
+    } catch (error) {
+      setMessage({ 
+        text: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 
+        type: 'error' 
       });
     } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Handle drag and drop
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isDragging) {
-      setIsDragging(true);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    
-    const droppedFiles = e.dataTransfer.files;
-    processFiles(droppedFiles);
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const getMessageClass = () => {
-    if (!message) return '';
-    
-    switch (message.type) {
-      case 'success':
-        return 'bg-green-50 text-green-800 border-green-200';
-      case 'error':
-        return 'bg-red-50 text-red-800 border-red-200';
-      case 'info':
-      default:
-        return 'bg-blue-50 text-blue-800 border-blue-200';
+      setUploading(false);
     }
   };
 
   return (
-    <div className="w-full">
-      <form onSubmit={handleUpload} className={buttonLabel ? "" : "space-y-6"}>
-        {/* If buttonLabel is provided, render a simple button UI */}
-        {buttonLabel ? (
-          <div>
-            <button
-              type="button"
-              onClick={triggerFileInput}
-              className={buttonClassName || "px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"}
-              disabled={isUploading}
+    <div className={`file-upload ${className}`}>
+      <form onSubmit={uploadFiles}>
+        <div
+          className={`border-2 border-dashed rounded-lg p-6 cursor-pointer ${
+            dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          role="button"
+          aria-label="file upload area"
+        >
+          <div className="flex flex-col items-center">
+            <svg
+              className="w-10 h-10 mb-3 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              {buttonLabel}
-            </button>
-            
-            <input
-              ref={fileInputRef}
-              id="file-upload"
-              type="file"
-              onChange={handleFileChange}
-              accept={acceptedFileTypes}
-              disabled={isUploading}
-              multiple={multiple}
-              className="hidden"
-              title="Upload your files here"
-            />
-            
-            {message && (
-              <div className={`p-2 mt-2 text-xs rounded-md border ${getMessageClass()}`}>
-                <p>{message.text}</p>
-              </div>
-            )}
-            
-            {isUploading && (
-              <div className="mt-2 text-xs text-gray-500">Uploading...</div>
-            )}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            <p className="mb-2 text-sm font-medium text-gray-700">
+              {`Drag & drop ${multiple ? 'multiple files' : 'a file'} here`}
+            </p>
+            <p className="text-xs text-gray-500">
+              {acceptedFileTypes} (Max: {maxFileSize}MB)
+            </p>
           </div>
-        ) : (
-          // Otherwise render the full drag-and-drop UI
-          <>
-            <div 
-              className={`border-2 border-dashed rounded-lg p-6 transition-all duration-200 flex flex-col items-center justify-center cursor-pointer
-                ${isDragging ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-300 hover:bg-gray-50'}`}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onClick={triggerFileInput}
-              tabIndex={0}
-              role="button"
-              aria-label="File upload area"
-            >
-              <Icon 
-                name="upload" 
-                className="h-12 w-12 text-primary-400" 
-                viewBox="0 0 24 24"
-                stroke="currentColor" 
-                fill="none" 
-              />
-              
-              <div className="mt-4 text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  {multiple ? (
-                    <span>Drag & drop multiple files here, or <span className="text-primary-500">browse</span></span>
-                  ) : (
-                    <span>Drag & drop a file here, or <span className="text-primary-500">browse</span></span>
-                  )}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">{acceptedFileTypes.replace('*', 'all')} (Max: {maxFileSize}MB)</p>
-              </div>
-              
-              <input
-                ref={fileInputRef}
-                id="file-upload"
-                type="file"
-                onChange={handleFileChange}
-                accept={acceptedFileTypes}
-                disabled={isUploading}
-                multiple={multiple}
-                className="hidden"
-                title="Upload your files here"
-              />
-            </div>
-            
-            {message && (
-              <div className={`p-3 rounded-md border ${getMessageClass()}`}>
-                <p className="text-sm">{message.text}</p>
-              </div>
-            )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept={acceptedFileTypes}
+            multiple={multiple}
+            title="Upload your files here"
+          />
+        </div>
 
-            {files.length > 0 && (
-              <>
-                <h3 className="text-lg font-medium text-gray-800">
-                  Selected Files ({files.length})
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-                  {files.map(file => (
-                    <div key={file.id} className="relative group rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                      <div className="aspect-square w-full bg-gray-100 relative">
-                        <img 
-                          src={file.previewUrl} 
-                          alt={`Preview of ${file.file.name}`}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full w-8 h-8 flex items-center justify-center
-                                    opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            handleRemoveFile(file.id); 
-                          }}
-                          title="Remove file"
-                          aria-label={`Remove ${file.file.name}`}
-                          disabled={isUploading}
-                        >
-                          <Icon name="close" className="h-5 w-5" />
-                        </button>
-                      </div>
-                      <div className="p-2 bg-white">
-                        <p className="text-xs text-gray-600 truncate" title={file.file.name}>
-                          {file.file.name}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={files.length === 0 || isUploading}
-                isLoading={isUploading}
-                className={files.length === 0 || isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-              >
-                Upload
-              </Button>
-            </div>
-          </>
+        {files.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-medium mb-2">Selected Files ({files.length})</h3>
+            <ul className="space-y-2">
+              {files.map((fileObj, index) => (
+                <li key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div className="flex items-center">
+                    <img
+                      src={fileObj.previewUrl}
+                      alt="Preview"
+                      className="w-10 h-10 object-cover rounded mr-2"
+                    />
+                    <span className="text-sm truncate max-w-xs">{fileObj.file.name}</span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      ({(fileObj.file.size / 1024 / 1024).toFixed(2)} MB)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(fileObj)}
+                    className="text-red-500 hover:text-red-700"
+                    aria-label={`Remove ${fileObj.file.name}`}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
+
+        {message && (
+          <div
+            className={`mt-4 p-3 rounded ${
+              message.type === 'success'
+                ? 'bg-green-100 text-green-800'
+                : message.type === 'error'
+                ? 'bg-red-100 text-red-800'
+                : 'bg-blue-100 text-blue-800'
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={files.length === 0 || uploading}
+          className={`mt-4 px-4 py-2 bg-primary-500 text-white rounded w-full ${
+            files.length === 0 || uploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-600'
+          }`}
+          data-testid="upload-button"
+        >
+          {uploading ? 'Uploading...' : 'Upload Files'}
+        </button>
       </form>
     </div>
   );

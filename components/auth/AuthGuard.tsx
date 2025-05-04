@@ -7,6 +7,7 @@ interface AuthGuardProps {
   children: ReactNode;
   requiredRoles?: string[];
   requireCompleteProfile?: boolean;
+  requireEmailVerification?: boolean;
 }
 
 interface UserData {
@@ -23,10 +24,12 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
   children,
   requiredRoles = [],
   requireCompleteProfile = false,
+  requireEmailVerification = false,
 }) => {
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,7 +59,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
           const authUserId = session.user.id;
 
           // If no specific roles are required, just being authenticated is enough
-          if (requiredRoles.length === 0 && !requireCompleteProfile) {
+          if (requiredRoles.length === 0 && !requireCompleteProfile && !requireEmailVerification) {
             setIsAuthorized(true);
             setIsChecking(false);
             return;
@@ -69,7 +72,8 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             if (
               process.env.NODE_ENV === "test" &&
               requiredRoles.length === 0 &&
-              !requireCompleteProfile
+              !requireCompleteProfile &&
+              !requireEmailVerification
             ) {
               setIsAuthorized(true);
               setIsChecking(false);
@@ -86,6 +90,14 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             if (userError || !userData) {
               console.error("User fetch error:", userError);
               router.push("/complete-profile");
+              return;
+            }
+
+            // Check if email verification is required and if email is confirmed
+            if (requireEmailVerification && !userData.email_confirmed) {
+              console.log("Email not verified");
+              setVerificationMessage("Please verify your email to access this page. Check your inbox for a verification link.");
+              setIsChecking(false);
               return;
             }
 
@@ -131,7 +143,8 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
           if (
             process.env.NODE_ENV === "test" &&
             requiredRoles.length === 0 &&
-            !requireCompleteProfile
+            !requireCompleteProfile &&
+            !requireEmailVerification
           ) {
             setIsAuthorized(true);
             setIsChecking(false);
@@ -149,7 +162,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
     };
 
     checkAuth();
-  }, [router, requiredRoles, requireCompleteProfile]);
+  }, [router, requiredRoles, requireCompleteProfile, requireEmailVerification]);
 
   // Show loading state while checking authentication
   if (isChecking) {
@@ -180,6 +193,17 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             ></path>
           </svg>
           <p className="text-gray-600">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If email verification is required and not verified, show message
+  if (verificationMessage) {
+    return (
+      <div className="flex justify-center items-center h-screen" data-testid="email-verification">
+        <div className="text-center">
+          <p className="text-gray-600">{verificationMessage}</p>
         </div>
       </div>
     );

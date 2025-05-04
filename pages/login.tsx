@@ -18,6 +18,7 @@ const LoginPage: React.FC = () => {
   
   // Check for any query parameters that might indicate a specific state
   useEffect(() => {
+    // Check for verification status in URL parameters
     const { verified, error: queryError } = router.query;
     
     if (verified === 'true') {
@@ -25,9 +26,14 @@ const LoginPage: React.FC = () => {
         text: 'Email verified successfully! Please log in to complete your profile.',
         type: 'success'
       });
+    } else if (verified === 'false') {
+      setMessage({
+        text: queryError ? decodeURIComponent(queryError as string) : 'Email verification failed. Please try again or contact support.',
+        type: 'error'
+      });
     } else if (queryError) {
       setMessage({
-        text: typeof queryError === 'string' ? queryError : 'An error occurred',
+        text: typeof queryError === 'string' ? decodeURIComponent(queryError) : 'An error occurred',
         type: 'error'
       });
     }
@@ -216,14 +222,11 @@ const LoginPage: React.FC = () => {
       localStorage.setItem('supaUserDbId', userData.id);
       
       // If no profile exists, redirect to complete-profile page
-      if (!profileData) {
-        console.log("No profile found, redirecting to complete profile with auth ID:", authUserId);
-        router.push({
-          pathname: '/complete-profile',
-          query: { userId: authUserId }
-        });
+      if (!profileData || !userData.email_confirmed) {
+        console.log('Redirecting to complete profile page');
+        router.push('/complete-profile');
       } else {
-        console.log("Profile found, redirecting to dashboard");
+        console.log('Redirecting to dashboard');
         router.push('/Dashboard');
       }
     } catch (err: any) {
@@ -260,7 +263,7 @@ const LoginPage: React.FC = () => {
             />
           )}
 
-          <form onSubmit={handleLogin} className="space-y-6" noValidate>
+          <form onSubmit={handleLogin} className="space-y-6" noValidate data-testid="login-form">
             <div>
               <FormInput
                 id="email"

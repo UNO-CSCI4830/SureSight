@@ -86,7 +86,7 @@ const SignUp: React.FC = () => {
             first_name: "First",
             last_name: "Last",
           },
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: `${window.location.origin}/api/verify-email?callback=${encodeURIComponent(window.location.origin + "/login")}`,
         },
       });
 

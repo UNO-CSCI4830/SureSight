@@ -301,6 +301,58 @@ class DatabaseService {
       };
     }
   }
+
+  /**
+   * Updates a user's email verification status
+   */
+  async updateEmailVerificationStatus(userId: string, isVerified: boolean) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ email_confirmed: isVerified })
+        .eq('auth_user_id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to update email verification status',
+      };
+    }
+  }
+
+  /**
+   * Checks if a user's email is verified
+   */
+  async isEmailVerified(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('email_confirmed')
+        .eq('auth_user_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        isVerified: data?.email_confirmed || false,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to check email verification status',
+        isVerified: false,
+      };
+    }
+  }
 }
 
 describe('DatabaseService', () => {

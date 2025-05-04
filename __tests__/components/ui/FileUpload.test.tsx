@@ -70,7 +70,7 @@ describe('FileUpload Component', () => {
     // Check for text content that might be split across elements
     const dragText = container.querySelector('.text-sm.font-medium');
     expect(dragText?.textContent).toContain('Drag & drop multiple files here');
-    expect(screen.getByText(/image\/all/i)).toBeInTheDocument();
+    expect(screen.getByText(/image\/\*/i)).toBeInTheDocument();
     expect(container.textContent).toContain('(Max: 5MB)');
   });
 
