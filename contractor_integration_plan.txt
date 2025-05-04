@@ -1,159 +1,81 @@
-# SureSight Contractor & Agent Integration Plan (Updated)
+# SureSight Contractor Integration Plan
 
 ## Overview
-This document outlines the implementation plan for connecting homeowners with contractors and insurance agents in the SureSight platform, building on existing database structures.
+This document outlines the plan for integrating contractor functionality into the SureSight platform. The integration will allow property managers and homeowners to easily connect with contractors for repairs identified in damage reports.
 
-## Current Status
-The system already has:
-- User role definitions (homeowner, contractor, adjuster, admin)
-- Basic profile structures for different user types
-- Foreign key relationships connecting contractors and adjusters to reports
-- A basic messaging system between users
-- Database relationship paths connecting users to reports through their roles
-- ✅ All database extensions from Phase 1 (report collaborators, contractor profiles, message context, contractor requests)
-- ✅ API endpoints for contractor discovery, assignment, report collaboration, and enhanced messaging
+## Phase 1: Database Structure ✅ COMPLETED
+1. Create contractors table with the following fields:
+   - Basic info (name, contact details, company)
+   - Service areas (geographic locations)
+   - Specialties (roofing, plumbing, etc.)
+   - Verification status
+   - Rating/review metrics
 
-## Database Extensions Needed - ✅ COMPLETED
+2. Create contractor_requests table:
+   - Links reports to contractors
+   - Request status tracking
+   - Communication history
+   - Estimate/quote information
 
-### 1. Report Collaborators Table ✅ DONE
-```sql
-CREATE TABLE report_collaborators (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role_type VARCHAR NOT NULL CHECK (role_type IN ('homeowner', 'contractor', 'adjuster', 'viewer')),
-  permission_level VARCHAR NOT NULL CHECK (permission_level IN ('viewer', 'editor', 'manager')),
-  invited_by UUID REFERENCES users(id),
-  invitation_status VARCHAR NOT NULL CHECK (invitation_status IN ('pending', 'accepted', 'declined')),
-  invitation_email VARCHAR,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(report_id, user_id)
-);
-```
+3. Create appropriate relationships and foreign keys
 
-### 2. Contractor Discovery Enhancement ✅ DONE
-```sql
-ALTER TABLE contractor_profiles
-ADD COLUMN service_areas TEXT[],
-ADD COLUMN specialties TEXT[],
-ADD COLUMN availability_status VARCHAR DEFAULT 'available' CHECK (availability_status IN ('available', 'busy', 'unavailable')),
-ADD COLUMN rating DECIMAL(3,2),
-ADD COLUMN rating_count INTEGER DEFAULT 0,
-ADD COLUMN search_radius INTEGER DEFAULT 25,
-ADD COLUMN last_active TIMESTAMP WITH TIME ZONE;
-```
+4. Set up Row Level Security policies for contractors
 
-### 3. Message Context Extension ✅ DONE
-```sql
-ALTER TABLE messages
-ADD COLUMN report_id UUID REFERENCES reports(id) ON DELETE SET NULL,
-ADD COLUMN property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
-ADD COLUMN message_type VARCHAR DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'document', 'notification'));
-```
+## Phase 2: API Development ✅ COMPLETED
+1. Contractor search and filter endpoints
+   - By location
+   - By specialty
+   - By availability
+   - By rating
 
-### 4. Open Report Requests Table ✅ DONE
-```sql
-CREATE TABLE contractor_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-  contractor_id UUID REFERENCES contractor_profiles(id) ON DELETE SET NULL,
-  status VARCHAR NOT NULL CHECK (status IN ('open', 'assigned', 'completed', 'cancelled')),
-  requested_by UUID NOT NULL REFERENCES users(id),
-  requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  response_deadline TIMESTAMP WITH TIME ZONE,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
+2. Contractor assignment endpoints
+   - Request a contractor
+   - Accept/decline requests (contractor side)
+   - Update request status
 
-## API Endpoints to Implement - ✅ COMPLETED
+3. Implement authentication/authorization for contractor routes
 
-### Contractor Discovery & Assignment - ✅ DONE
-1. `GET /api/contractors` ✅ - Search/filter contractors by location, specialties
-2. `GET /api/reports/{reportId}/available-contractors` ✅ - Find contractors suitable for a report
-3. `POST /api/reports/{reportId}/request-contractor` ✅ - Invite contractor to a report
-4. `PUT /api/reports/{reportId}/assign-contractor` ✅ - Assign contractor to a report
-5. `GET /api/contractors/me/requests` ✅ - Get open requests for the current contractor
+4. Create specialized API endpoints for contractor dashboard views
 
-### Report Collaboration - ✅ DONE
-1. `POST /api/reports/{reportId}/collaborators` ✅ - Add collaborator to report
-2. `GET /api/reports/{reportId}/collaborators` ✅ - Get report collaborators
-3. `DELETE /api/reports/{reportId}/collaborators/{userId}` ✅ - Remove collaborator
-4. `PUT /api/reports/{reportId}/collaborators/{userId}` ✅ - Update collaborator permissions
-5. `GET /api/users/me/collaborations` ✅ - Get all reports user is collaborating on
+## Phase 3: Frontend Development ✅ COMPLETED
+1. Contractor Search & Assignment Interface
+   - Search filters
+   - Contractor profiles
+   - Request form with report details
 
-### Enhanced Messaging - ✅ DONE
-1. `POST /api/messages` ✅ - Send message with optional report/property context
-2. `GET /api/messages/report/{reportId}` ✅ - Get messages related to a specific report
-3. `GET /api/users/{userId}/conversations` ✅ - Get list of conversations
-4. `GET /api/messages/unread/count` - Get unread message count
+2. Report Collaboration Management UI
+   - Add collaborators to reports
+   - Manage permissions and roles
+   - Invitation system for new users
 
-## Frontend Components to Develop
+3. Enhanced Messaging Interface
+   - Context-aware messaging (tied to reports)
+   - File/image sharing capabilities
+   - Conversation history
 
-### Contractor Assignment Flow
-1. "Find Contractors" button on report detail page
-2. Contractor search results with filtering
-3. Contractor invitation modal
-4. Request tracking interface for homeowners
-5. Open request notifications for contractors
+4. Notification System ✅ COMPLETED
+   - Real-time notifications for new messages
+   - Notifications for contractor requests
+   - Collaboration invites and updates
 
-### Report Collaboration UI
-1. Collaborator management tab on report detail page
-2. Invitation interface with email or in-app notification
-3. Collaborator permission settings
-4. Activity feed showing collaborator actions
+## Phase 4: Testing and Deployment ⏳ PENDING
+1. Unit tests for new components and API endpoints
+   - Test contractor search functionality
+   - Test request flow
+   - Test messaging system
 
-### Enhanced Messaging Interface
-1. Inbox page with conversation threads
-2. Context-aware messaging from within reports
-3. Attachment support for sending images and documents
-4. Notification badges for unread messages
-5. Filter conversations by report or property context
+2. Integration tests for complete contractor workflow
 
-## Implementation Phases
+3. Usability testing with sample users
+   - Property managers
+   - Contractors
+   - Homeowners
 
-### Phase 1: Database Structure ✅ COMPLETED
-1. ✅ Implement report collaborators table
-2. ✅ Enhance contractor profiles with discovery fields
-3. ✅ Extend messages table with context fields
-4. ✅ Create contractor request system
+4. Deploy to staging environment for final validation
 
-### Phase 2: API Development ✅ COMPLETED
-1. ✅ Implement contractor search and matching API
-2. ✅ Create contractor request management endpoints
-3. ✅ Build report collaboration API endpoints
-4. ✅ Develop enhanced messaging endpoints with context filtering
-
-### Phase 3: Frontend Development (NEXT PHASE)
-1. Develop contractor search & assignment interface
-2. Create report collaborator management UI
-3. Build enhanced messaging interface with context awareness
-4. Implement notification system for collaboration events
-
-### Phase 4: Testing & Refinement
-1. Test permissions and access control
-2. Validate contractor search accuracy
-3. Test messaging with various context scenarios
-4. Performance optimization for search queries
-
-## Testing Strategy
-1. Unit tests for new API endpoints
-2. Integration tests for contractor assignment flow
-3. End-to-end tests for collaboration features
-4. Permissions testing for data access
-5. Geographic search accuracy testing
-
-## Security Considerations
-1. Update RLS policies for collaborator access
-2. Implement verification for contractor profiles
-3. Add rate limiting for contractor requests
-4. Ensure proper permission validation on all endpoints
-
-## Future Enhancements
-1. Contractor bidding system for competitive quotes
-2. Automated matching based on damage types and contractor specialties
-3. Contractor rating and review system
-4. Calendar integration for scheduling appointments
-5. Document sharing with selective permissions
+## Completion Criteria
+- Property managers can search for and request contractors
+- Contractors can receive, accept, and manage job requests
+- Both parties can communicate effectively through the platform
+- All interactions are properly secured and permissions-based
+- System performs well under expected load

@@ -9,7 +9,7 @@ import {
   LoadingSpinner,
   StatusMessage,
 } from "../../components/common";
-import { FormInput, Select, TextArea, Button } from "../../components/ui";
+import { FormInput, Select, TextArea, Button, ContractorCollaboration, CollaboratorManagement, ReportMessages } from "../../components/ui";
 import FileUpload from "../../components/ui/FileUpload";
 import {
   Report,
@@ -59,6 +59,7 @@ const ReportDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isAddingArea, setIsAddingArea] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [message, setMessage] = useState<{
     text: string;
     type: "success" | "error" | "info";
@@ -138,6 +139,8 @@ const ReportDetailPage: React.FC = () => {
       if (userError) {
         throw userError;
       }
+
+      setCurrentUserId(userData.id);
 
       // Fetch the report with all related data
       const { data: reportData, error: reportError } = await supabase
@@ -1263,6 +1266,22 @@ const ReportDetailPage: React.FC = () => {
               <>
                 {renderPropertyDetails()}
                 {renderReportDetails()}
+                {/* Add the contractor collaboration component only for non-draft reports */}
+                {report && report.status !== 'draft' && (
+                  <ContractorCollaboration 
+                    reportId={report.id} 
+                    status={report.status}
+                  />
+                )}
+                {report && report.status !== 'draft' && (
+                  <CollaboratorManagement 
+                    reportId={report.id} 
+                    isReportOwner={report.creator_id === currentUserId}
+                  />
+                )}
+                {report && report.status !== 'draft' && (
+                  <ReportMessages reportId={report.id} currentUserId={currentUserId} />
+                )}
                 {renderAssessmentAreas()}
                 {renderGeneralImages()}
               </>
