@@ -228,7 +228,7 @@ export default function NewForm() {
               </FormField>
             </div>
             <div className="mb-5 flex items-center justify-center">
-              <Button type="submit">Submit Claim</Button>
+              <button type="submit" className="btn btn-primary">Submit Claim</button>
             </div>
           </form>
         </Card>
