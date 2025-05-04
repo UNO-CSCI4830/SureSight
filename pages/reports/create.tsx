@@ -25,6 +25,7 @@ export default function NewForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log("Form submitted!");
 
     if (!user) {
       console.error("User not logged in");
