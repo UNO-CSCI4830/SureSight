@@ -74,6 +74,77 @@
      .eq('id', reportId)
    ```
 
+## Collaboration Management
+1. Add Report Collaborator
+   ```
+   supabase.from('report_collaborators').insert({
+     report_id: reportId,
+     user_id: userId,
+     role_type: roleType,  // 'homeowner', 'contractor', 'adjuster', 'viewer'
+     permission_level: permissionLevel,  // 'viewer', 'editor', 'manager'
+     invited_by: currentUserId,
+     invitation_status: 'pending',
+     invitation_email: email
+   })
+   ```
+
+2. Get Report Collaborators
+   ```
+   supabase.from('report_collaborators')
+     .select(`
+       *,
+       user:user_id(*)
+     `)
+     .eq('report_id', reportId)
+   ```
+
+3. Update Invitation Status
+   ```
+   supabase.from('report_collaborators')
+     .update({ invitation_status: status })
+     .eq('id', collaborationId)
+   ```
+
+## Contractor Management
+1. Request Contractor
+   ```
+   supabase.from('contractor_requests').insert({
+     report_id: reportId,
+     requested_by: currentUserId,
+     response_deadline: deadline,
+     notes: notes,
+     status: 'open'
+   })
+   ```
+
+2. Find Available Contractors
+   ```
+   supabase.rpc('find_available_contractors', {
+     p_report_id: reportId,
+     p_limit: 10,
+     p_min_rating: 4.0
+   })
+   ```
+
+3. Assign Contractor to Request
+   ```
+   supabase.rpc('assign_contractor_to_report', {
+     p_request_id: requestId,
+     p_contractor_id: contractorId
+   })
+   ```
+
+4. Get Contractor Requests
+   ```
+   supabase.from('contractor_requests')
+     .select(`
+       *,
+       report:report_id(*),
+       contractor:contractor_id(*)
+     `)
+     .eq('status', status)
+   ```
+
 ## Assessment Areas
 1. Add Assessment Area
    ```
@@ -110,14 +181,25 @@
      .getPublicUrl(path)
    ```
 
+3. Get Image Analysis
+   ```
+   supabase.from('image_analysis')
+     .select('*')
+     .eq('image_id', imageId)
+     .single()
+   ```
+
 ## Messaging System
 1. Send Message
    ```
    supabase.from('messages')
      .insert({
        sender_id: senderId,
-       recipient_id: recipientId,
-       content: content
+       receiver_id: receiverId,
+       content: content,
+       message_type: 'text',  // 'text', 'image', 'document', 'notification'
+       report_id: reportId,   // optional context
+       property_id: propertyId // optional context
      })
    ```
 
@@ -128,6 +210,28 @@
      .eq('receiver_id', userId)
      .eq('is_read', false) // Optional for unread only
      .order('created_at', { ascending: false })
+   ```
+
+3. Get Conversation Messages
+   ```
+   supabase.from('messages')
+     .select('*')
+     .eq('conversation_id', conversationId)
+     .order('created_at', { ascending: true })
+   ```
+
+4. Mark Messages as Read
+   ```
+   supabase.rpc('mark_messages_as_read', {
+     p_message_ids: messageIds
+   })
+   ```
+
+5. Count Unread Messages
+   ```
+   supabase.rpc('count_unread_messages', {
+     p_user_id: userId
+   })
    ```
 
 ## Data Types
@@ -164,6 +268,28 @@
 - phone
 - sms
 
+### Permission Levels
+- viewer
+- editor
+- manager
+
+### Invitation Status
+- pending
+- accepted
+- declined
+
+### Contractor Request Status
+- open
+- assigned
+- completed
+- cancelled
+
+### Message Types
+- text
+- image
+- document
+- notification
+
 ## Database Relationships
 
 ### Table Relationships (Foreign Keys)
@@ -178,6 +304,9 @@
 | comments            | report_id            | reports                | id                |
 | comments            | user_id              | users                  | id                |
 | contractor_profiles | id                   | profiles               | id                |
+| contractor_requests | contractor_id        | contractor_profiles    | id                |
+| contractor_requests | report_id            | reports                | id                |
+| contractor_requests | requested_by         | users                  | id                |
 | estimate_items      | estimate_id          | estimates              | id                |
 | estimates           | contractor_id        | contractor_profiles    | id                |
 | estimates           | report_id            | reports                | id                |
@@ -190,9 +319,14 @@
 | images              | uploaded_by          | users                  | id                |
 | messages            | receiver_id          | users                  | id                |
 | messages            | sender_id            | users                  | id                |
+| messages            | report_id            | reports                | id                |
+| messages            | property_id          | properties             | id                |
 | notifications       | user_id              | users                  | id                |
 | profiles            | user_id              | users                  | id                |
 | properties          | homeowner_id         | homeowner_profiles     | id                |
+| report_collaborators| invited_by           | users                  | id                |
+| report_collaborators| report_id            | reports                | id                |
+| report_collaborators| user_id              | users                  | id                |
 | reports             | adjuster_id          | adjuster_profiles      | id                |
 | reports             | contractor_id        | contractor_profiles    | id                |
 | reports             | creator_id           | users                  | id                |
@@ -225,23 +359,68 @@
    users → profiles → adjuster_profiles → reports (via adjuster_id)
    ```
 
-6. Report to Images:
+6. User to Reports (as collaborator):
+   ```
+   users → report_collaborators → reports
+   ```
+
+7. Report to Images:
    ```
    reports → images (via report_id)
    reports → assessment_areas → images
    ```
 
-7. Property to Assessment Areas:
+8. Property to Assessment Areas:
    ```
    properties → reports → assessment_areas
    ```
    
-8. Image Analysis Relationships:
+9. Image Analysis Relationships:
    ```
    images → image_analysis
    reports → image_analysis
    assessment_areas → image_analysis
    ```
+
+10. Contractor Request Flow:
+    ```
+    reports → contractor_requests → contractor_profiles
+    ```
+
+11. Message Context Relationships:
+    ```
+    users → messages → users
+    messages → reports
+    messages → properties
+    ```
+
+## New Tables from Migrations
+
+### Report Collaborators
+For managing user collaborations on reports with different permission levels.
+- Key fields: report_id, user_id, role_type, permission_level, invitation_status
+- Enables collaborators to have viewer, editor, or manager access to reports
+
+### Contractor Requests
+For managing contractor assignment requests for reports.
+- Key fields: report_id, requested_by, contractor_id, status, response_deadline
+- Tracks open requests, assignments, and completions
+
+### Enhanced Contractor Profiles
+Added fields to support contractor discovery and matching:
+- service_areas (array): Geographical areas served
+- specialties (array): Types of work performed
+- availability_status: 'available', 'busy', 'unavailable'
+- rating and rating_count: For contractor quality metrics
+- search_radius: How far the contractor is willing to travel
+- last_active: Timestamp to track contractor activity
+
+### Enhanced Messages
+Added context fields to support richer messaging:
+- report_id: Link to related report
+- property_id: Link to related property
+- message_type: Text, image, document, or notification
+- conversation_id: For grouping messages between the same users
 
 ## SQL Query Examples
 
@@ -254,7 +433,7 @@ JOIN users u ON pf.user_id = u.id
 WHERE u.id = [USER_ID]
 ```
 
-### Get all reports a user has access to
+### Get all reports a user has access to (including collaborations)
 ```sql
 SELECT r.* FROM reports r
 WHERE 
@@ -278,23 +457,56 @@ WHERE
     JOIN profiles pf ON ap.id = pf.id
     WHERE r.adjuster_id = ap.id AND pf.user_id = [USER_ID]
   )
+  OR
+  EXISTS (  -- As collaborator
+    SELECT 1 FROM report_collaborators rc 
+    WHERE rc.report_id = r.id 
+    AND rc.user_id = [USER_ID]
+    AND rc.invitation_status = 'accepted'
+  )
 ```
 
-### Get images with assessment areas for a report
+### Get conversation messages between two users
 ```sql
-SELECT i.*, aa.damage_type, aa.location, aa.severity
-FROM images i
-LEFT JOIN assessment_areas aa ON i.assessment_area_id = aa.id
-WHERE i.report_id = [REPORT_ID]
+SELECT m.* FROM messages m
+WHERE m.conversation_id = (
+  SELECT generate_conversation_id([USER_ID_1], [USER_ID_2])
+)
+ORDER BY m.created_at ASC
 ```
 
-### Get image analysis results for a report
+### Find suitable contractors for a report
 ```sql
-SELECT ia.*, i.filename, i.storage_path
-FROM image_analysis ia
-JOIN images i ON ia.image_id = i.id
-WHERE ia.report_id = [REPORT_ID]
-ORDER BY ia.created_at DESC
+SELECT 
+  cp.*,
+  calculate_contractor_match_score(cp.id, [REPORT_ID]) AS match_score
+FROM contractor_profiles cp
+WHERE 
+  cp.availability_status = 'available'
+  AND cp.rating >= 4
+ORDER BY match_score DESC
+LIMIT 10
+```
+
+### Get reports where a user is collaborating
+```sql
+SELECT r.* FROM reports r
+JOIN report_collaborators rc ON r.id = rc.report_id
+WHERE rc.user_id = [USER_ID]
+  AND rc.invitation_status = 'accepted'
+ORDER BY r.updated_at DESC
+```
+
+### Get all messages related to a specific report
+```sql
+SELECT m.*, 
+  sender.first_name || ' ' || sender.last_name AS sender_name,
+  receiver.first_name || ' ' || receiver.last_name AS receiver_name
+FROM messages m
+JOIN users sender ON m.sender_id = sender.id
+JOIN users receiver ON m.receiver_id = receiver.id
+WHERE m.report_id = [REPORT_ID]
+ORDER BY m.created_at ASC
 ```
 
 ## Row Level Security (RLS) Policies
@@ -303,4 +515,6 @@ ORDER BY ia.created_at DESC
 - Contractors can only see reports assigned to them
 - Adjusters can only see reports within their territories
 - Admin users have access to all data
+- Report collaborators can access reports based on their permission level
 - Image analysis results are only visible to users who can access the related report
+- Messages are visible to senders, receivers, and users with context access

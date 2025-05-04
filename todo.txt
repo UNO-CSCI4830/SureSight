@@ -1,15 +1,18 @@
 # SureSight TODO List
 
 ## Missing Core Features
-1. Email verification system
-2. Image processing AI integration for damage assessment
-3. Real-time chat between homeowners and contractors
-4. Payment processing system
-5. Document generation for reports and estimates
-6. Print functionality for reports
-7. Bulk image upload functionality
-8. Mobile-responsive design improvements
-9. Export functionality for reports and data
+1. Real-time chat between homeowners and contractors
+2. Payment processing system
+3. Document generation for reports and estimates
+4. Print functionality for reports
+5. Bulk image upload functionality
+6. Mobile-responsive design improvements
+7. Export functionality for reports and data
+8. Contractor connection and discovery system
+   - Report collaborator functionality
+   - Contractor search with geographic filtering
+   - Report assignment and invitation system
+   - Context-aware messaging linked to reports
 
 ## System Improvements
 1. Implement caching for frequently accessed data

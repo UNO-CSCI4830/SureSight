@@ -1,0 +1,158 @@
+# SureSight Contractor & Agent Integration Plan (Updated)
+
+## Overview
+This document outlines the implementation plan for connecting homeowners with contractors and insurance agents in the SureSight platform, building on existing database structures.
+
+## Current Status
+The system already has:
+- User role definitions (homeowner, contractor, adjuster, admin)
+- Basic profile structures for different user types
+- Foreign key relationships connecting contractors and adjusters to reports
+- A basic messaging system between users
+- Database relationship paths connecting users to reports through their roles
+- ✅ All database extensions from Phase 1 (report collaborators, contractor profiles, message context, contractor requests)
+
+## Database Extensions Needed - ✅ COMPLETED
+
+### 1. Report Collaborators Table ✅ DONE
+```sql
+CREATE TABLE report_collaborators (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_type VARCHAR NOT NULL CHECK (role_type IN ('homeowner', 'contractor', 'adjuster', 'viewer')),
+  permission_level VARCHAR NOT NULL CHECK (permission_level IN ('viewer', 'editor', 'manager')),
+  invited_by UUID REFERENCES users(id),
+  invitation_status VARCHAR NOT NULL CHECK (invitation_status IN ('pending', 'accepted', 'declined')),
+  invitation_email VARCHAR,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(report_id, user_id)
+);
+```
+
+### 2. Contractor Discovery Enhancement ✅ DONE
+```sql
+ALTER TABLE contractor_profiles
+ADD COLUMN service_areas TEXT[],
+ADD COLUMN specialties TEXT[],
+ADD COLUMN availability_status VARCHAR DEFAULT 'available' CHECK (availability_status IN ('available', 'busy', 'unavailable')),
+ADD COLUMN rating DECIMAL(3,2),
+ADD COLUMN rating_count INTEGER DEFAULT 0,
+ADD COLUMN search_radius INTEGER DEFAULT 25,
+ADD COLUMN last_active TIMESTAMP WITH TIME ZONE;
+```
+
+### 3. Message Context Extension ✅ DONE
+```sql
+ALTER TABLE messages
+ADD COLUMN report_id UUID REFERENCES reports(id) ON DELETE SET NULL,
+ADD COLUMN property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+ADD COLUMN message_type VARCHAR DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'document', 'notification'));
+```
+
+### 4. Open Report Requests Table ✅ DONE
+```sql
+CREATE TABLE contractor_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  contractor_id UUID REFERENCES contractor_profiles(id) ON DELETE SET NULL,
+  status VARCHAR NOT NULL CHECK (status IN ('open', 'assigned', 'completed', 'cancelled')),
+  requested_by UUID NOT NULL REFERENCES users(id),
+  requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  response_deadline TIMESTAMP WITH TIME ZONE,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+## API Endpoints to Implement
+
+### Contractor Discovery & Assignment
+1. `GET /api/contractors` - Search/filter contractors by location, specialties
+2. `GET /api/reports/{reportId}/available-contractors` - Find contractors suitable for a report
+3. `POST /api/reports/{reportId}/request-contractor` - Invite contractor to a report
+4. `PUT /api/reports/{reportId}/assign-contractor` - Assign contractor to a report
+5. `GET /api/contractors/me/requests` - Get open requests for the current contractor
+
+### Report Collaboration
+1. `POST /api/reports/{reportId}/collaborators` - Add collaborator to report
+2. `GET /api/reports/{reportId}/collaborators` - Get report collaborators
+3. `DELETE /api/reports/{reportId}/collaborators/{userId}` - Remove collaborator
+4. `PUT /api/reports/{reportId}/collaborators/{userId}` - Update collaborator permissions
+5. `GET /api/users/me/collaborations` - Get all reports user is collaborating on
+
+### Enhanced Messaging
+1. `POST /api/messages` - Send message with optional report/property context
+2. `GET /api/messages/report/{reportId}` - Get messages related to a specific report
+3. `GET /api/users/{userId}/conversations` - Get list of conversations
+4. `GET /api/messages/unread/count` - Get unread message count
+
+## Frontend Components to Develop
+
+### Contractor Assignment Flow
+1. "Find Contractors" button on report detail page
+2. Contractor search results with filtering
+3. Contractor invitation modal
+4. Request tracking interface for homeowners
+5. Open request notifications for contractors
+
+### Report Collaboration UI
+1. Collaborator management tab on report detail page
+2. Invitation interface with email or in-app notification
+3. Collaborator permission settings
+4. Activity feed showing collaborator actions
+
+### Enhanced Messaging Interface
+1. Inbox page with conversation threads
+2. Context-aware messaging from within reports
+3. Attachment support for sending images and documents
+4. Notification badges for unread messages
+5. Filter conversations by report or property context
+
+## Implementation Phases
+
+### Phase 1: Database Structure ✅ COMPLETED
+1. ✅ Implement report collaborators table
+2. ✅ Enhance contractor profiles with discovery fields
+3. ✅ Extend messages table with context fields
+4. ✅ Create contractor request system
+
+### Phase 2: API Development (IN PROGRESS)
+1. Implement contractor search and matching API
+2. Create contractor request management endpoints
+3. Build report collaboration API endpoints
+4. Develop enhanced messaging endpoints with context filtering
+
+### Phase 3: Frontend Development
+1. Develop contractor search & assignment interface
+2. Create report collaborator management UI
+3. Build enhanced messaging interface with context awareness
+4. Implement notification system for collaboration events
+
+### Phase 4: Testing & Refinement
+1. Test permissions and access control
+2. Validate contractor search accuracy
+3. Test messaging with various context scenarios
+4. Performance optimization for search queries
+
+## Testing Strategy
+1. Unit tests for new API endpoints
+2. Integration tests for contractor assignment flow
+3. End-to-end tests for collaboration features
+4. Permissions testing for data access
+5. Geographic search accuracy testing
+
+## Security Considerations
+1. Update RLS policies for collaborator access
+2. Implement verification for contractor profiles
+3. Add rate limiting for contractor requests
+4. Ensure proper permission validation on all endpoints
+
+## Future Enhancements
+1. Contractor bidding system for competitive quotes
+2. Automated matching based on damage types and contractor specialties
+3. Contractor rating and review system
+4. Calendar integration for scheduling appointments
+5. Document sharing with selective permissions
