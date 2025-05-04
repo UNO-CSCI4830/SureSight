@@ -95,7 +95,8 @@ const LoginPage: React.FC = () => {
       e.preventDefault();
       const form = e.currentTarget.form;
       if (form) {
-        handleLogin(new SubmitEvent('submit', { cancelable: true }));
+        // Create a standard form event instead of SubmitEvent
+        form.requestSubmit();
       }
     }
   };
@@ -130,7 +131,7 @@ const LoginPage: React.FC = () => {
       // First check if user exists in the users table with the correct auth_user_id
       let { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, auth_user_id, email, role')
+        .select('id, auth_user_id, email, role, email_confirmed')
         .eq('auth_user_id', authUserId)
         .single();
       
@@ -168,7 +169,7 @@ const LoginPage: React.FC = () => {
             console.error("Error updating auth_user_id:", updateError);
           } else {
             console.log("Successfully updated auth_user_id");
-            userData = userByEmail;
+            userData = { ...userByEmail, email_confirmed: true };
             userData.auth_user_id = authUserId; // Update the local copy too
           }
         }
@@ -202,7 +203,7 @@ const LoginPage: React.FC = () => {
           throw new Error("Failed to set up your user account. Please contact support.");
         }
         
-        userData = newUser;
+        userData = { ...newUser, email_confirmed: true };
         console.log("Created new user record with ID:", userData.id);
       }
       
@@ -291,19 +292,20 @@ const LoginPage: React.FC = () => {
                   Forgot password?
                 </Link>
               </div>
-              <FormInput
-                id="password"
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                onKeyDown={handlePasswordKeyPress}
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-                inputClassName="bg-white text-gray-900"
-                error={errors.password}
-                hideLabel
-              />
+              <div onKeyDown={handlePasswordKeyPress}>
+                <FormInput
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  inputClassName="bg-white text-gray-900"
+                  error={errors.password}
+                  // hideLabel
+                />
+              </div>
             </div>
 
             <div>

@@ -8,6 +8,9 @@ interface FileUploadProps {
   multiple?: boolean;
   maxFileSize?: number; // in MB
   className?: string;
+  storagePath?: string; // Added for custom storage path
+  buttonLabel?: string; // Added for custom button label
+  buttonClassName?: string; // Added for custom button styling
 }
 
 interface FileWithPreview {
@@ -22,6 +25,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   multiple = true,
   maxFileSize = 5, // Default 5MB
   className = '',
+  storagePath = '', // Default to empty string (root of bucket)
+  buttonLabel,
+  buttonClassName,
 }) => {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -113,7 +119,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
     try {
       for (const fileObj of files) {
         const file = fileObj.file;
-        const filePath = `${Date.now()}-${file.name}`;
+        // If storagePath provided, ensure it has a trailing slash
+        const path = storagePath ? (storagePath.endsWith('/') ? storagePath : `${storagePath}/`) : '';
+        const filePath = `${path}${Date.now()}-${file.name}`;
         
         const { error } = await supabase.storage
           .from(bucket)
@@ -271,12 +279,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <button
           type="submit"
           disabled={files.length === 0 || uploading}
-          className={`mt-4 px-4 py-2 bg-primary-500 text-white rounded w-full ${
+          className={`mt-4 px-4 py-2 ${buttonClassName || 'bg-primary-500 text-white'} rounded w-full ${
             files.length === 0 || uploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-600'
           }`}
           data-testid="upload-button"
         >
-          {uploading ? 'Uploading...' : 'Upload Files'}
+          {uploading ? 'Uploading...' : buttonLabel || 'Upload Files'}
         </button>
       </form>
     </div>

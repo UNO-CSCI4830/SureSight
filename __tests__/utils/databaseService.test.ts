@@ -34,8 +34,8 @@ class DatabaseService {
         p_property_id: reportData.property_id,
         p_creator_id: reportData.creator_id,
         p_title: reportData.title,
-        p_description: reportData.description || null,
-        p_incident_date: reportData.incident_date || null,
+        p_description: reportData.description || undefined,
+        p_incident_date: reportData.incident_date || undefined,
       });
 
       if (result.error) throw result.error;
@@ -154,11 +154,11 @@ class DatabaseService {
         p_city: propertyData.city,
         p_state: propertyData.state,
         p_postal_code: propertyData.postal_code,
-        p_address_line2: propertyData.address_line2 || null,
+        p_address_line2: propertyData.address_line2 || undefined,
         p_country: propertyData.country || 'US',
-        p_property_type: propertyData.property_type || null,
-        p_year_built: propertyData.year_built || null,
-        p_square_footage: propertyData.square_footage || null,
+        p_property_type: propertyData.property_type || undefined,
+        p_year_built: propertyData.year_built || undefined,
+        p_square_footage: propertyData.square_footage || undefined,
       });
 
       if (result.error) throw result.error;
@@ -194,8 +194,8 @@ class DatabaseService {
         p_location: assessmentData.location,
         p_severity: assessmentData.severity,
         p_added_by: assessmentData.added_by,
-        p_dimensions: assessmentData.dimensions || null,
-        p_notes: assessmentData.notes || null,
+        p_dimensions: assessmentData.dimensions || undefined,
+        p_notes: assessmentData.notes || undefined,
       });
 
       if (result.error) throw result.error;
@@ -226,7 +226,7 @@ class DatabaseService {
         .from('messages')
         .insert({
           sender_id: messageData.sender_id,
-          receiver_id: messageData.receiver_id,
+          recipient_id: messageData.receiver_id,
           content: messageData.content,
           is_read: messageData.is_read !== undefined ? messageData.is_read : false
         })
@@ -853,7 +853,7 @@ describe('DatabaseService', () => {
       // Assert results
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].id).toBe('msg-1');
+      expect(result.data?.[0]?.id).toBe('msg-1');
       
       // Verify the chain of method calls
       expect(supabase.from).toHaveBeenCalledWith('messages');
@@ -893,7 +893,7 @@ describe('DatabaseService', () => {
       // Assert results
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].is_read).toBe(false);
+      expect((result.data ?? [])[0]?.is_read).toBe(false);
       
       expect(supabase.from).toHaveBeenCalledWith('messages');
       expect(mockFromChain.select).toHaveBeenCalledWith('*');
@@ -929,11 +929,11 @@ describe('DatabaseService', () => {
       });
       
       // Execute test
-      const result = await service.markMessageAsRead('msg-1');
+      const result: { success: boolean; data?: { is_read: boolean } } = await service.markMessageAsRead('msg-1');
       
       // Assert results
       expect(result.success).toBe(true);
-      expect(result.data.is_read).toBe(true);
+      expect(result.data?.is_read).toBe(true);
       
       expect(supabase.from).toHaveBeenCalledWith('messages');
       expect(mockUpdate).toHaveBeenCalledWith({ is_read: true });

@@ -91,7 +91,7 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 // Mock Layout component
 jest.mock('../../components/layout/Layout', () => ({
   __esModule: true,
-  default: ({ children }) => <div data-testid="layout-container">{children}</div>,
+  default: ({ children }: { children: React.ReactNode }) => <div data-testid="layout-container">{children}</div>,
 }));
 
 describe('Login Component', () => {

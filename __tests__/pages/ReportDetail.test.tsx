@@ -128,7 +128,7 @@ jest.mock('../../utils/supabaseClient', () => {
 // Mock FileUpload component
 jest.mock('../../components/ui/FileUpload', () => ({
   __esModule: true,
-  default: ({ onUploadComplete, bucket, storagePath }) => (
+  default: ({ onUploadComplete, bucket }: { onUploadComplete: (urls: string[]) => void, bucket: string, storagePath: string }) => (
     <div className="file-upload" data-testid="file-upload" data-bucket={bucket}>
       <button onClick={() => onUploadComplete(['https://example.com/image1.jpg'])}>
         Upload Files
@@ -139,10 +139,10 @@ jest.mock('../../components/ui/FileUpload', () => ({
 
 // Mock the components needed
 jest.mock('../../components/common', () => ({
-  PageHeader: ({ title }) => <div data-testid="page-header" className="mb-8 ">{title && <div className="flex flex-col md:flex-row md:items-center md:justify-between"><div><h1 className="text-2xl font-semibold text-gray-800 mb-2">{title}</h1></div></div>}</div>,
-  Card: ({ children, className }) => <div data-testid="card-component" className={className}>{children}</div>,
+  PageHeader: ({ title }: { title: string }) => <div data-testid="page-header" className="mb-8 ">{title && <div className="flex flex-col md:flex-row md:items-center md:justify-between"><div><h1 className="text-2xl font-semibold text-gray-800 mb-2">{title}</h1></div></div>}</div>,
+  Card: ({ children, className }: React.PropsWithChildren<{ className?: string }>) => <div data-testid="card-component" className={className}>{children}</div>,
   LoadingSpinner: () => <div data-testid="loading-spinner">Loading...</div>,
-  StatusMessage: ({ text, type, onDismiss }) => (
+  StatusMessage: ({ text, type, onDismiss }: { text: string; type: 'error' | 'success'; onDismiss: () => void }) => (
     <div className={`p-4 rounded-md border flex items-start ${type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200'} mb-6`}>
       <span className="flex-shrink-0 mr-2">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" stroke="none" className="h-5 w-5" aria-hidden="true">
@@ -163,7 +163,7 @@ jest.mock('../../components/common', () => ({
 
 // Mock the UI components
 jest.mock('../../components/ui', () => ({
-  FormInput: ({ id, label, value, onChange, ...props }) => (
+  FormInput: ({ id, label, value, onChange, ...props }: { id: string; label: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; [key: string]: any }) => (
     <div className="">
       <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
         {label}
@@ -179,7 +179,7 @@ jest.mock('../../components/ui', () => ({
       />
     </div>
   ),
-  Select: ({ id, value, onChange, options, name }) => (
+  Select: ({ id, value, onChange, options, name }: { id: string; value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; options: { value: string; label: string }[]; name?: string }) => (
     <div className="">
       <select
         id={id}
@@ -197,7 +197,7 @@ jest.mock('../../components/ui', () => ({
       </select>
     </div>
   ),
-  TextArea: ({ id, value, onChange, ...props }) => (
+  TextArea: ({ id, value, onChange, ...props }: { id: string; value: string; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void; [key: string]: any }) => (
     <div className="">
       <textarea
         id={id}
@@ -208,7 +208,7 @@ jest.mock('../../components/ui', () => ({
       />
     </div>
   ),
-  Button: ({ variant, onClick, children, ...props }) => (
+  Button: ({ variant, onClick, children, ...props }: { variant: string; onClick: () => void; children: React.ReactNode; [key: string]: any }) => (
     <button
       data-testid="ui-button"
       data-variant={variant}
@@ -223,12 +223,12 @@ jest.mock('../../components/ui', () => ({
 // Mock the Layout and AuthGuard components
 jest.mock('../../components/layout/Layout', () => ({
   __esModule: true,
-  default: ({ children, title }) => <div data-testid="layout-mock" data-title={title}>{children}</div>,
+  default: ({ children, title }: { children: React.ReactNode; title: string }) => <div data-testid="layout-mock" data-title={title}>{children}</div>,
 }));
 
 jest.mock('../../components/auth/AuthGuard', () => ({
   __esModule: true,
-  default: ({ children }) => <div data-testid="auth-guard-mock">{children}</div>,
+  default: ({ children }: { children: React.ReactNode }) => <div data-testid="auth-guard-mock">{children}</div>,
 }));
 
 describe('ReportDetailPage', () => {

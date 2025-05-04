@@ -107,7 +107,11 @@ const CompleteProfile: React.FC = () => {
             console.error("Error fetching user by stored ID:", userByIdError);
           } else if (userById) {
             console.log("Found user by stored DB ID");
-            userRecord = userById;
+            userRecord = { 
+              ...userById, 
+              auth_user_id: userById.auth_user_id || "", 
+              phone: userById.phone || undefined 
+            };
           }
         }
 
@@ -129,7 +133,11 @@ const CompleteProfile: React.FC = () => {
             );
           } else if (userByAuthId) {
             console.log("Found user by auth_user_id");
-            userRecord = userByAuthId;
+            userRecord = { 
+              ...userByAuthId, 
+              auth_user_id: userByAuthId.auth_user_id || "",
+              phone: userByAuthId.phone || undefined
+            };
           }
         }
 
@@ -147,7 +155,11 @@ const CompleteProfile: React.FC = () => {
             console.error("Error fetching user by email:", userByEmailError);
           } else if (userByEmail) {
             console.log("Found user by email");
-            userRecord = userByEmail;
+            userRecord = { 
+              ...userByEmail, 
+              auth_user_id: userByEmail.auth_user_id || "",
+              phone: userByEmail.phone || undefined
+            };
 
             // Update auth_user_id if it doesn't match
             if (userByEmail.auth_user_id !== authUserId) {
@@ -157,7 +169,9 @@ const CompleteProfile: React.FC = () => {
                 .update({ auth_user_id: authUserId })
                 .eq("id", userByEmail.id);
 
-              userRecord.auth_user_id = authUserId;
+              if (userRecord) {
+                userRecord.auth_user_id = authUserId;
+              }
             }
           }
         }
@@ -555,6 +569,7 @@ const CompleteProfile: React.FC = () => {
                       type="email"
                       value={email}
                       disabled={true}
+                      onChange={() => {}}
                       helpText="Your email address cannot be changed"
                     />
 
