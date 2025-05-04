@@ -1,31 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Box, 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  Chip, 
-  CircularProgress,
-  Divider, 
-  Grid, 
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Paper, 
-  Typography,
-  useTheme
-} from '@mui/material';
-import WarningIcon from '@mui/icons-material/Warning';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import PhotoIcon from '@mui/icons-material/Photo';
-import PieChart from '@mui/icons-material/PieChart';
 import { DamageAssessmentService } from '../../utils/damageAssessmentService';
 
 // Chart.js dependencies
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale } from 'chart.js';
-import { Pie, Doughnut } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 
 // Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale);
@@ -35,7 +13,6 @@ interface ReportDamageSummaryProps {
 }
 
 const ReportDamageSummary: React.FC<ReportDamageSummaryProps> = ({ reportId }) => {
-  const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
@@ -66,20 +43,22 @@ const ReportDamageSummary: React.FC<ReportDamageSummaryProps> = ({ reportId }) =
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center my-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
     );
   }
 
   if (!summary) {
     return (
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardHeader title="Damage Assessment Summary" />
-        <CardContent>
-          <Typography>No damage assessment data is available for this report.</Typography>
-        </CardContent>
-      </Card>
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Damage Assessment Summary</h2>
+        </div>
+        <div className="p-6">
+          <p className="text-gray-600 dark:text-gray-300">No damage assessment data is available for this report.</p>
+        </div>
+      </div>
     );
   }
 
@@ -95,16 +74,16 @@ const ReportDamageSummary: React.FC<ReportDamageSummaryProps> = ({ reportId }) =
           summary.severityCount.severe || 0,
         ],
         backgroundColor: [
-          theme.palette.success.light,
-          theme.palette.info.light,
-          theme.palette.warning.light,
-          theme.palette.error.light,
+          '#10B981', // green-500 (success)
+          '#60A5FA', // blue-400 (info)
+          '#F59E0B', // amber-500 (warning)
+          '#EF4444', // red-500 (error)
         ],
         borderColor: [
-          theme.palette.success.main,
-          theme.palette.info.main,
-          theme.palette.warning.main,
-          theme.palette.error.main,
+          '#059669', // green-600 (success darker)
+          '#3B82F6', // blue-500 (info darker)
+          '#D97706', // amber-600 (warning darker)
+          '#DC2626', // red-600 (error darker)
         ],
         borderWidth: 1,
       },
@@ -112,71 +91,83 @@ const ReportDamageSummary: React.FC<ReportDamageSummaryProps> = ({ reportId }) =
   };
 
   // Helper functions
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity: string): string => {
     switch (severity) {
       case 'severe':
-        return theme.palette.error.main;
+        return 'bg-red-100 text-red-700 border-red-200';
       case 'moderate':
-        return theme.palette.warning.main;
+        return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'minor':
-        return theme.palette.info.main;
+        return 'bg-blue-100 text-blue-700 border-blue-200';
       default:
-        return theme.palette.success.main;
+        return 'bg-green-100 text-green-700 border-green-200';
     }
   };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
       case 'severe':
-        return <ErrorIcon color="error" />;
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        );
       case 'moderate':
-        return <WarningIcon color="warning" />;
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        );
       case 'minor':
-        return <WarningIcon color="info" />;
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        );
       default:
-        return <CheckCircleIcon color="success" />;
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
     }
   };
 
   return (
-    <Card variant="outlined" sx={{ mb: 3 }}>
-      <CardHeader 
-        title="Damage Assessment Summary" 
-        subheader={`Based on ${summary.totalImagesAnalyzed} analyzed images`}
-        avatar={<PieChart />}
-      />
-      <CardContent>
-        <Grid container spacing={3}>
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+        </svg>
+        <div>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Damage Assessment Summary</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Based on {summary.totalImagesAnalyzed} analyzed images</p>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Overall Status */}
-          <Grid item xs={12}>
-            <Paper 
-              elevation={0} 
-              sx={{ 
-                p: 2, 
-                display: 'flex', 
-                alignItems: 'center',
-                bgcolor: summary.hasDamage ? 
-                  alpha(getSeverityColor(summary.mostSevereDamage), 0.1) : 
-                  theme.palette.success.light + '20'
-              }}
-            >
-              {summary.hasDamage ? (
-                getSeverityIcon(summary.mostSevereDamage)
-              ) : (
-                <CheckCircleIcon color="success" sx={{ mr: 1 }} />
+          <div className="col-span-1 md:col-span-2">
+            <div className={`p-4 rounded-md flex items-center ${summary.hasDamage ? getSeverityColor(summary.mostSevereDamage) : 'bg-green-100 text-green-700'}`}>
+              {summary.hasDamage ? getSeverityIcon(summary.mostSevereDamage) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               )}
-              <Typography variant="h6" sx={{ ml: 1 }}>
+              <h3 className="text-lg font-medium ml-2">
                 {summary.hasDamage ? 
                   `Damage Detected - ${summary.mostSevereDamage.charAt(0).toUpperCase() + summary.mostSevereDamage.slice(1)} Severity` : 
                   'No Damage Detected'}
-              </Typography>
-            </Paper>
-          </Grid>
+              </h3>
+            </div>
+          </div>
 
           {/* Charts Section */}
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom>Damage Severity Distribution</Typography>
-            <Box sx={{ height: 200 }}>
+          <div>
+            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">Damage Severity Distribution</h3>
+            <div className="h-48">
               <Doughnut 
                 data={severityChartData} 
                 options={{
@@ -189,131 +180,123 @@ const ReportDamageSummary: React.FC<ReportDamageSummaryProps> = ({ reportId }) =
                   }
                 }}
               />
-            </Box>
-          </Grid>
+            </div>
+          </div>
 
           {/* Common Issues */}
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom>Common Issues Found</Typography>
+          <div>
+            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">Common Issues Found</h3>
             
             {summary.commonDamageTypes.length > 0 ? (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+              <div className="flex flex-wrap gap-2 mb-4">
                 {summary.commonDamageTypes.map((type: string, index: number) => (
-                  <Chip 
+                  <span 
                     key={index}
-                    label={capitalizeWords(type)}
-                    color={
-                      index === 0 ? 'error' : 
-                      index === 1 ? 'warning' : 
-                      'default'
-                    }
-                    variant="outlined"
-                  />
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm 
+                    ${index === 0 ? 'bg-red-100 text-red-800 border border-red-200' : 
+                      index === 1 ? 'bg-amber-100 text-amber-800 border border-amber-200' : 
+                      'bg-gray-100 text-gray-800 border border-gray-200'}`}
+                  >
+                    {capitalizeWords(type)}
+                  </span>
                 ))}
-              </Box>
+              </div>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                No damage types identified.
-              </Typography>
+              <p className="text-gray-500 dark:text-gray-400">No damage types identified.</p>
             )}
 
-            <Typography variant="subtitle1" gutterBottom>Affected Areas</Typography>
+            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">Affected Areas</h3>
             {summary.commonAffectedAreas.length > 0 ? (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <div className="flex flex-wrap gap-2">
                 {summary.commonAffectedAreas.map((area: string, index: number) => (
-                  <Chip 
+                  <span 
                     key={index}
-                    label={capitalizeWords(area)}
-                    variant="filled"
-                  />
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800 border border-primary-200"
+                  >
+                    {capitalizeWords(area)}
+                  </span>
                 ))}
-              </Box>
+              </div>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                No specific areas identified.
-              </Typography>
+              <p className="text-gray-500 dark:text-gray-400">No specific areas identified.</p>
             )}
-          </Grid>
+          </div>
 
           {/* Image Analysis List */}
-          <Grid item xs={12}>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle1" gutterBottom>
+          <div className="col-span-1 md:col-span-2">
+            <hr className="my-4 border-gray-200 dark:border-gray-700" />
+            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
               Image Analysis Details
-            </Typography>
+            </h3>
             
-            <List>
+            <ul className="space-y-2">
               {images.map((image: any) => {
                 const imageAnalysis = image.image_analysis && image.image_analysis.length > 0 
                   ? image.image_analysis[0] 
                   : null;
 
                 return (
-                  <Paper
+                  <li
                     key={image.id}
-                    elevation={0}
-                    sx={{ 
-                      mb: 1, 
-                      p: 1,
-                      bgcolor: imageAnalysis?.damage_detected ? 
-                        alpha(getSeverityColor(imageAnalysis.damage_severity), 0.05) : 
-                        'background.paper' 
-                    }}
+                    className={`p-3 rounded-md border 
+                      ${imageAnalysis?.damage_detected 
+                        ? imageAnalysis.damage_severity === 'severe' 
+                          ? 'bg-red-50 border-red-200' 
+                          : imageAnalysis.damage_severity === 'moderate'
+                            ? 'bg-amber-50 border-amber-200'
+                            : 'bg-blue-50 border-blue-200'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
                   >
-                    <ListItem>
-                      <ListItemIcon>
-                        <PhotoIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={image.filename || 'Image'}
-                        secondary={
-                          imageAnalysis ? 
+                    <div className="flex items-start">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-1 mr-3 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center">
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {image.filename || 'Image'}
+                          </p>
+                          {imageAnalysis?.damage_detected && (
+                            <div className="flex gap-1">
+                              {imageAnalysis.damage_types?.slice(0, 2).map((type: string, index: number) => (
+                                <span 
+                                  key={index}
+                                  className={`text-xs px-2 py-1 rounded-full
+                                    ${imageAnalysis.damage_severity === 'severe' ? 'bg-red-100 text-red-800 border border-red-200' : 
+                                      imageAnalysis.damage_severity === 'moderate' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 
+                                      'bg-blue-100 text-blue-800 border border-blue-200'}`}
+                                >
+                                  {capitalizeWords(type)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {imageAnalysis ? 
                             `${imageAnalysis.damage_detected ? 
                               `Damage Detected: ${capitalizeWords(imageAnalysis.damage_severity)} severity` : 
                               'No Damage Detected'} | ${formatDate(imageAnalysis.analyzed_at)}` : 
-                            'Not analyzed'
-                        }
-                      />
-                      {imageAnalysis?.damage_detected && (
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          {imageAnalysis.damage_types?.slice(0, 2).map((type: string, index: number) => (
-                            <Chip 
-                              key={index}
-                              size="small"
-                              label={capitalizeWords(type)}
-                              color={
-                                imageAnalysis.damage_severity === 'severe' ? 'error' : 
-                                imageAnalysis.damage_severity === 'moderate' ? 'warning' : 
-                                imageAnalysis.damage_severity === 'minor' ? 'info' :
-                                'default'
-                              }
-                              variant="outlined"
-                            />
-                          ))}
-                        </Box>
-                      )}
-                    </ListItem>
-                  </Paper>
+                            'Not analyzed'}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
                 );
               })}
-            </List>
+            </ul>
             
             {images.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
+              <p className="text-gray-500 dark:text-gray-400">
                 No images have been analyzed for this report.
-              </Typography>
+              </p>
             )}
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
-
-// Helper function to create alpha colors
-function alpha(color: string, opacity: number): string {
-  return color + Math.round(opacity * 255).toString(16).padStart(2, '0');
-}
 
 // Helper function to capitalize words
 function capitalizeWords(str: string): string {
