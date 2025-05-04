@@ -34,7 +34,7 @@ jest.mock('next/router', () => ({
 
 jest.mock('../../components/layout/Layout', () => ({
     __esModule: true,
-    default: ({ children }) => <div>{children}</div>
+    default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }));
 
 import UpdatePassword from '../../pages/updatepassword';
@@ -56,7 +56,7 @@ describe('UpdatePassword Page', () => {
 
     //Test 2 Passwords match upon submit and redirects to login
     test('submits matching passwords and shows success message', async () => {
-        mockUpdateUser.mockResolvedValueOnce({ error: null });
+        mockUpdateUser.mockResolvedValueOnce({ data: {}, error: null });
 
         render(<UpdatePassword />);
 
@@ -64,12 +64,14 @@ describe('UpdatePassword Page', () => {
         const confirmPasswordInput = screen.getByLabelText('Confirm New Password');
         const submitButton = screen.getByRole('button', { name: /Update Password/i });
 
-        fireEvent.change(passwordInput, { target: { value: 'newpassword123' } });
-        fireEvent.change(confirmPasswordInput, { target: { value: 'newpassword123' } });
+        fireEvent.change(passwordInput, { target: { value: 'ValidP@ssword123' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'ValidP@ssword123' } });
 
         fireEvent.click(submitButton);
 
-        expect(await screen.findByText(/Password updated successfully/i)).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText(/Password updated successfully/i)).toBeInTheDocument();
+        });
     });
 
     //Test 3 Passwords do not match
@@ -83,13 +85,89 @@ describe('UpdatePassword Page', () => {
         const confirmPasswordInput = screen.getByLabelText('Confirm New Password');
         const submitButton = screen.getByRole('button', { name: /Update Password/i });
     
-        fireEvent.change(passwordInput, { target: { value: 'newpassword123' } });
-        fireEvent.change(confirmPasswordInput, { target: { value: 'differentpassword' } });
+        fireEvent.change(passwordInput, { target: { value: 'ValidP@ssword123' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'DifferentP@ssword123' } });
     
         fireEvent.click(submitButton);
     
-        expect(await screen.findByText(/Passwords do not match/)).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText(/Passwords do not match/i)).toBeInTheDocument();
+        });
         expect(mockPush).not.toHaveBeenCalled();
     });
 
+    test('validates password requirements', async () => {
+        render(<UpdatePassword />);
+        const passwordInput = await screen.findByLabelText('New Password');
+        const confirmPasswordInput = screen.getByLabelText('Confirm New Password');
+        const submitButton = screen.getByRole('button', { name: /Update Password/i });
+
+        // Test minimum length requirement
+        fireEvent.change(passwordInput, { target: { value: 'short' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'short' } });
+        fireEvent.click(submitButton);
+        
+        await waitFor(() => {
+            const errorMessages = screen.getAllByText(/must be at least 8 characters/i);
+            expect(errorMessages.length).toBeGreaterThan(0);
+        });
+
+        // Test number requirement
+        fireEvent.change(passwordInput, { target: { value: 'Passwordlong!' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'Passwordlong!' } });
+        fireEvent.click(submitButton);
+        
+        await waitFor(() => {
+            expect(screen.getByText(/must contain at least one number/i)).toBeInTheDocument();
+        });
+
+        // Test special character requirement
+        fireEvent.change(passwordInput, { target: { value: 'Password123' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'Password123' } });
+        fireEvent.click(submitButton);
+        
+        await waitFor(() => {
+            expect(screen.getByText(/must contain at least one special character/i)).toBeInTheDocument();
+        });
+
+        // Test uppercase requirement
+        fireEvent.change(passwordInput, { target: { value: 'password123!' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'password123!' } });
+        fireEvent.click(submitButton);
+        
+        await waitFor(() => {
+            expect(screen.getByText(/must contain at least one uppercase letter/i)).toBeInTheDocument();
+        });
+
+        // Test lowercase requirement
+        fireEvent.change(passwordInput, { target: { value: 'PASSWORD123!' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'PASSWORD123!' } });
+        fireEvent.click(submitButton);
+        
+        await waitFor(() => {
+            expect(screen.getByText(/must contain at least one lowercase letter/i)).toBeInTheDocument();
+        });
+    });
+
+    test('shows success message and redirects after successful password update', async () => {
+        mockUpdateUser.mockResolvedValueOnce({ data: {}, error: null });
+        render(<UpdatePassword />);
+
+        const passwordInput = await screen.findByLabelText('New Password');
+        const confirmPasswordInput = screen.getByLabelText('Confirm New Password');
+        const submitButton = screen.getByRole('button', { name: /Update Password/i });
+
+        fireEvent.change(passwordInput, { target: { value: 'ValidP@ssword123' } });
+        fireEvent.change(confirmPasswordInput, { target: { value: 'ValidP@ssword123' } });
+        fireEvent.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByText(/Password updated successfully/i)).toBeInTheDocument();
+        });
+        
+        // Wait for redirect timeout to complete
+        await waitFor(() => {
+            expect(mockPush).toHaveBeenCalled();
+        }, { timeout: 3000 });
+    });
 });

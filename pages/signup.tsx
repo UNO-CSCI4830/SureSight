@@ -40,9 +40,13 @@ const SignUp: React.FC = () => {
       newErrors.email = emailResult.message || "Email is invalid";
     }
 
-    // Password validation (requiring 8+ characters)
+    // Password validation (requiring all security features)
     const passwordResult = formValidation.validatePassword(password, {
       minLength: 8,
+      requireNumbers: true,
+      requireSpecialChars: true,
+      requireUppercase: true,
+      requireLowercase: true
     });
     if (!passwordResult.isValid) {
       newErrors.password = passwordResult.message || "Password is invalid";
@@ -166,7 +170,7 @@ const SignUp: React.FC = () => {
                   placeholder="••••••••"
                   inputClassName="bg-white text-gray-900"
                   required
-                  helpText="Must be at least 8 characters"
+                  helpText="Must be at least 8 characters and include uppercase, lowercase, numbers, and special characters"
                   error={errors.password}
                 />
               </div>

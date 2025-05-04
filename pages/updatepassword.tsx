@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import Layout from '../components/layout/Layout';
+import { validatePassword, validatePasswordMatch } from '../utils/formValidation';
 
 // Initialize Supabase client using environment variables
 const supabase = createClient(
@@ -70,18 +71,28 @@ const UpdatePassword: React.FC = () => {
     event.preventDefault();
     setMessage(null);
     
-    // Password validation
-    if (password.length < 8) {
+    // Enhanced password validation
+    const passwordResult = validatePassword(password, {
+      minLength: 8,
+      requireNumbers: true,
+      requireSpecialChars: true,
+      requireUppercase: true,
+      requireLowercase: true
+    });
+
+    if (!passwordResult.isValid) {
       setMessage({
-        text: 'Password must be at least 8 characters long',
+        text: passwordResult.message || 'Invalid password',
         type: 'error'
       });
       return;
     }
-    
-    if (password !== confirmPassword) {
+
+    // Validate password match
+    const matchResult = validatePasswordMatch(password, confirmPassword);
+    if (!matchResult.isValid) {
       setMessage({
-        text: 'Passwords do not match',
+        text: matchResult.message || 'Passwords do not match',
         type: 'error'
       });
       return;
@@ -98,7 +109,7 @@ const UpdatePassword: React.FC = () => {
         });
       } else {
         setMessage({
-          text: 'Password updated successfully!',
+          text: 'Password updated successfully! Redirecting...',
           type: 'success'
         });
         
@@ -167,7 +178,7 @@ const UpdatePassword: React.FC = () => {
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Must be at least 8 characters
+                  Must be at least 8 characters and include uppercase, lowercase, numbers, and special characters
                 </p>
               </div>
 
