@@ -1,0 +1,172 @@
+# SureSight Database Routes and Access Patterns
+
+## User Management
+1. Get User Profile
+   ```
+   supabase.from('users').select('*').eq('auth_user_id', authId).single()
+   ```
+
+2. Get Complete User Profile (with role-specific data)
+   ```
+   supabase.rpc('get_complete_user_profile', { p_user_id: userId })
+   ```
+
+3. Update User Profile
+   ```
+   supabase.rpc('update_user_profile', { profileData })
+   ```
+
+## Property Management
+1. Create Property
+   ```
+   supabase.rpc('create_property', {
+     p_homeowner_profile_id: homeownerId,
+     p_address_line1: address,
+     p_city: city,
+     p_state: state,
+     p_postal_code: postalCode,
+     p_address_line2: addressLine2,
+     p_country: country,
+     p_property_type: propertyType,
+     p_year_built: yearBuilt,
+     p_square_footage: squareFootage
+   })
+   ```
+
+2. Get Homeowner Properties
+   ```
+   supabase.from('properties')
+     .select('*')
+     .eq('homeowner_id', homeownerId)
+     .order('created_at', { ascending: false })
+   ```
+
+## Report Management
+1. Create Report
+   ```
+   supabase.rpc('create_report', {
+     p_property_id: propertyId,
+     p_creator_id: creatorId,
+     p_title: title,
+     p_description: description,
+     p_incident_date: incidentDate
+   })
+   ```
+
+2. Get Report with Related Data
+   ```
+   supabase.from('reports')
+     .select(`
+       *,
+       property:property_id(*),
+       creator:creator_id(*),
+       assessment_areas(*),
+       images(*)
+     `)
+     .eq('id', reportId)
+     .single()
+   ```
+
+3. Update Report
+   ```
+   supabase.from('reports')
+     .update(updateData)
+     .eq('id', reportId)
+   ```
+
+## Assessment Areas
+1. Add Assessment Area
+   ```
+   supabase.rpc('add_assessment_area', {
+     p_report_id: reportId,
+     p_damage_type: damageType,
+     p_location: location,
+     p_severity: severity,
+     p_added_by: addedBy,
+     p_dimensions: dimensions,
+     p_notes: notes
+   })
+   ```
+
+2. Get Assessment Areas for Report
+   ```
+   supabase.from('assessment_areas')
+     .select('*')
+     .eq('report_id', reportId)
+   ```
+
+## Image Management
+1. Upload Image
+   ```
+   supabase.storage
+     .from('property-images')
+     .upload(path, file)
+   ```
+
+2. Get Image Public URL
+   ```
+   supabase.storage
+     .from('property-images')
+     .getPublicUrl(path)
+   ```
+
+## Messaging System
+1. Send Message
+   ```
+   supabase.from('messages')
+     .insert({
+       sender_id: senderId,
+       recipient_id: recipientId,
+       content: content
+     })
+   ```
+
+2. Get User Messages
+   ```
+   supabase.from('messages')
+     .select('*')
+     .eq('receiver_id', userId)
+     .eq('is_read', false) // Optional for unread only
+     .order('created_at', { ascending: false })
+   ```
+
+## Data Types
+
+### User Roles
+- homeowner
+- contractor
+- adjuster
+- admin
+
+### Report Status
+- draft
+- submitted
+- in_review
+- approved
+- rejected
+
+### Damage Types
+- roof
+- siding
+- window
+- structural
+- water
+- other
+
+### Damage Severity
+- minor
+- moderate
+- severe
+- critical
+
+### Contact Methods
+- email
+- phone
+- sms
+
+## Row Level Security (RLS) Policies
+- Users can only view and edit their own profile information
+- Homeowners can only see properties they own
+- Contractors can only see reports assigned to them
+- Adjusters can only see reports within their territories
+- Admin users have access to all data
