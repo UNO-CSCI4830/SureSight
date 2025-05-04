@@ -45,6 +45,7 @@
         "ts-jest": "^29.3.2",
         "ts-node": "^10.9.2",
         "typescript": "^5",
-        "uuid": "^11.1.0"
+        "uuid": "^11.1.0",
+        "whatwg-fetch": "^3.6.20"
     }
 }

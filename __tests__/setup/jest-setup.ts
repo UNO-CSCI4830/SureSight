@@ -3,6 +3,10 @@ import '@testing-library/jest-dom';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import 'whatwg-fetch';
+
+// Add fetch polyfill
+global.fetch = fetch;
 
 // Load environment variables from .env files
 const envPaths = [

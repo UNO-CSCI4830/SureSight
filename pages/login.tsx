@@ -50,6 +50,8 @@ const LoginPage: React.FC = () => {
     // Password validation
     if (!password) {
       newErrors.password = 'Password is required';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters long';
     }
     
     setErrors(newErrors);
@@ -79,6 +81,16 @@ const LoginPage: React.FC = () => {
         delete newErrors.password;
         return newErrors;
       });
+    }
+  };
+
+  const handlePasswordKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const form = e.currentTarget.form;
+      if (form) {
+        handleLogin(new SubmitEvent('submit', { cancelable: true }));
+      }
     }
   };
 
@@ -281,11 +293,13 @@ const LoginPage: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={handlePasswordChange}
+                onKeyDown={handlePasswordKeyPress}
                 placeholder="••••••••"
                 required
                 autoComplete="current-password"
                 inputClassName="bg-white text-gray-900"
                 error={errors.password}
+                hideLabel
               />
             </div>
 
@@ -304,7 +318,14 @@ const LoginPage: React.FC = () => {
                 `}
                 data-testid="login-button"
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <LoadingSpinner size="sm" color="white" />
+                    <span className="ml-2">Signing in...</span>
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
               </button>
             </div>
           </form>
