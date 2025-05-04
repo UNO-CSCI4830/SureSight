@@ -164,9 +164,143 @@
 - phone
 - sms
 
+## Database Relationships
+
+### Table Relationships (Foreign Keys)
+
+| Table               | Column               | References             | Referenced Column |
+|---------------------|----------------------|------------------------|-------------------|
+| activities          | report_id            | reports                | id                |
+| activities          | user_id              | users                  | id                |
+| adjuster_profiles   | id                   | profiles               | id                |
+| assessment_areas    | report_id            | reports                | id                |
+| comments            | parent_id            | comments               | id                |
+| comments            | report_id            | reports                | id                |
+| comments            | user_id              | users                  | id                |
+| contractor_profiles | id                   | profiles               | id                |
+| estimate_items      | estimate_id          | estimates              | id                |
+| estimates           | contractor_id        | contractor_profiles    | id                |
+| estimates           | report_id            | reports                | id                |
+| homeowner_profiles  | id                   | profiles               | id                |
+| image_analysis      | assessment_area_id   | assessment_areas       | id                |
+| image_analysis      | image_id             | images                 | id                |
+| image_analysis      | report_id            | reports                | id                |
+| images              | assessment_area_id   | assessment_areas       | id                |
+| images              | report_id            | reports                | id                |
+| images              | uploaded_by          | users                  | id                |
+| messages            | receiver_id          | users                  | id                |
+| messages            | sender_id            | users                  | id                |
+| notifications       | user_id              | users                  | id                |
+| profiles            | user_id              | users                  | id                |
+| properties          | homeowner_id         | homeowner_profiles     | id                |
+| reports             | adjuster_id          | adjuster_profiles      | id                |
+| reports             | contractor_id        | contractor_profiles    | id                |
+| reports             | creator_id           | users                  | id                |
+| reports             | property_id          | properties             | id                |
+
+### Relationship Paths
+
+1. User to Properties:
+   ```
+   users → profiles → homeowner_profiles → properties
+   ```
+
+2. User to Reports (as homeowner):
+   ```
+   users → profiles → homeowner_profiles → properties → reports
+   ```
+
+3. User to Reports (as creator):
+   ```
+   users → reports (via creator_id)
+   ```
+
+4. User to Reports (as contractor):
+   ```
+   users → profiles → contractor_profiles → reports (via contractor_id)
+   ```
+
+5. User to Reports (as adjuster):
+   ```
+   users → profiles → adjuster_profiles → reports (via adjuster_id)
+   ```
+
+6. Report to Images:
+   ```
+   reports → images (via report_id)
+   reports → assessment_areas → images
+   ```
+
+7. Property to Assessment Areas:
+   ```
+   properties → reports → assessment_areas
+   ```
+   
+8. Image Analysis Relationships:
+   ```
+   images → image_analysis
+   reports → image_analysis
+   assessment_areas → image_analysis
+   ```
+
+## SQL Query Examples
+
+### Get all properties owned by a user
+```sql
+SELECT p.* FROM properties p
+JOIN homeowner_profiles hp ON p.homeowner_id = hp.id
+JOIN profiles pf ON hp.id = pf.id
+JOIN users u ON pf.user_id = u.id
+WHERE u.id = [USER_ID]
+```
+
+### Get all reports a user has access to
+```sql
+SELECT r.* FROM reports r
+WHERE 
+  r.creator_id = [USER_ID] -- As creator
+  OR
+  EXISTS (  -- As homeowner
+    SELECT 1 FROM properties p
+    JOIN homeowner_profiles hp ON p.homeowner_id = hp.id
+    JOIN profiles pf ON hp.id = pf.id
+    WHERE r.property_id = p.id AND pf.user_id = [USER_ID]
+  )
+  OR
+  EXISTS (  -- As contractor
+    SELECT 1 FROM contractor_profiles cp
+    JOIN profiles pf ON cp.id = pf.id
+    WHERE r.contractor_id = cp.id AND pf.user_id = [USER_ID]
+  )
+  OR
+  EXISTS (  -- As adjuster
+    SELECT 1 FROM adjuster_profiles ap
+    JOIN profiles pf ON ap.id = pf.id
+    WHERE r.adjuster_id = ap.id AND pf.user_id = [USER_ID]
+  )
+```
+
+### Get images with assessment areas for a report
+```sql
+SELECT i.*, aa.damage_type, aa.location, aa.severity
+FROM images i
+LEFT JOIN assessment_areas aa ON i.assessment_area_id = aa.id
+WHERE i.report_id = [REPORT_ID]
+```
+
+### Get image analysis results for a report
+```sql
+SELECT ia.*, i.filename, i.storage_path
+FROM image_analysis ia
+JOIN images i ON ia.image_id = i.id
+WHERE ia.report_id = [REPORT_ID]
+ORDER BY ia.created_at DESC
+```
+
 ## Row Level Security (RLS) Policies
 - Users can only view and edit their own profile information
 - Homeowners can only see properties they own
 - Contractors can only see reports assigned to them
 - Adjusters can only see reports within their territories
 - Admin users have access to all data
+- Image analysis results are only visible to users who can access the related report
