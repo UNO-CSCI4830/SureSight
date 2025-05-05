@@ -1,8 +1,9 @@
 import { supabase } from '../utils/supabaseClient';
+import { TablesInsert, Database } from '../types/supabase';
 
 interface NotificationData {
   user_id: string;
-  type: string;
+  type: string;  // We'll map this to notification_type in our insert
   title: string;
   message: string;
   link_url?: string;
@@ -22,11 +23,10 @@ export const collaborationNotificationService = {
         .from('notifications')
         .insert({
           user_id: data.user_id,
-          type: data.type,
+          notification_type: data.type, // Changed from type to notification_type to match DB schema
           title: data.title,
           message: data.message,
-          link_url: data.link_url,
-          metadata: data.metadata,
+          related_id: data.link_url ? data.link_url.split('/').pop() : null,
           is_read: false
         });
         

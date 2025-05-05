@@ -16,6 +16,8 @@ import {
   AssessmentArea,
   DamageType,
   DamageSeverity,
+  TablesInsert,
+  Database
 } from "../../types/supabase";
 
 type ExtendedReport = Report & {
@@ -53,7 +55,7 @@ type AssessmentAreaForm = {
 
 const ReportDetailPage: React.FC = () => {
   const router = useRouter();
-  const { id } = router.query;
+  const { reportId } = router.query;
 
   const [report, setReport] = useState<ExtendedReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,8 +101,8 @@ const ReportDetailPage: React.FC = () => {
   ];
 
   useEffect(() => {
-    if (id) {
-      fetchReport(id as string);
+    if (reportId) {
+      fetchReport(reportId as string);
     }
 
     // Clear any existing message timeout when component unmounts
@@ -109,7 +111,7 @@ const ReportDetailPage: React.FC = () => {
         clearTimeout(showMessageTimeout);
       }
     };
-  }, [id]);
+  }, [reportId]);
 
   const fetchReport = async (reportId: string) => {
     setIsLoading(true);
@@ -348,16 +350,18 @@ const ReportDetailPage: React.FC = () => {
       }
 
       // Add the assessment area
+      const areaData: TablesInsert<'assessment_areas'> = {
+        report_id: report.id,
+        location: areaForm.location,
+        damage_type: areaForm.damage_type as Database["public"]["Enums"]["damage_type"],
+        severity: areaForm.severity as Database["public"]["Enums"]["damage_severity"],
+        dimensions: areaForm.dimensions || null,
+        notes: areaForm.notes || null,
+      };
+
       const { data, error: areaError } = await supabase
         .from("assessment_areas")
-        .insert({
-          report_id: report.id,
-          location: areaForm.location,
-          damage_type: areaForm.damage_type,
-          severity: areaForm.severity,
-          dimensions: areaForm.dimensions || null,
-          notes: areaForm.notes || null,
-        })
+        .insert(areaData)
         .select()
         .single();
 
@@ -370,7 +374,7 @@ const ReportDetailPage: React.FC = () => {
         text: "Assessment area added successfully",
         type: "success",
       });
-
+      
       // Refresh the report data
       fetchReport(report.id);
 

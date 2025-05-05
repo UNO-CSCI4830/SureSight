@@ -1,106 +1,111 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase, handleSupabaseError } from '../../../../utils/supabaseClient';
+import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { collaborationNotificationService } from '../../../../services/collaborationNotificationService';
+import { v4 as uuidv4 } from 'uuid';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Enforce method
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  // Get the authenticated user from Supabase
+  const supabase = createServerSupabaseClient({ req, res });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'You must be logged in to access this resource',
+    });
   }
 
-  try {
-    // Get current user from session to verify authorization
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+  // Get report ID from path parameter
+  const { reportId } = req.query; // Updated to use reportId directly
 
-    if (authError || !session) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+  if (req.method === 'POST') {
+    try {
+      // Request body should contain contractorId and other request details
+      const { contractorId, message, deadline } = req.body;
 
-    const userId = session.user.id;
-    const { reportId } = req.query;
-    const { contractorId, responseDeadline, notes } = req.body;
-    
-    // Ensure reportId is a string
-    const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
-    
-    if (!reportIdString) {
-      return res.status(400).json({ message: 'Report ID is required' });
-    }
-
-    // Verify user has access to this report and has permission to request contractors
-    const { data: reportAccess, error: accessError } = await supabase.rpc(
-      'user_has_edit_access',
-      { 
-        p_user_id: userId,
-        p_report_id: reportIdString
+      if (!contractorId) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'Contractor ID is required',
+        });
       }
-    );
 
-    if (accessError || !reportAccess) {
-      return res.status(403).json({ message: 'You do not have permission to request contractors for this report' });
-    }
-
-    // Create contractor request in the database
-    const { data: request, error: requestError } = await supabase
-      .from('contractor_requests')
-      .insert({
-        report_id: reportIdString,
-        contractor_id: contractorId,
-        requested_by: userId,
-        status: 'open',
-        response_deadline: responseDeadline,
-        notes
-      })
-      .select()
-      .single();
-
-    if (requestError) {
-      throw requestError;
-    }
-
-    // Create a notification for the contractor
-    if (contractorId) {
-      // First get the contractor's user_id
-      const { data: contractorProfile, error: profileError } = await supabase
-        .from('contractor_profiles')
-        .select('profiles!inner(user_id)')
-        .eq('id', contractorId)
+      // Get the database user ID from the auth user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, profiles:profiles(first_name, last_name)')
+        .eq('auth_user_id', session.user.id)
         .single();
 
-      if (!profileError && contractorProfile) {
-        const contractorUserId = contractorProfile.profiles.user_id;
-        
-        // Insert notification
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: contractorUserId,
-            notification_type: 'contractor_request',
-            title: 'New Project Request', 
-            message: 'You have a new project request',
-            related_id: request.id,
-            is_read: false
-          });
-          
-        // Also send a message
-        await supabase
-          .from('messages')
-          .insert({
-            sender_id: userId,
-            receiver_id: contractorUserId,
-            content: `I'd like to request your services for a project. Please review the details.`,
-            message_type: 'notification',
-            report_id: reportIdString
-          });
+      if (userError) {
+        throw userError;
       }
+
+      // Check if the user has access to the report
+      const { data: reportAccess, error: reportError } = await supabase
+        .from('reports')
+        .select('id, title')
+        .eq('id', reportId)
+        .eq('creator_id', userData.id)
+        .single();
+
+      if (reportError || !reportAccess) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'You do not have permission to modify this report',
+        });
+      }
+
+      // Create the contractor request
+      const requestId = uuidv4();
+      const { error: insertError } = await supabase
+        .from('contractor_requests')
+        .insert({
+          id: requestId,
+          report_id: reportId,
+          contractor_id: contractorId,
+          requested_by: userData.id,
+          status: 'open',
+          notes: message || null,
+          response_deadline: deadline || null,
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Send notification to the contractor
+      const firstName = userData.profiles[0]?.first_name || 'A user';
+      const lastName = userData.profiles[0]?.last_name || '';
+      const clientName = `${firstName} ${lastName}`;
+      await collaborationNotificationService.notifyContractorRequest(
+        contractorId,
+        reportId as string,
+        reportAccess.title,
+        clientName
+      );
+
+      return res.status(200).json({
+        success: true,
+        requestId,
+        message: 'Contractor request sent successfully',
+      });
+    } catch (error: any) {
+      console.error('Error requesting contractor:', error);
+      return res.status(500).json({
+        error: 'Server Error',
+        message: error.message,
+      });
     }
-
-    return res.status(201).json({
-      message: 'Contractor request created successfully',
-      request
+  } else {
+    return res.status(405).json({
+      error: 'Method Not Allowed',
+      message: `The ${req.method} method is not allowed on this endpoint`,
     });
-
-  } catch (error) {
-    const { message, status } = handleSupabaseError(error);
-    return res.status(status).json({ message });
   }
 }

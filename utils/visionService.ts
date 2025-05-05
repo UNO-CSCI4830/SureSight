@@ -123,7 +123,7 @@ export const getImageDamageAnalysis = async (imageId: string): Promise<{
     return {
       success: true,
       data: {
-        damage_detected: data.damage_detected,
+        damage_detected: data.damage_detected ?? false,
         confidence: data.confidence ?? undefined,
         damage_type: rawResults?.damage_type,
         damage_severity: rawResults?.severity

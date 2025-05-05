@@ -81,8 +81,12 @@ export class NotificationService {
       
       // Filter messages for this recipient and sort by created_at
       const filteredMessages = allMessages
-        .filter(msg => msg.recipient_id === userId)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        .filter(msg => msg.receiver_id === userId)
+        .sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateB - dateA;
+        });
         
       console.log("RLS DEBUG - Filtered notifications count:", filteredMessages.length);
       
@@ -130,7 +134,9 @@ export class NotificationService {
       const { data, error } = await supabase
         .from('messages')
         .insert({
-          ...messageData,
+          sender_id: messageData.sender_id,
+          receiver_id: messageData.recipient_id, // Map recipient_id to receiver_id
+          content: messageData.content,
           is_read: false
         })
         .select();

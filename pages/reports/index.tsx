@@ -10,7 +10,7 @@ import {
   StatusMessage,
 } from "../../components/common";
 import { FormInput, Select, Button } from "../../components/ui";
-import { Report } from "../../types/supabase";
+import { Report, Database } from "../../types/supabase";
 
 type ExtendedReport = Report & {
   property?: {
@@ -99,7 +99,7 @@ const ReportsPage: React.FC = () => {
 
       // Apply status filter if not "all"
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("status", statusFilter as Database["public"]["Enums"]["report_status"]);
       }
 
       // Apply sorting
@@ -228,7 +228,8 @@ const ReportsPage: React.FC = () => {
   };
 
   // Helper function to format status display
-  const formatStatus = (status: string) => {
+  const formatStatus = (status: string | null) => {
+    if (!status) return "Unknown";
     return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ");
   };
 
@@ -255,7 +256,7 @@ const ReportsPage: React.FC = () => {
       ? `${report.property.address_line1}, ${report.property.city}, ${report.property.state}`
       : "No property address";
 
-    const createdDate = new Date(report.created_at).toLocaleDateString();
+    const createdDate = report.created_at ? new Date(report.created_at).toLocaleDateString() : 'N/A';
 
     return (
       <Card key={report.id} className="mb-4">
@@ -277,7 +278,7 @@ const ReportsPage: React.FC = () => {
             <div className="flex flex-col items-end">
               <span
                 className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                  report.status
+                  report.status || 'draft'
                 )}`}
               >
                 {formatStatus(report.status)}

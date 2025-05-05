@@ -21,7 +21,7 @@ export default async function handler(
   }
 
   // Get report ID from path parameter
-  const { id: reportId } = req.query;
+  const { reportId } = req.query; // Updated to use reportId directly
 
   // Get the database user ID from the auth user ID
   const { data: userData, error: userError } = await supabase
