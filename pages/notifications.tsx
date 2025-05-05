@@ -23,9 +23,10 @@ const NotificationsPage = () => {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUser(user);
+        const { data: { user: fetchedUser } } = await supabase.auth.getUser();
+        if (fetchedUser) {
+          setUser(fetchedUser);
+          console.log("Authenticated user ID:", fetchedUser.id); // ✅ Add this log
         }
       } catch (err) {
         console.error("Error checking user authentication:", err);
