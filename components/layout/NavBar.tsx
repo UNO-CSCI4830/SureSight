@@ -143,16 +143,18 @@ const NavBar: React.FC<NavBarProps> = ({ isLoggedIn = false, userRole = '', user
                     <Link href="/Dashboard" className="flex items-center gap-2">
                       <Icon name="home" />
                       Dashboard
-                      {unreadCount > 0 && (
-                        <span className="ml-1 text-xs font-semibold bg-red-500 text-white px-1.5 py-0.5 rounded-full">
-                          {unreadCount}
-                        </span>
-                      )}
                     </Link>
                   </li>
                   <li className="menu-item menu-item-border">
-                    <Link href="/notifications" className="flex items-center gap-2">
-                      <Icon name="notifications" />
+                    <Link href="/notifications" className="flex items-center gap-2 relative">
+                      <div className="relative">
+                        <Icon name="notifications" />
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-2 text-[10px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded-full">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </div>
                       Notifications
                     </Link>
                   </li>
