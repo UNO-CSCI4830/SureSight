@@ -24,6 +24,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status = 'accepted' 
     } = req.query;
 
+    // Ensure status is a string
+    const statusString = Array.isArray(status) ? status[0] : status;
+
     // Get all reports the user is collaborating on
     const { data: collaborations, error: collabError, count } = await supabase
       .from('report_collaborators')
@@ -39,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         )
       `, { count: 'exact' })
       .eq('user_id', userId)
-      .eq('invitation_status', status)
+      .eq('invitation_status', statusString)
       .order('created_at', { ascending: false })
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 

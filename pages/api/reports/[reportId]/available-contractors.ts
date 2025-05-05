@@ -17,13 +17,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userId = session.user.id;
     const { reportId } = req.query;
+    
+    // Ensure reportId is a string 
+    const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
+    
+    if (!reportIdString) {
+      return res.status(400).json({ message: 'Report ID is required' });
+    }
 
     // Verify user has access to this report
     const { data: reportAccess, error: accessError } = await supabase.rpc(
       'user_has_report_access',
       { 
         p_user_id: userId,
-        p_report_id: reportId
+        p_report_id: reportIdString
       }
     );
 
@@ -38,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         *,
         property:property_id(*)
       `)
-      .eq('id', reportId)
+      .eq('id', reportIdString)
       .single();
 
     if (reportError) {
@@ -49,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: assessmentAreas, error: assessmentError } = await supabase
       .from('assessment_areas')
       .select('damage_type')
-      .eq('report_id', reportId);
+      .eq('report_id', reportIdString);
 
     if (assessmentError) {
       throw assessmentError;
@@ -61,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Call the RPC function to find suitable contractors
     const { data: contractors, error: contractorsError } = await supabase
       .rpc('find_available_contractors', {
-        p_report_id: reportId as string,
+        p_report_id: reportIdString as string,
         p_limit: 10,
         p_min_rating: 4.0
       });

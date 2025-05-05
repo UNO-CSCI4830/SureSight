@@ -7,13 +7,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!user_id) {
     return res.status(400).json({ error: 'User ID is required' });
   }
+  
+  // Convert user_id to string since NextJS query params can be string or string[]
+  const userId = Array.isArray(user_id) ? user_id[0] : user_id;
 
-   // Fetch messages for the user
+  // Fetch messages for the user
   try {   
     const { data, error } = await supabase
       .from('messages')
       .select('*')
-      .eq('receiver_id', user_id)
+      .eq('receiver_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {

@@ -4,6 +4,14 @@ import { supabase, handleSupabaseError } from '../../../../../utils/supabaseClie
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { reportId, userId } = req.query;
   
+  // Ensure reportId and userId are strings 
+  const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
+  const userIdString = Array.isArray(userId) ? userId[0] : userId;
+  
+  if (!reportIdString || !userIdString) {
+    return res.status(400).json({ message: 'Report ID and User ID are required' });
+  }
+  
   try {
     // Get current user from session to verify authorization
     const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -19,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'user_has_manage_access',
       { 
         p_user_id: currentUserId,
-        p_report_id: reportId
+        p_report_id: reportIdString
       }
     );
 
@@ -30,9 +38,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Handle different HTTP methods
     switch (req.method) {
       case 'PUT':
-        return await updateCollaborator(req, res, reportId as string, userId as string);
+        return await updateCollaborator(req, res, reportIdString, userIdString);
       case 'DELETE':
-        return await removeCollaborator(req, res, reportId as string, userId as string);
+        return await removeCollaborator(req, res, reportIdString, userIdString);
       default:
         return res.status(405).json({ message: 'Method not allowed' });
     }
@@ -76,13 +84,11 @@ async function updateCollaborator(
     .from('notifications')
     .insert({
       user_id: userId,
-      type: 'collaboration_updated',
-      content: 'Your permissions on a report have been updated',
-      metadata: {
-        report_id: reportId,
-        collaboration_id: updatedCollaborator.id
-      },
-      read: false
+      notification_type: 'collaboration_updated',
+      title: 'Collaboration Updated',
+      message: 'Your permissions on a report have been updated',
+      related_id: reportId,
+      is_read: false
     });
 
   return res.status(200).json({
@@ -113,12 +119,11 @@ async function removeCollaborator(
     .from('notifications')
     .insert({
       user_id: userId,
-      type: 'collaboration_removed',
-      content: 'You have been removed from a report',
-      metadata: {
-        report_id: reportId
-      },
-      read: false
+      notification_type: 'collaboration_removed',
+      title: 'Collaboration Removed',
+      message: 'You have been removed from a report',
+      related_id: reportId,
+      is_read: false
     });
 
   return res.status(200).json({

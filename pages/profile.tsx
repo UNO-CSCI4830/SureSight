@@ -24,7 +24,7 @@ type Profile = {
   first_name: string;
   last_name: string;
   role: string;
-  preferred_contact_method?: string;
+  preferred_contact_method?: "email" | "phone" | "sms" | null | string;
   company_name?: string;
   license_number?: string;
   years_experience?: number;
@@ -55,7 +55,7 @@ const ProfilePage: React.FC = () => {
   const [lastName, setLastName] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [preferredContactMethod, setPreferredContactMethod] =
-    useState<string>("email");
+    useState<"email" | "phone" | "sms" | null>("email");
   const [companyName, setCompanyName] = useState<string>("");
   const [licenseNumber, setLicenseNumber] = useState<string>("");
   const [yearsExperience, setYearsExperience] = useState<string>("");
@@ -246,10 +246,10 @@ const ProfilePage: React.FC = () => {
           // Type guard to ensure we're working with a HomeownerProfile
           const homeownerProfile = roleSpecificProfile as HomeownerProfile;
           profileData.preferred_contact_method =
-            homeownerProfile.preferred_contact_method;
+            homeownerProfile.preferred_contact_method || undefined;
           profileData.additional_notes =
             homeownerProfile.additional_notes || undefined;
-          profileData.property_count = homeownerProfile.property_count;
+          profileData.property_count = homeownerProfile.property_count ?? undefined;
         } else if (profileData.role === "contractor") {
           // Type guard to ensure we're working with a ContractorProfile
           const contractorProfile = roleSpecificProfile as ContractorProfile;
@@ -260,7 +260,7 @@ const ProfilePage: React.FC = () => {
             contractorProfile.years_experience || undefined;
           profileData.service_area =
             contractorProfile.service_area || undefined;
-          profileData.insurance_verified = contractorProfile.insurance_verified;
+          profileData.insurance_verified = contractorProfile.insurance_verified ?? undefined;
           profileData.rating = contractorProfile.rating || undefined;
         } else if (profileData.role === "adjuster") {
           // Type guard to ensure we're working with an AdjusterProfile
@@ -270,14 +270,14 @@ const ProfilePage: React.FC = () => {
             adjusterProfile.adjuster_license || undefined;
           profileData.territories = adjusterProfile.territories || undefined;
           profileData.certification_verified =
-            adjusterProfile.certification_verified;
+            adjusterProfile.certification_verified ?? undefined;
         }
       } else if (userData.roleProfile) {
         // Handle legacy format from RPC function
         const roleProfile = userData.roleProfile;
         if (profileData.role === "homeowner") {
           profileData.preferred_contact_method =
-            roleProfile.preferred_contact_method;
+            roleProfile.preferred_contact_method || undefined;
           profileData.additional_notes =
             roleProfile.additional_notes || undefined;
           profileData.property_count = roleProfile.property_count;
@@ -306,9 +306,13 @@ const ProfilePage: React.FC = () => {
       setFirstName(profileData.first_name || "");
       setLastName(profileData.last_name || "");
       setSelectedRole(profileData.role || "homeowner");
-      setPreferredContactMethod(
-        profileData.preferred_contact_method || "email"
-      );
+      // Type guard to ensure we're only setting a valid contact method
+      const contactMethod = profileData.preferred_contact_method || "email";
+      if (contactMethod === "email" || contactMethod === "phone" || contactMethod === "sms" || contactMethod === null) {
+        setPreferredContactMethod(contactMethod);
+      } else {
+        setPreferredContactMethod("email"); // Default to email for invalid values
+      }
       setCompanyName(profileData.company_name || "");
       setLicenseNumber(profileData.license_number || "");
       setYearsExperience(profileData.years_experience?.toString() || "");
@@ -343,12 +347,13 @@ const ProfilePage: React.FC = () => {
       }
 
       // First, update the basic user information
+      const validRole = selectedRole.toLowerCase() as "homeowner" | "contractor" | "adjuster" | "admin";
       const { data: updatedUser, error: userUpdateError } = await supabase
         .from("users")
         .update({
           first_name: firstName,
           last_name: lastName,
-          role: selectedRole.toLowerCase(),
+          role: validRole,
         })
         .eq("id", profile.id)
         .select()
@@ -410,7 +415,7 @@ const ProfilePage: React.FC = () => {
             .from("homeowner_profiles")
             .insert({
               id: profileId,
-              preferred_contact_method: preferredContactMethod,
+              preferred_contact_method: preferredContactMethod || null,
               additional_notes: additionalNotes || null,
             })
             .select();
@@ -429,7 +434,7 @@ const ProfilePage: React.FC = () => {
           const { error: updateHomeownerError } = await supabase
             .from("homeowner_profiles")
             .update({
-              preferred_contact_method: preferredContactMethod,
+              preferred_contact_method: preferredContactMethod || null,
               additional_notes: additionalNotes || null,
             })
             .eq("id", profileId)
@@ -870,8 +875,14 @@ const ProfilePage: React.FC = () => {
               </label>
               <Select
                 id="preferredContact"
-                value={preferredContactMethod}
-                onChange={(e) => setPreferredContactMethod(e.target.value)}
+                value={preferredContactMethod || "email"}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Type guard to ensure we're assigning a valid contact method
+                  if (value === "email" || value === "phone" || value === "sms") {
+                    setPreferredContactMethod(value);
+                  }
+                }}
                 options={[
                   { value: "email", label: "Email" },
                   { value: "phone", label: "Phone" },

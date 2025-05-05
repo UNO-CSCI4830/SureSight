@@ -22,12 +22,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       offset = 0
     } = req.query;
 
+    // Handle reportId which can be string | string[] | undefined
+    const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
+    
+    if (!reportIdString) {
+      return res.status(400).json({ message: 'Report ID is required' });
+    }
+
     // First, verify that the user has access to this report
     const { data: hasAccess, error: accessError } = await supabase.rpc(
       'user_has_report_access',
       { 
         p_user_id: userId,
-        p_report_id: reportId
+        p_report_id: reportIdString
       }
     );
 
@@ -57,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           )
         )
       `, { count: 'exact' })
-      .eq('report_id', reportId)
+      .eq('report_id', reportIdString)
       .order('created_at', { ascending: false })
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 

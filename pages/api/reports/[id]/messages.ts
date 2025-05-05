@@ -160,7 +160,9 @@ export default async function handler(
       if (insertError) throw insertError;
 
       // Send notification to receiver
-      const senderName = `${userData.profiles.first_name} ${userData.profiles.last_name}`;
+      const firstName = userData.profiles[0]?.first_name || 'A user';
+      const lastName = userData.profiles[0]?.last_name || '';
+      const senderName = `${firstName} ${lastName}`;
       await collaborationNotificationService.notifyNewMessage(
         receiverId,
         reportId as string,

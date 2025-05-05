@@ -149,7 +149,10 @@ export default async function handler(
 
       // Send notification if the user exists
       if (invitedUser) {
-        const inviterName = `${userData.profiles.first_name} ${userData.profiles.last_name}`;
+        // Access the first item in the profiles array
+        const firstName = userData.profiles[0]?.first_name || 'A user';
+        const lastName = userData.profiles[0]?.last_name || '';
+        const inviterName = `${firstName} ${lastName}`;
         await collaborationNotificationService.notifyCollaborationInvite(
           invitedUser.id,
           reportId as string,

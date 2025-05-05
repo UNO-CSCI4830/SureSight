@@ -210,20 +210,27 @@ export default function NewForm() {
                   inputClassName="bg-white"
                   required
                 />
-                <div className="mt-5 flex justify-center">
-                  <input
-                    data-testid="image-upload"
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setImage(e.target.files[0]);
-                      }
-                    }}
-                    className="file-input bg-white text-black file-input-neutral"
-                  />
+                  </FormField>
                 </div>
+                <div className="mb-5">
+                  <FormField
+                    id="image"
+                    label="Upload an Image of the Damage"
+                  >
+                    <input
+                      data-testid="image-upload"
+                      id="image"
+                      type="file"
+                      accept="image/*"
+                      title="Upload damage photos"
+                      placeholder="Choose a file"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setImage(e.target.files[0]);
+                        }
+                      }}
+                      className="file-input bg-white text-black file-input-neutral"
+                    />
               </FormField>
             </div>
             <div className="mb-5 flex items-center justify-center">

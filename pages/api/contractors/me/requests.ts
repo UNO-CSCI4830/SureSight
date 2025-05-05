@@ -18,18 +18,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userId = session.user.id;
 
     // First, verify this user is a contractor
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('auth_user_id', userId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role !== 'contractor') {
+      return res.status(403).json({ message: 'Only contractors can access this endpoint' });
+    }
+
+    // Get profile ID for this user
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
-      .eq('user_id', userId)
+      .select('id')
+      .eq('user_id', user.id)
       .single();
 
     if (profileError || !profile) {
       return res.status(404).json({ message: 'User profile not found' });
-    }
-
-    if (profile.role !== 'contractor') {
-      return res.status(403).json({ message: 'Only contractors can access this endpoint' });
     }
 
     // Get contractor profile ID
@@ -46,24 +57,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const contractorId = contractorProfile.id;
     const status = req.query.status as string || 'open';
 
-    // Get requests for this contractor
-    const { data: requests, error: requestsError } = await supabase
-      .from('contractor_requests')
+    // Get reports assigned to this contractor instead of contractor_requests
+    // The updated schema stores contractor assignments directly in the reports table
+    const { data: reports, error: reportsError } = await supabase
+      .from('reports')
       .select(`
-        *,
-        report:report_id(*),
-        requester:requested_by(*)
+        id,
+        title,
+        description,
+        status,
+        created_at,
+        updated_at,
+        property:property_id(*),
+        creator:creator_id(*)
       `)
       .eq('contractor_id', contractorId)
-      .eq('status', status)
       .order('created_at', { ascending: false });
 
-    if (requestsError) {
-      throw requestsError;
+    if (reportsError) {
+      throw reportsError;
     }
 
     return res.status(200).json({
-      requests
+      requests: reports // Maintaining the same response structure for compatibility
     });
 
   } catch (error) {

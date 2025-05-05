@@ -130,6 +130,8 @@ const ContractorRequestModal: React.FC<ContractorRequestModalProps> = ({
               onChange={(e) => setDeadline(e.target.value)}
               className="border border-gray-300 rounded px-3 py-2 w-full"
               min={new Date().toISOString().split('T')[0]}
+              placeholder="Select a deadline date"
+              aria-label="Response Deadline"
               required
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -139,6 +141,7 @@ const ContractorRequestModal: React.FC<ContractorRequestModalProps> = ({
           
           <div className="mb-6">
             <TextArea
+              id="notes"
               label="Notes to Contractor"
               name="notes"
               value={notes}
@@ -156,15 +159,17 @@ const ContractorRequestModal: React.FC<ContractorRequestModalProps> = ({
           
           <div className="flex justify-end space-x-3">
             <Button
-              text="Cancel"
               onClick={onClose}
               className="bg-gray-200 hover:bg-gray-300 text-gray-800"
-            />
+            >
+              Cancel
+            </Button>
             <Button
-              text="Send Request"
               type="submit"
-              loading={loading}
-            />
+              isLoading={loading}
+            >
+              Send Request
+            </Button>
           </div>
         </form>
       </div>

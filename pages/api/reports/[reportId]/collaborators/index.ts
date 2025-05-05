@@ -4,6 +4,13 @@ import { supabase, handleSupabaseError } from '../../../../../utils/supabaseClie
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { reportId } = req.query;
   
+  // Ensure reportId is a string 
+  const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
+  
+  if (!reportIdString) {
+    return res.status(400).json({ message: 'Report ID is required' });
+  }
+  
   try {
     // Get current user from session to verify authorization
     const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -19,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'user_has_manage_access',
       { 
         p_user_id: userId,
-        p_report_id: reportId
+        p_report_id: reportIdString
       }
     );
 
@@ -30,9 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Handle different HTTP methods
     switch (req.method) {
       case 'GET':
-        return await getCollaborators(req, res, reportId as string);
+        return await getCollaborators(req, res, reportIdString);
       case 'POST':
-        return await addCollaborator(req, res, reportId as string, userId);
+        return await addCollaborator(req, res, reportIdString, userId);
       default:
         return res.status(405).json({ message: 'Method not allowed' });
     }
@@ -150,13 +157,11 @@ async function addCollaborator(
       .from('notifications')
       .insert({
         user_id: targetUserId,
-        type: 'collaboration_invite',
-        content: 'You have been invited to collaborate on a report',
-        metadata: {
-          report_id: reportId,
-          collaboration_id: collaborator.id
-        },
-        read: false
+        notification_type: 'collaboration_invite',
+        title: 'Collaboration Invitation',
+        message: 'You have been invited to collaborate on a report',
+        related_id: reportId,
+        is_read: false
       });
   }
   // Otherwise, send email invitation (would need to be implemented separately)

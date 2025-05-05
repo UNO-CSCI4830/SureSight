@@ -89,7 +89,7 @@ const ContractorCollaboration: React.FC<ContractorCollaborationProps> = ({
       
       // Get pending contractor requests
       const { data: requestsData, error: requestsError } = await supabase
-        .from('contractor_requests')
+        .from('contractor_requests' as any)
         .select(`
           *,
           contractor:contractor_id(
@@ -177,7 +177,7 @@ const ContractorCollaboration: React.FC<ContractorCollaborationProps> = ({
     
     try {
       const { error: updateError } = await supabase
-        .from('contractor_requests')
+        .from('contractor_requests' as any)
         .update({ status: 'cancelled' })
         .eq('id', requestId);
         
@@ -237,10 +237,11 @@ const ContractorCollaboration: React.FC<ContractorCollaborationProps> = ({
           )}
           {status === 'submitted' && (
             <Button
-              text="Find a Contractor"
               onClick={() => setShowSearch(true)}
               className="mt-2"
-            />
+            >
+              Find a Contractor
+            </Button>
           )}
         </div>
       );
@@ -316,10 +317,11 @@ const ContractorCollaboration: React.FC<ContractorCollaborationProps> = ({
                 
                 {request.status === 'open' && (
                   <Button
-                    text="Cancel"
                     onClick={() => handleCancelRequest(request.id)}
                     className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-800"
-                  />
+                  >
+                    Cancel
+                  </Button>
                 )}
               </div>
             </div>
@@ -336,9 +338,10 @@ const ContractorCollaboration: React.FC<ContractorCollaborationProps> = ({
           <h2 className="text-xl font-semibold">Contractor</h2>
           {status === 'submitted' && !activeContractor && !showSearch && (
             <Button
-              text="Find a Contractor"
               onClick={() => setShowSearch(true)}
-            />
+            >
+              Find a Contractor
+            </Button>
           )}
         </div>
         

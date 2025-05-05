@@ -19,12 +19,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { reportId } = req.query;
     const { contractorId, requestId } = req.body;
 
+    // Ensure reportId is a string 
+    const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
+    
+    if (!reportIdString) {
+      return res.status(400).json({ message: 'Report ID is required' });
+    }
+
     // Verify user has access to this report and has permission to assign contractors
     const { data: reportAccess, error: accessError } = await supabase.rpc(
       'user_has_edit_access',
       { 
         p_user_id: userId,
-        p_report_id: reportId
+        p_report_id: reportIdString
       }
     );
 
@@ -36,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data, error } = await supabase.rpc('assign_contractor_to_report', {
       p_request_id: requestId,
       p_contractor_id: contractorId,
-      p_report_id: reportId as string
+      p_report_id: reportIdString
     });
 
     if (error) {
@@ -59,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { data: existingCollaborator, error: collaboratorCheckError } = await supabase
           .from('report_collaborators')
           .select('id')
-          .eq('report_id', reportId)
+          .eq('report_id', reportIdString)
           .eq('user_id', contractorUserId)
           .maybeSingle();
 
@@ -68,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await supabase
             .from('report_collaborators')
             .insert({
-              report_id: reportId as string,
+              report_id: reportIdString,
               user_id: contractorUserId,
               role_type: 'contractor',
               permission_level: 'editor',
@@ -82,12 +89,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('notifications')
           .insert({
             user_id: contractorUserId,
-            type: 'contractor_assigned',
-            content: 'You have been assigned to a new project',
-            metadata: {
-              report_id: reportId
-            },
-            read: false
+            notification_type: 'contractor_assigned',
+            title: 'New Project Assignment',
+            message: 'You have been assigned to a new project',
+            related_id: reportIdString,
+            is_read: false
           });
       }
     }

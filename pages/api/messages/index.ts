@@ -105,15 +105,11 @@ async function sendMessage(req: NextApiRequest, res: NextApiResponse) {
       .from('notifications')
       .insert({
         user_id: receiverId,
-        type: notificationType,
-        content: notificationContent,
-        metadata: {
-          message_id: message.id,
-          sender_id: senderId,
-          report_id: reportId,
-          property_id: propertyId
-        },
-        read: false
+        notification_type: notificationType,
+        message: notificationContent,
+        title: notificationType === 'new_message' ? 'New Message' : 'Report Message',
+        related_id: message.id,
+        is_read: false
       });
 
     return res.status(201).json({
@@ -171,13 +167,15 @@ async function getMessages(req: NextApiRequest, res: NextApiResponse) {
 
     // Filter by conversation ID if provided
     if (conversationId) {
-      query = query.eq('conversation_id', conversationId);
+      const convId = Array.isArray(conversationId) ? conversationId[0] : conversationId;
+      query = query.eq('conversation_id', convId);
     }
     
     // Filter by the other user if provided
     if (otherUserId) {
       // Generate conversation ID for these two users
-      const convId = [userId, otherUserId].sort().join('_');
+      const otherUser = Array.isArray(otherUserId) ? otherUserId[0] : otherUserId;
+      const convId = [userId, otherUser].sort().join('_');
       query = query.eq('conversation_id', convId);
     }
 

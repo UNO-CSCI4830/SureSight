@@ -100,7 +100,20 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
       
       if (fetchError) throw fetchError;
       
-      setNotifications(data || []);
+      // Map the database fields to match the Notification interface
+      const mappedData = (data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        type: item.notification_type, // Map notification_type from DB to type in interface
+        title: item.title,
+        message: item.message,
+        link_url: item.related_id || undefined, // Convert null to undefined
+        is_read: item.is_read ?? false, // Convert null to false
+        created_at: item.created_at || new Date().toISOString(),
+        metadata: {} // Add empty object as metadata since it doesn't exist in DB
+      }));
+      
+      setNotifications(mappedData);
       setNewNotificationCount(data?.filter(n => !n.is_read).length || 0);
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -320,10 +333,11 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({
         
         {newNotificationCount > 0 && (
           <Button
-            text="Mark all as read"
             onClick={markAllAsRead}
             className="text-sm py-1"
-          />
+          >
+            Mark all as read
+          </Button>
         )}
       </div>
       

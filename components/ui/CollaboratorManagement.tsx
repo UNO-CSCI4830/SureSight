@@ -251,6 +251,7 @@ const CollaboratorManagement: React.FC<CollaboratorManagementProps> = ({
     return (
       <form onSubmit={handleAddCollaborator} className="space-y-4">
         <FormInput
+          id="email"
           label="Email Address"
           name="email"
           type="email"
@@ -266,6 +267,7 @@ const CollaboratorManagement: React.FC<CollaboratorManagementProps> = ({
               Role
             </label>
             <Select
+              id="roleType"
               name="roleType"
               value={form.roleType}
               onChange={handleInputChange}
@@ -278,6 +280,7 @@ const CollaboratorManagement: React.FC<CollaboratorManagementProps> = ({
               Permission Level
             </label>
             <Select
+              id="permissionLevel"
               name="permissionLevel"
               value={form.permissionLevel}
               onChange={handleInputChange}
@@ -288,15 +291,17 @@ const CollaboratorManagement: React.FC<CollaboratorManagementProps> = ({
         
         <div className="flex justify-end pt-4">
           <Button
-            text="Cancel"
             onClick={() => setIsAddingCollaborator(false)}
             className="mr-2 bg-gray-100 hover:bg-gray-200 text-gray-800"
-          />
+          >
+            Cancel
+          </Button>
           <Button
-            text="Add Collaborator"
             type="submit"
-            loading={loading}
-          />
+            isLoading={loading}
+          >
+            Add Collaborator
+          </Button>
         </div>
       </form>
     );
@@ -355,6 +360,7 @@ const CollaboratorManagement: React.FC<CollaboratorManagementProps> = ({
                 
                 {isReportOwner && collaborator.invitation_status === 'accepted' && (
                   <Select
+                    id={`permission-${collaborator.user_id}`}
                     className="text-xs mr-2"
                     value={collaborator.permission_level}
                     onChange={(e) => handleUpdatePermission(collaborator.user_id, e.target.value)}
@@ -389,9 +395,10 @@ const CollaboratorManagement: React.FC<CollaboratorManagementProps> = ({
           <h2 className="text-xl font-semibold">Collaborators</h2>
           {isReportOwner && !isAddingCollaborator && (
             <Button
-              text="Add Collaborator"
               onClick={() => setIsAddingCollaborator(true)}
-            />
+            >
+              Add Collaborator
+            </Button>
           )}
         </div>
         

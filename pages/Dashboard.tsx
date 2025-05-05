@@ -34,7 +34,7 @@ const Dashboard: React.FC = () => {
         .eq("creator_id", user?.id);
 
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("status", statusFilter as "draft" | "submitted" | "in_review" | "approved" | "rejected");
       }
 
       const { data, error: fetchError } = await query.order("created_at", {

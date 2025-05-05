@@ -18,13 +18,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userId = session.user.id;
     const { reportId } = req.query;
     const { contractorId, responseDeadline, notes } = req.body;
+    
+    // Ensure reportId is a string
+    const reportIdString = Array.isArray(reportId) ? reportId[0] : reportId;
+    
+    if (!reportIdString) {
+      return res.status(400).json({ message: 'Report ID is required' });
+    }
 
     // Verify user has access to this report and has permission to request contractors
     const { data: reportAccess, error: accessError } = await supabase.rpc(
       'user_has_edit_access',
       { 
         p_user_id: userId,
-        p_report_id: reportId
+        p_report_id: reportIdString
       }
     );
 
@@ -36,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: request, error: requestError } = await supabase
       .from('contractor_requests')
       .insert({
-        report_id: reportId as string,
+        report_id: reportIdString,
         contractor_id: contractorId,
         requested_by: userId,
         status: 'open',
@@ -67,13 +74,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('notifications')
           .insert({
             user_id: contractorUserId,
-            type: 'contractor_request',
-            content: 'You have a new project request',
-            metadata: {
-              request_id: request.id,
-              report_id: reportId
-            },
-            read: false
+            notification_type: 'contractor_request',
+            title: 'New Project Request', 
+            message: 'You have a new project request',
+            related_id: request.id,
+            is_read: false
           });
           
         // Also send a message
@@ -84,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             receiver_id: contractorUserId,
             content: `I'd like to request your services for a project. Please review the details.`,
             message_type: 'notification',
-            report_id: reportId as string
+            report_id: reportIdString
           });
       }
     }

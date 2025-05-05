@@ -98,7 +98,10 @@ export default async function handler(
 
       // Send notification if the user accepted the invitation
       if (status === 'accepted' && isTargetUser) {
-        const collaboratorName = `${userData.profiles.first_name} ${userData.profiles.last_name}`;
+        // Access the first item in the profiles array
+        const firstName = userData.profiles[0]?.first_name || 'A user';
+        const lastName = userData.profiles[0]?.last_name || '';
+        const collaboratorName = `${firstName} ${lastName}`;
         await collaborationNotificationService.notifyCollaborationAccepted(
           reportData.creator_id,
           reportId as string,

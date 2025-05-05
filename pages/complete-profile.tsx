@@ -30,11 +30,11 @@ const CompleteProfile: React.FC = () => {
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
-  const [role, setRole] = useState<string>("homeowner");
+  const [role, setRole] = useState<"homeowner" | "contractor" | "adjuster" | "admin">("homeowner");
 
   // Role-specific fields - Homeowner
   const [preferredContactMethod, setPreferredContactMethod] =
-    useState<string>("email");
+    useState<"email" | "phone" | "sms" | null>("email");
   const [additionalNotes, setAdditionalNotes] = useState<string>("");
 
   // Role-specific fields - Contractor
@@ -109,8 +109,11 @@ const CompleteProfile: React.FC = () => {
             console.log("Found user by stored DB ID");
             userRecord = { 
               ...userById, 
-              auth_user_id: userById.auth_user_id || "", 
-              phone: userById.phone || undefined 
+              auth_user_id: userById.auth_user_id || "",
+              first_name: userById.first_name || undefined,
+              last_name: userById.last_name || undefined,
+              phone: userById.phone || undefined,
+              email_confirmed: !!userById.email_confirmed // Convert to boolean
             };
           }
         }
@@ -136,7 +139,10 @@ const CompleteProfile: React.FC = () => {
             userRecord = { 
               ...userByAuthId, 
               auth_user_id: userByAuthId.auth_user_id || "",
-              phone: userByAuthId.phone || undefined
+              first_name: userByAuthId.first_name || undefined,
+              last_name: userByAuthId.last_name || undefined,
+              phone: userByAuthId.phone || undefined,
+              email_confirmed: !!userByAuthId.email_confirmed // Convert to boolean
             };
           }
         }
@@ -158,7 +164,10 @@ const CompleteProfile: React.FC = () => {
             userRecord = { 
               ...userByEmail, 
               auth_user_id: userByEmail.auth_user_id || "",
-              phone: userByEmail.phone || undefined
+              first_name: userByEmail.first_name || undefined,
+              last_name: userByEmail.last_name || undefined,
+              phone: userByEmail.phone || undefined,
+              email_confirmed: !!userByEmail.email_confirmed // Convert to boolean
             };
 
             // Update auth_user_id if it doesn't match
@@ -186,7 +195,14 @@ const CompleteProfile: React.FC = () => {
           if (userRecord.first_name) setFirstName(userRecord.first_name);
           if (userRecord.last_name) setLastName(userRecord.last_name);
           if (userRecord.phone) setPhone(userRecord.phone);
-          if (userRecord.role) setRole(userRecord.role);
+          if (userRecord.role) {
+            // Validate that the role is one of the allowed values
+            const storedRole = userRecord.role;
+            if (storedRole === "homeowner" || storedRole === "contractor" || 
+                storedRole === "adjuster" || storedRole === "admin") {
+              setRole(storedRole);
+            }
+          }
           
           // Set email verification status
           setEmailVerified(!!userRecord.email_confirmed);
@@ -204,9 +220,13 @@ const CompleteProfile: React.FC = () => {
                 .maybeSingle();
 
               if (homeownerData) {
-                setPreferredContactMethod(
-                  homeownerData.preferred_contact_method || "email"
-                );
+                // Validate that the preferred contact method is one of the allowed values
+                const contactMethod = homeownerData.preferred_contact_method;
+                if (contactMethod === "email" || contactMethod === "phone" || contactMethod === "sms") {
+                  setPreferredContactMethod(contactMethod);
+                } else {
+                  setPreferredContactMethod("email"); // Default to email if invalid
+                }
                 setAdditionalNotes(homeownerData.additional_notes || "");
               }
             } else if (userRecord.role === "contractor") {
@@ -252,7 +272,12 @@ const CompleteProfile: React.FC = () => {
 
           // If role is in metadata, use it
           if (authUser.user_metadata?.role) {
-            setRole(authUser.user_metadata.role);
+            const metadataRole = authUser.user_metadata.role;
+            // Validate that the role is one of the allowed values
+            if (metadataRole === "homeowner" || metadataRole === "contractor" || 
+                metadataRole === "adjuster" || metadataRole === "admin") {
+              setRole(metadataRole);
+            }
           }
         }
       } catch (err: any) {
@@ -267,7 +292,12 @@ const CompleteProfile: React.FC = () => {
   }, [router.isReady, urlUserId]);
 
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRole(e.target.value);
+    const selectedRole = e.target.value;
+    // TypeScript type guard to ensure we're assigning a valid role
+    if (selectedRole === "homeowner" || selectedRole === "contractor" || 
+        selectedRole === "adjuster" || selectedRole === "admin") {
+      setRole(selectedRole);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -392,7 +422,8 @@ const CompleteProfile: React.FC = () => {
           await supabase
             .from("homeowner_profiles")
             .update({
-              preferred_contact_method: preferredContactMethod,
+              // Ensure preferred_contact_method is either a valid enum value or null, but never undefined
+              preferred_contact_method: preferredContactMethod || null,
               additional_notes: additionalNotes || null,
             })
             .eq("id", profileId);
@@ -400,7 +431,8 @@ const CompleteProfile: React.FC = () => {
           // Create new profile
           await supabase.from("homeowner_profiles").insert({
             id: profileId,
-            preferred_contact_method: preferredContactMethod,
+            // Ensure preferred_contact_method is either a valid enum value or null, but never undefined
+            preferred_contact_method: preferredContactMethod || null,
             additional_notes: additionalNotes || null,
           });
         }
@@ -626,10 +658,14 @@ const CompleteProfile: React.FC = () => {
                       <Select
                         label="Preferred Contact Method"
                         id="contactMethod"
-                        value={preferredContactMethod}
-                        onChange={(e) =>
-                          setPreferredContactMethod(e.target.value)
-                        }
+                        value={preferredContactMethod || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Type guard to ensure we're assigning a valid contact method
+                          if (value === "email" || value === "phone" || value === "sms") {
+                            setPreferredContactMethod(value);
+                          }
+                        }}
                         options={[
                           { value: "email", label: "Email" },
                           { value: "phone", label: "Phone" },

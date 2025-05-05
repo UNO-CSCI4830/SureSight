@@ -25,7 +25,7 @@ type ExtendedReport = Report & {
     city: string;
     state: string;
     postal_code: string;
-    country: string;
+    country: string | null;
     property_type: string | null;
     square_footage: number | null;
     year_built: number | null;
@@ -35,7 +35,7 @@ type ExtendedReport = Report & {
     id: string;
     storage_path: string;
     filename: string;
-    created_at: string;
+    created_at: string | null;
     assessment_area_id: string | null;
     ai_damage_type: string | null;
     ai_damage_severity: string | null;
@@ -175,7 +175,7 @@ const ReportDetailPage: React.FC = () => {
           ? new Date(reportData.incident_date).toISOString().split("T")[0]
           : ""
       );
-      setStatus(reportData.status);
+      setStatus(reportData.status || "draft");
     } catch (error: any) {
       console.error("Error fetching report:", error);
       const errorDetails = handleSupabaseError(error);
@@ -199,7 +199,7 @@ const ReportDetailPage: React.FC = () => {
         title,
         description: description || null,
         incident_date: incidentDate || null,
-        status,
+        status: status as "draft" | "submitted" | "in_review" | "approved" | "rejected",
       };
 
       const { error: updateError } = await supabase
@@ -608,7 +608,8 @@ const ReportDetailPage: React.FC = () => {
   };
 
   // Helper function to format status display
-  const formatStatus = (status: string) => {
+  const formatStatus = (status: string | null) => {
+    if (!status) return "Unknown";
     return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ");
   };
 
@@ -904,7 +905,7 @@ const ReportDetailPage: React.FC = () => {
             <div className="flex items-center">
               <span
                 className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                  report.status
+                  report.status || 'draft'
                 )}`}
               >
                 {formatStatus(report.status)}
@@ -944,7 +945,7 @@ const ReportDetailPage: React.FC = () => {
                     Report Created
                   </h3>
                   <p className="mt-1">
-                    {new Date(report.created_at).toLocaleDateString()}
+                    {report.created_at ? new Date(report.created_at).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
 
@@ -1270,7 +1271,7 @@ const ReportDetailPage: React.FC = () => {
                 {report && report.status !== 'draft' && (
                   <ContractorCollaboration 
                     reportId={report.id} 
-                    status={report.status}
+                    status={report.status || 'unknown'}
                   />
                 )}
                 {report && report.status !== 'draft' && (

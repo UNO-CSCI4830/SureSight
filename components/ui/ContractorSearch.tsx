@@ -3,6 +3,7 @@ import { supabase } from '../../utils/supabaseClient';
 import Button from './Button';
 import FormInput from './FormInput';
 import Select from './Select';
+import { JSX } from 'react';
 
 interface ContractorProfile {
   id: string;
@@ -129,7 +130,7 @@ const ContractorSearch = ({ reportId, onSelectContractor }: ContractorSearchProp
 
   // Display a contractor's rating as stars
   const renderRating = (rating: number) => {
-    const stars = [];
+    const stars: JSX.Element[] = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
         <span key={i} className={`text-lg ${i <= rating ? 'text-yellow-500' : 'text-gray-300'}`}>
@@ -167,6 +168,7 @@ const ContractorSearch = ({ reportId, onSelectContractor }: ContractorSearchProp
         <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <FormInput
+              id="location"
               label="Location"
               name="location"
               type="text"
@@ -185,6 +187,7 @@ const ContractorSearch = ({ reportId, onSelectContractor }: ContractorSearchProp
                 className="border border-gray-300 rounded px-3 py-2 w-full"
                 onChange={handleSpecialtiesChange}
                 value={Array.isArray(searchParams.specialties) ? searchParams.specialties : [searchParams.specialties].filter(Boolean)}
+                aria-label="Specialties"
               >
                 {specialtiesOptions.map(option => (
                   <option key={option.value} value={option.value}>
@@ -198,17 +201,20 @@ const ContractorSearch = ({ reportId, onSelectContractor }: ContractorSearchProp
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <FormInput
-              label="Minimum Rating"
-              name="minRating"
-              type="number"
-              min="0"
-              max="5"
-              step="0.5"
-              value={searchParams.minRating}
-              onChange={handleInputChange}
-            />
+                        id="minRating"
+                        label="Minimum Rating"
+                        name="minRating"
+                        type="number"
+                        min="0"
+                        max="5"
+                        // @ts-ignore - add step to FormInputProps interface if needed frequently
+                        step="0.5"
+                        value={searchParams.minRating}
+                        onChange={handleInputChange}
+                      />
             
             <FormInput
+              id="radius"
               label="Search Radius (miles)"
               name="radius"
               type="number"
@@ -220,11 +226,12 @@ const ContractorSearch = ({ reportId, onSelectContractor }: ContractorSearchProp
           </div>
           
           <Button 
-            text="Search Contractors"
             onClick={searchContractors}
-            loading={loading}
+            isLoading={loading}
             className="w-full"
-          />
+          >
+            Search Contractors
+          </Button>
         </div>
       )}
       
@@ -262,11 +269,12 @@ const ContractorSearch = ({ reportId, onSelectContractor }: ContractorSearchProp
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      text="Select"
+                    <Button
                       onClick={() => onSelectContractor(contractor)}
                       className="text-sm"
-                    />
+                    >
+                      Select
+                    </Button>
                   </div>
                 </div>
               ))

@@ -80,7 +80,9 @@ export default async function handler(
       }
 
       // Send notification to the contractor
-      const clientName = `${userData.profiles.first_name} ${userData.profiles.last_name}`;
+      const firstName = userData.profiles[0]?.first_name || 'A user';
+      const lastName = userData.profiles[0]?.last_name || '';
+      const clientName = `${firstName} ${lastName}`;
       await collaborationNotificationService.notifyContractorRequest(
         contractorId,
         reportId as string,
