@@ -138,7 +138,7 @@ const UpdatePassword: React.FC = () => {
   return (
     <Layout title="Update Password | SureSight">
       <div className="max-w-md mx-auto w-full">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 mt-8">
           <h1 className="text-3xl font-bold text-gray-900">Update Password</h1>
           <p className="text-gray-600 mt-2">Create a new password for your account</p>
         </div>

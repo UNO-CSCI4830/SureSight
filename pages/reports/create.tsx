@@ -84,7 +84,7 @@ export default function NewForm() {
         const { data: newProperty, error: createError } = await supabase
           .from("properties")
           .insert({
-            homeowner_id: user.id,
+            homeowner_id: authToUserId,
             address_line1: addressParts[0] || address,
             city: city,
             state: state,
@@ -212,6 +212,7 @@ export default function NewForm() {
                 />
                 <div className="mt-5 flex justify-center">
                   <input
+                    data-testid="image-upload"
                     id="image"
                     type="file"
                     accept="image/*"
