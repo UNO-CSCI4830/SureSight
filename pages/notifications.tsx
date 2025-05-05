@@ -11,6 +11,8 @@ interface Message {
   content: string;
   is_read: boolean;
   created_at: string;
+  sender: { email: string };  
+  receiver: { email: string }; 
 }
 
 const NotificationsPage = () => {
@@ -26,7 +28,7 @@ const NotificationsPage = () => {
         const { data: { user: fetchedUser } } = await supabase.auth.getUser();
         if (fetchedUser) {
           setUser(fetchedUser);
-          console.log("Authenticated user ID:", fetchedUser.id); // ✅ Add this log
+          console.log("Authenticated user ID:", fetchedUser.id);
         }
       } catch (err) {
         console.error("Error checking user authentication:", err);
@@ -64,7 +66,7 @@ const NotificationsPage = () => {
     }
   }, [user]);
       
-   const fetchMessages = async () => {
+  const fetchMessages = async () => {
     setLoading(true);
     setError(null);
 
@@ -74,7 +76,6 @@ const NotificationsPage = () => {
         return;
       }
 
-      // call the API route with proper error handling
       const response = await fetch(`/api/notis?user_id=${user.id}`);
       
       if (!response.ok) {
@@ -104,7 +105,6 @@ const NotificationsPage = () => {
         throw error;
       }
       
-      // Update local state without re-fetching
       setMessages(prevMessages => 
         prevMessages.map(msg => 
           msg.id === id ? { ...msg, is_read: true } : msg
@@ -143,11 +143,10 @@ const NotificationsPage = () => {
               {messages.map((msg) => (
                 <li
                   key={msg.id}
-                  className={`p-4 border rounded-lg shadow-sm ${
-                    msg.is_read ? 'bg-gray-50' : 'bg-white border-l-4 border-blue-500'
-                  }`}
+                  className={`p-4 border rounded-lg shadow-sm ${msg.is_read ? 'bg-gray-50' : 'bg-white border-l-4 border-blue-500'}`}
                 >
-                  <p className="font-semibold">From: {msg.sender_id}</p>
+                  <p className="font-semibold">From: {msg.sender.email}</p> 
+                  <p className="font-semibold">To: {msg.receiver.email}</p>
                   <p className="my-2">{msg.content}</p>
                   <div className="flex justify-between items-center mt-2">
                     <small className="text-gray-500">

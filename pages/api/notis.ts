@@ -11,14 +11,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {   
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
-      .eq('receiver_id', user_id)
+      .select(`
+        id,
+        sender_id,
+        receiver_id,
+        content,
+        is_read,
+        created_at,
+        sender:sender_id(email),
+        receiver:receiver_id(email)
+      `)
+      .eq('receiver_id', user_id) 
       .order('created_at', { ascending: false });
 
-    console.log("Fetching messages for:", user_id);
-    console.log("Returned messages:", data);
-
     if (error) throw error;
+
     res.status(200).json(data);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
