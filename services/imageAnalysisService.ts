@@ -7,6 +7,8 @@ import { supabase } from '../utils/supabaseClient';
  */
 export const getPropertyImageAnalyses = async (propertyId: string) => {
   try {
+    console.log(`Fetching images for property: ${propertyId}`);
+    
     // First, get all reports that belong to this property
     const { data: reportData, error: reportError } = await supabase
       .from('reports')
@@ -18,42 +20,68 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
       throw reportError;
     }
     
-    if (!reportData || reportData.length === 0) {
-      console.log(`No reports found for property: ${propertyId}`);
-      // No reports found for this property
-      return [];
-    }
-    
     // Extract report IDs
-    const reportIds = reportData.map(report => report.id);
-    console.log(`Found ${reportIds.length} reports for property: ${propertyId}`, reportIds);
+    const reportIds = reportData?.map(report => report.id) || [];
+    console.log(`Found ${reportIds.length} reports for property ${propertyId}:`, reportIds);
     
-    // Then fetch all images that belong to these reports
-    const { data: imageData, error: imageError } = await supabase
-      .from('images')
-      .select(`
-        id,
-        storage_path,
-        created_at,
-        ai_processed,
-        ai_damage_type,
-        ai_damage_severity,
-        ai_confidence
-      `)
-      .in('report_id', reportIds)
-      .order('created_at', { ascending: false });
+    // If no reports found, check if we have direct images for this property
+    // (This is a fallback to handle possible direct property image uploads)
+    let imageData: any[] = [];
+    
+    if (reportIds.length > 0) {
+      // First try to get images from reports
+      const { data, error: imageError } = await supabase
+        .from('images')
+        .select(`
+          id,
+          storage_path,
+          created_at,
+          ai_processed,
+          ai_damage_type,
+          ai_damage_severity,
+          ai_confidence
+        `)
+        .in('report_id', reportIds)
+        .order('created_at', { ascending: false });
 
-    if (imageError) {
-      console.error('Error fetching images for reports:', imageError);
-      throw imageError;
+      if (imageError) {
+        console.error('Error fetching images for reports:', imageError);
+      } else if (data) {
+        imageData = data;
+      }
     }
     
-    console.log(`Retrieved ${imageData?.length || 0} images for property: ${propertyId}`);
-    if (imageData && imageData.length > 0) {
+    // If no images found through reports, try to find images where storage_path contains the property ID
+    if (imageData.length === 0) {
+      console.log("No images found through reports, trying direct property path search");
+      
+      const { data, error: pathError } = await supabase
+        .from('images')
+        .select(`
+          id,
+          storage_path,
+          created_at,
+          ai_processed,
+          ai_damage_type,
+          ai_damage_severity,
+          ai_confidence
+        `)
+        .ilike('storage_path', `%properties/${propertyId}%`)
+        .order('created_at', { ascending: false });
+        
+      if (pathError) {
+        console.error('Error searching images by path:', pathError);
+      } else if (data) {
+        imageData = data;
+      }
+    }
+    
+    console.log(`Total images found for property ${propertyId}: ${imageData.length}`);
+    if (imageData.length > 0) {
       console.log("Sample image data:", JSON.stringify(imageData[0], null, 2));
     }
     
-    return imageData || [];
+    return imageData;
   } catch (error) {
     console.error('Error fetching property image analyses:', error);
     return [];

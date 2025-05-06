@@ -217,7 +217,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
         }
         
-        // Store image metadata in the database using a different approach
+        // Store image metadata in the database using our new API endpoint
         const imageInsertData = {
           storage_path: fileName,
           filename: file.name,
@@ -225,88 +225,46 @@ const FileUpload: React.FC<FileUploadProps> = ({
           file_size: file.size,
           report_id: imageReportId,
           assessment_area_id: assessmentAreaId,
-          uploaded_by: userId,
-          metadata: null,
-          ai_processed: false,
-          ai_confidence: null,
-          ai_damage_type: null,
-          ai_damage_severity: null
+          uploaded_by: userId
         };
         
         console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
         
         try {
-          console.log('Before database insert operation');
+          console.log('Before database insert operation via API');
           
-          // Using two-step approach: first try standard client
+          // Using our custom API endpoint to avoid JSON parsing issues
           let imageData = null;
           let dbError = null;
           
           try {
-            // First try with standard client
-            const result = await supabase
-              .from('images')
-              .insert(imageInsertData)
-              .select('id')
-              .single();
-              
-            imageData = result.data;
-            dbError = result.error;
-          } catch (directError) {
-            console.error('Direct supabase client error:', directError);
-            dbError = directError;
-          }
-          
-          // If the first approach fails, try using a direct fetch with specific headers
-          if (dbError && !imageData) {
-            console.log('First insert attempt failed, trying alternative approach');
+            // Call our custom API endpoint
+            const response = await fetch('/api/store-image-metadata', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(imageInsertData)
+            });
             
-            try {
-              // Add a null check for sessionData.session
-              if (!sessionData?.session) {
-                throw new Error('No active session available for authentication');
-              }
-              
-              // Get the access token for authentication
-              const token = sessionData.session.access_token;
-              const apiUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khqevpnoodeggshfxeaa.supabase.co'}/rest/v1/images`;
-              
-              // Perform a direct fetch with controlled headers
-              const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-                  'Prefer': 'return=representation'
-                },
-                body: JSON.stringify([imageInsertData])
-              });
-              
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Fetch API error:', response.status, errorText);
-                throw new Error(`API error: ${response.status} ${errorText}`);
-              }
-              
-              const responseData = await response.json();
-              if (responseData && responseData.length > 0) {
-                imageData = { id: responseData[0].id };
-                dbError = null;
-                console.log('Successful insert using fetch API:', imageData);
-              }
-            } catch (fetchError) {
-              console.error('Fetch attempt failed:', fetchError);
+            const result = await response.json();
+            
+            if (!response.ok) {
+              dbError = result.error || 'Failed to store image metadata';
+              console.error('API error:', result);
+            } else {
+              imageData = { id: result.id };
+              console.log('Successfully stored image metadata via API:', imageData);
             }
+          } catch (apiError) {
+            console.error('API request error:', apiError);
+            dbError = apiError;
           }
           
-          console.log('After database insert operation');
+          console.log('After database insert operation via API');
           
           if (dbError) {
             console.error('Error storing image metadata:', dbError);
-            console.log('Error details:', JSON.stringify(dbError, null, 2));
-            console.log('Error message:', (dbError as any).message || 'No message available');
-            console.log('Error column details:', (dbError as any).details || 'No details available');
             // Continue anyway, as the file was uploaded successfully to storage
           } else if (imageData) {
             console.log('Successfully inserted image:', imageData);
@@ -324,18 +282,23 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 
                 console.log('Activity details:', JSON.stringify(activityDetails, null, 2));
                 
-                const { error: activityError } = await supabase
-                  .from('activities')
-                  .insert({
+                // Also use the API for recording activity to avoid JSON issues
+                const activityResponse = await fetch('/api/store-image-activity', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
                     user_id: userId,
                     report_id: imageReportId,
                     activity_type: 'image_upload',
-                    details: activityDetails // Pass as object, not JSON string
-                  });
-
-                if (activityError) {
+                    details: activityDetails
+                  })
+                });
+                
+                if (!activityResponse.ok) {
+                  const activityError = await activityResponse.json();
                   console.error('Error recording activity:', activityError);
-                  console.log('Activity error details:', JSON.stringify(activityError, null, 2));
                 }
               } catch (activityErr) {
                 console.error('Exception recording activity:', activityErr);
