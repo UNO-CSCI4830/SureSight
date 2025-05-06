@@ -5,7 +5,25 @@ import AuthGuard from '../components/auth/AuthGuard';
 import { supabase, handleSupabaseError } from '../utils/supabaseClient';
 import { PageHeader, Card, LoadingSpinner, StatusMessage } from '../components/common';
 import { FormInput, Select, TextArea } from '../components/ui';
-import { Property } from '../types/supabase';
+import AnalyzedPropertyImages from '../components/ui/AnalyzedPropertyImages';
+import ImageUploadModal from '../components/ui/ImageUploadModal';
+
+// Define the Property type interface directly since it's not exported from types/supabase
+interface Property {
+  id: string;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  state: string;
+  country: string;
+  postal_code: string;
+  property_type?: string | null;
+  square_footage?: number | null;
+  year_built?: number | null;
+  homeowner_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 type PropertyFormData = {
   address_line1: string;
@@ -28,6 +46,10 @@ const PropertiesPage: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [showMessageTimeout, setShowMessageTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Image upload modal state
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
   
   // Form state
   const [formData, setFormData] = useState<PropertyFormData>({
@@ -588,8 +610,8 @@ const PropertiesPage: React.FC = () => {
   
   const renderPropertyCard = (property: Property) => {
     return (
-      <Card key={property.id} className="mb-4">
-        <div className="flex justify-between items-start">
+      <Card key={property.id} className="mb-6">
+        <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-lg font-semibold mb-1">{property.address_line1}</h3>
             {property.address_line2 && <p className="text-gray-600">{property.address_line2}</p>}
@@ -636,6 +658,23 @@ const PropertiesPage: React.FC = () => {
               Delete
             </button>
           </div>
+        </div>
+        
+        {/* Property Images with Analysis Results */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold">Property Images</h3>
+            <button
+              onClick={() => {
+                setActivePropertyId(property.id);
+                setIsUploadModalOpen(true);
+              }}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Upload New Images
+            </button>
+          </div>
+          <AnalyzedPropertyImages propertyId={property.id} />
         </div>
       </Card>
     );
@@ -701,6 +740,17 @@ const PropertiesPage: React.FC = () => {
             )}
           </div>
         </div>
+        {isUploadModalOpen && activePropertyId && (
+          <ImageUploadModal
+            isOpen={isUploadModalOpen}
+            onClose={() => setIsUploadModalOpen(false)}
+            propertyId={activePropertyId}
+            onUploadComplete={() => {
+              // Refresh the properties to update the images
+              fetchProperties();
+            }}
+          />
+        )}
       </AuthGuard>
     </Layout>
   );

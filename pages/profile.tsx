@@ -10,12 +10,32 @@ import {
   StatusMessage,
 } from "../components/common";
 import { FormInput, Select, TextArea } from "../components/ui";
-import {
-  CompleteUserProfile,
-  HomeownerProfile,
-  ContractorProfile,
-  AdjusterProfile,
-} from "../types/supabase";
+
+// Define these types locally since they're not exported from the database types
+interface HomeownerProfile {
+  id: string;
+  preferred_contact_method?: string;
+  additional_notes?: string | null;
+  property_count?: number | null;
+}
+
+interface ContractorProfile {
+  id: string;
+  company_name: string;
+  license_number?: string | null;
+  years_experience?: number | null;
+  service_area?: string | null;
+  insurance_verified?: boolean | null;
+  rating?: number | null;
+}
+
+interface AdjusterProfile {
+  id: string;
+  company_name: string;
+  adjuster_license?: string | null;
+  territories?: string[] | null;
+  certification_verified?: boolean | null;
+}
 
 // Unified profile type that includes all possible role-specific fields
 type Profile = {
@@ -249,7 +269,7 @@ const ProfilePage: React.FC = () => {
             homeownerProfile.preferred_contact_method;
           profileData.additional_notes =
             homeownerProfile.additional_notes || undefined;
-          profileData.property_count = homeownerProfile.property_count;
+          profileData.property_count = homeownerProfile.property_count ?? undefined;
         } else if (profileData.role === "contractor") {
           // Type guard to ensure we're working with a ContractorProfile
           const contractorProfile = roleSpecificProfile as ContractorProfile;
@@ -260,7 +280,7 @@ const ProfilePage: React.FC = () => {
             contractorProfile.years_experience || undefined;
           profileData.service_area =
             contractorProfile.service_area || undefined;
-          profileData.insurance_verified = contractorProfile.insurance_verified;
+          profileData.insurance_verified = contractorProfile.insurance_verified === null ? undefined : contractorProfile.insurance_verified;
           profileData.rating = contractorProfile.rating || undefined;
         } else if (profileData.role === "adjuster") {
           // Type guard to ensure we're working with an AdjusterProfile
@@ -270,7 +290,7 @@ const ProfilePage: React.FC = () => {
             adjusterProfile.adjuster_license || undefined;
           profileData.territories = adjusterProfile.territories || undefined;
           profileData.certification_verified =
-            adjusterProfile.certification_verified;
+            adjusterProfile.certification_verified === null ? undefined : adjusterProfile.certification_verified;
         }
       } else if (userData.roleProfile) {
         // Handle legacy format from RPC function

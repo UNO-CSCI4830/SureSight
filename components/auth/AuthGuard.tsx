@@ -1,7 +1,10 @@
 import { useRouter } from "next/router";
 import { useEffect, useState, ReactNode } from "react";
 import { supabase } from "../../utils/supabaseClient";
-import { UserRole } from "../../types/supabase";
+import { Enums } from "../../types/supabase";
+
+// Using the correct type from supabase.ts
+type UserRole = Enums<"user_role">;
 
 interface AuthGuardProps {
   children: ReactNode;

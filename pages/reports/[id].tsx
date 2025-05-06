@@ -11,12 +11,37 @@ import {
 } from "../../components/common";
 import { FormInput, Select, TextArea, Button } from "../../components/ui";
 import FileUpload from "../../components/ui/FileUpload";
-import {
-  Report,
-  AssessmentArea,
-  DamageType,
-  DamageSeverity,
-} from "../../types/supabase";
+
+// Define these types locally since they're not exported from the database types
+interface Report {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  incident_date: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  property_id: string;
+  creator_id: string;
+  contractor_id: string | null;
+  adjuster_id: string | null;
+}
+
+interface AssessmentArea {
+  id: string;
+  report_id: string;
+  damage_type: string;
+  location: string;
+  severity: string;
+  dimensions: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+type DamageType = "roof" | "siding" | "window" | "structural" | "water" | "other";
+type DamageSeverity = "minor" | "moderate" | "severe" | "critical";
 
 type ExtendedReport = Report & {
   property?: {

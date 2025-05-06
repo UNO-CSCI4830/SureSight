@@ -58,6 +58,8 @@ export const uploadAndAnalyzeImage = async (
     path: string;
     damageAnalysis: {
       damageDetected: boolean;
+      damageType?: string;
+      severity?: string;
       confidence?: number;
     };
   };
@@ -101,6 +103,8 @@ export const uploadAndAnalyzeImage = async (
         path: uploadData.path,
         damageAnalysis: {
           damageDetected: analysisData.damage_detected,
+          damageType: analysisData.damage_type,
+          severity: analysisData.severity,
           confidence: analysisData.confidence
         }
       }

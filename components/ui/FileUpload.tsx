@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import { analyzeImage } from '../../services/imageAnalysisService';
 import Icon from './icons/Icon';
 import Button from './Button';
 
@@ -107,13 +108,15 @@ const FileUpload: React.FC<FileUploadProps> = ({
     
     setIsUploading(true);
     const uploadedUrls: string[] = [];
+    const uploadedImageIds: string[] = [];
     const failedUploads: string[] = [];
     
     try {
       for (const filePreview of files) {
         const file = filePreview.file;
         const fileExt = file.name.split('.').pop();
-        const fileName = `${storagePath}${storagePath ? '/' : ''}${Date.now()}-${filePreview.id}.${fileExt}`;
+        const fileId = `${Date.now()}-${filePreview.id}`;
+        const fileName = `${storagePath}${storagePath ? '/' : ''}${fileId}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from(bucket)
@@ -133,6 +136,36 @@ const FileUpload: React.FC<FileUploadProps> = ({
         if (!imageUrl) {
           failedUploads.push(file.name);
           continue;
+        }
+        
+        // Store image metadata in the database
+        const { data: imageData, error: dbError } = await supabase
+          .from('images')
+          .insert({
+            storage_path: fileName,
+            filename: file.name,
+            content_type: file.type,
+            file_size: file.size,
+            report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null
+          })
+          .select('id')
+          .single();
+          
+        if (dbError) {
+          console.error('Error storing image metadata:', dbError);
+          // Continue anyway, as the file was uploaded successfully
+        } else if (imageData) {
+          uploadedImageIds.push(imageData.id);
+          
+          // Trigger image analysis for newly uploaded images
+          if (file.type.startsWith('image/')) {
+            try {
+              await analyzeImage(imageUrl, imageData.id);
+            } catch (analyzeErr) {
+              console.error('Error analyzing image:', analyzeErr);
+              // Continue anyway, as the file was uploaded successfully
+            }
+          }
         }
         
         uploadedUrls.push(imageUrl);
