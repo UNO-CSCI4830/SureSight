@@ -221,40 +221,56 @@ const ReportDetailPage: React.FC = () => {
   };
 
   // Helper function to get the public URL for an image path
-  const getPublicImageUrl = (storagePath: string) => {
-    if (!storagePath) return '';
+  const getPublicImageUrl = (() => {
+    // Create a cache to store previously processed URLs
+    const urlCache = new Map<string, string>();
     
-    // If the path already contains the full URL, return it directly
-    if (storagePath.startsWith('http')) {
-      return storagePath;
-    }
-    
-    try {
-      // Extract bucket and path from storage_path
-      // The storage_path in the database should have format: "bucket_name/path/to/file.ext"
-      const firstSlashIndex = storagePath.indexOf('/');
+    return (storagePath: string) => {
+      if (!storagePath) return '';
       
-      // If no slash found, use as-is with the reports bucket
-      if (firstSlashIndex === -1) {
-        return supabase.storage.from('reports').getPublicUrl(storagePath).data?.publicUrl || '';
+      // Check if we've already processed this path and have it in the cache
+      if (urlCache.has(storagePath)) {
+        return urlCache.get(storagePath) || '';
       }
       
-      // Extract bucket name and remaining path
-      const bucketName = storagePath.substring(0, firstSlashIndex);
-      const filePath = storagePath.substring(firstSlashIndex + 1);
+      // If the path already contains the full URL, return it directly
+      if (storagePath.startsWith('http')) {
+        urlCache.set(storagePath, storagePath);
+        return storagePath;
+      }
       
-      console.log(`Processing image path: ${storagePath}`);
-      
-      // Get public URL using the correct bucket and path
-      const publicUrl = supabase.storage.from(bucketName).getPublicUrl(filePath).data?.publicUrl || '';
-      console.log(`Generated public URL for ${storagePath}: ${publicUrl}`);
-      
-      return publicUrl;
-    } catch (err) {
-      console.error('Error getting public URL:', err, 'Path:', storagePath);
-      return '';
-    }
-  };
+      try {
+        // Extract bucket and path from storage_path
+        // The storage_path in the database should have format: "bucket_name/path/to/file.ext"
+        const firstSlashIndex = storagePath.indexOf('/');
+        
+        // If no slash found, use as-is with the reports bucket
+        if (firstSlashIndex === -1) {
+          const url = supabase.storage.from('reports').getPublicUrl(storagePath).data?.publicUrl || '';
+          urlCache.set(storagePath, url);
+          return url;
+        }
+        
+        // Extract bucket name and remaining path
+        const bucketName = storagePath.substring(0, firstSlashIndex);
+        const filePath = storagePath.substring(firstSlashIndex + 1);
+        
+        console.log(`Processing image path: ${storagePath}`);
+        
+        // Get public URL using the correct bucket and path
+        const publicUrl = supabase.storage.from(bucketName).getPublicUrl(filePath).data?.publicUrl || '';
+        console.log(`Generated public URL for ${storagePath}: ${publicUrl}`);
+        
+        // Store URL in cache for future reference
+        urlCache.set(storagePath, publicUrl);
+        
+        return publicUrl;
+      } catch (err) {
+        console.error('Error getting public URL:', err, 'Path:', storagePath);
+        return '';
+      }
+    };
+  })();
 
   const handleUpdateReport = async (e: React.FormEvent) => {
     e.preventDefault();

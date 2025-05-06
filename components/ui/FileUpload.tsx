@@ -116,6 +116,32 @@ const FileUpload: React.FC<FileUploadProps> = ({
     });
   };
 
+  // Function to check if storage path exists and create it if needed
+  const ensureStoragePathExists = async (fullPath: string): Promise<boolean> => {
+    try {
+      // Try to create a temporary empty placeholder file to ensure the path exists
+      const tempFileName = `${Date.now()}-placeholder.tmp`;
+      const tempContent = new Blob([''], { type: 'text/plain' });
+      
+      // Use the last segment of the path for the directory check
+      const pathParts = fullPath.split('/');
+      const directoryPath = pathParts.slice(0, -1).join('/');
+      
+      // Upload a placeholder file to create directory structure
+      await supabase.storage
+        .from(bucket)
+        .upload(`${directoryPath}/.folder`, tempContent, {
+          cacheControl: '0',
+          upsert: true
+        });
+      
+      return true;
+    } catch (error) {
+      console.error('Error ensuring storage path exists:', error);
+      return false;
+    }
+  };
+
   const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage(null);
@@ -147,6 +173,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
       console.log('Auth user ID:', authUserId);
       if (reportId) {
         console.log(`Using report ID: ${reportId}`);
+      }
+      
+      // Ensure the storage path exists before uploading
+      if (storagePath) {
+        await ensureStoragePathExists(storagePath);
       }
       
       for (const filePreview of files) {
@@ -194,12 +225,28 @@ const FileUpload: React.FC<FileUploadProps> = ({
         
         // Determine assessment area ID if applicable from the storage path
         let assessmentAreaId: string | null = null;
-        if (storagePath && storagePath.includes('/')) {
+        
+        // Only set an assessment area ID if this is for a report and the path contains an area ID
+        if (reportId && storagePath && storagePath.includes('/')) {
           const pathParts = storagePath.split('/');
           // For paths like reports/[reportId]/[areaId]
           if (pathParts.length >= 3 && pathParts[2] && pathParts[2] !== 'general') {
             assessmentAreaId = pathParts[2];
             console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
+            
+            // Verify assessment area exists before trying to use it
+            if (assessmentAreaId) {
+              const { data: areaExists, error: areaCheckError } = await supabase
+                .from('assessment_areas')
+                .select('id')
+                .eq('id', assessmentAreaId)
+                .maybeSingle();
+                
+              if (areaCheckError || !areaExists) {
+                console.warn(`Assessment area ${assessmentAreaId} does not exist or error checking it:`, areaCheckError);
+                assessmentAreaId = null; // Don't use this ID if it doesn't exist
+              }
+            }
           }
         }
         
@@ -218,6 +265,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
               storedPath = `${bucket}/${fileName}`;
             }
             
+            // Determine if this is a property image (based on bucket and path)
+            const isPropertyImage = bucket === 'property-images' && storagePath.includes('/properties/');
+            
             // Use the RPC function to safely insert the image record
             const { data: imageId, error: rpcError } = await supabase.rpc(
               'insert_image_record',
@@ -226,15 +276,40 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 p_filename: file.name,
                 p_content_type: file.type,
                 p_file_size: file.size,
-                p_report_id: reportId ?? undefined,
-                p_assessment_area_id: assessmentAreaId ?? undefined,
-                p_uploaded_by: userId ?? undefined,
+                p_report_id: reportId || undefined,
+                // Only pass assessment_area_id if it exists and has been verified
+                p_assessment_area_id: assessmentAreaId || undefined,
+                p_uploaded_by: userId ?? null,
                 p_ai_processed: false
               }
             );
             
             if (rpcError) {
               console.error('Error calling insert_image_record function:', rpcError);
+              
+              // If foreign key error occurred, try inserting without the assessment_area_id
+              if (rpcError.code === '23503' && rpcError.message.includes('images_assessment_area_id_fkey')) {
+                console.log('Trying again without assessment_area_id');
+                const { data: retryImageId, error: retryError } = await supabase.rpc(
+                  'insert_image_record',
+                  {
+                    p_storage_path: storedPath,
+                    p_filename: file.name,
+                    p_content_type: file.type,
+                    p_file_size: file.size,
+                    p_report_id: reportId || undefined,
+                    p_assessment_area_id: undefined, // Don't use the area ID
+                    p_uploaded_by: userId ?? null,
+                    p_ai_processed: false
+                  }
+                );
+                
+                if (retryError) {
+                  console.error('Retry failed:', retryError);
+                } else if (retryImageId) {
+                  console.log(`Successfully inserted image record on retry with ID: ${retryImageId}`);
+                }
+              }
             } else if (imageId) {
               console.log(`Successfully inserted image record with ID: ${imageId}`);
               

@@ -71,54 +71,72 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
   };
   
   // Function to get the public URL for an image
-  const getPublicImageUrl = (storagePath: string) => {
-    if (!storagePath) return '';
+  const getPublicImageUrl = (() => {
+    // Create a cache to store previously processed URLs
+    const urlCache = new Map<string, string>();
     
-    console.log('Processing image path:', storagePath);
-    
-    // Determine the correct bucket based on the storage path
-    let bucket = 'property-images'; // Default bucket
-    
-    // If the path already contains the full URL, return it directly
-    if (storagePath.startsWith('http')) {
-      return storagePath;
-    }
-    
-    // If the path already includes the bucket name at the start, extract it
-    if (storagePath.startsWith('property-images/') || storagePath.startsWith('reports/')) {
-      const parts = storagePath.split('/');
-      bucket = parts[0];
-      // Remove the bucket name from the path for proper URL construction
-      storagePath = storagePath.substring(bucket.length + 1); // +1 for the slash
-    }
-    
-    // Get public URL using Supabase client
-    try {
-      const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
-      const publicUrl = data?.publicUrl || '';
+    return (storagePath: string) => {
+      if (!storagePath) return '';
       
-      console.log(`Generated public URL for ${bucket}/${storagePath}:`, publicUrl);
-      
-      // Store this URL for future reference
-      if (publicUrl) {
-        try {
-          localStorage.setItem(`img_path_${storagePath}`, publicUrl);
-        } catch (e) {
-          // Ignore storage errors
-        }
+      // Check if we've already processed this path and have it in the cache
+      if (urlCache.has(storagePath)) {
+        return urlCache.get(storagePath) || '';
       }
       
-      return publicUrl;
-    } catch (err) {
-      console.error('Error getting public URL:', err);
+      // If the path already contains the full URL, return it directly
+      if (storagePath.startsWith('http')) {
+        urlCache.set(storagePath, storagePath);
+        return storagePath;
+      }
       
-      // Attempt to use a direct URL construction as a fallback
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khqevpnoodeggshfxeaa.supabase.co';
-      const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodeURIComponent(storagePath)}`;
-      console.log('Using fallback URL:', fallbackUrl);
-      return fallbackUrl;
-    }
-  };
+      console.log('Processing image path:', storagePath);
+      
+      // Determine the correct bucket based on the storage path
+      let bucket = 'property-images'; // Default bucket
+      
+      // If the path already includes the bucket name at the start, extract it
+      if (storagePath.startsWith('property-images/') || storagePath.startsWith('reports/')) {
+        const parts = storagePath.split('/');
+        bucket = parts[0];
+        // Remove the bucket name from the path for proper URL construction
+        storagePath = storagePath.substring(bucket.length + 1); // +1 for the slash
+      }
+      
+      // Get public URL using Supabase client
+      try {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+        const publicUrl = data?.publicUrl || '';
+        
+        console.log(`Generated public URL for ${bucket}/${storagePath}:`, publicUrl);
+        
+        // Store this URL in the cache for future reference
+        urlCache.set(storagePath, publicUrl);
+        
+        // Also try to store in localStorage as a backup
+        if (publicUrl) {
+          try {
+            localStorage.setItem(`img_path_${storagePath}`, publicUrl);
+          } catch (e) {
+            // Ignore storage errors
+          }
+        }
+        
+        return publicUrl;
+      } catch (err) {
+        console.error('Error getting public URL:', err);
+        
+        // Attempt to use a direct URL construction as a fallback
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khqevpnoodeggshfxeaa.supabase.co';
+        const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodeURIComponent(storagePath)}`;
+        console.log('Using fallback URL:', fallbackUrl);
+        
+        // Store the fallback URL in cache too
+        urlCache.set(storagePath, fallbackUrl);
+        
+        return fallbackUrl;
+      }
+    };
+  })();
   
   // Function to handle image deletion
   const handleDeleteImage = async (imageId: string, storagePath: string) => {

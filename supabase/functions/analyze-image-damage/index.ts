@@ -4,8 +4,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // We need to use a specific version of the Google Cloud Vision API that's compatible with Deno/ESM
-// This fixes the "Relative import path not prefixed with /" error
-import { ImageAnnotatorClient } from 'https://esm.sh/@google-cloud/vision@4.0.1?deno-std=0.177.0';
+import vision from 'https://esm.sh/@google-cloud/vision@4.0.1?deno-std=0.177.0';
 
 // CORS headers configuration
 const allowedOriginPatterns = [
@@ -44,7 +43,7 @@ const getCorsHeaders = (req) => {
   };
 };
 
-// Handle OPTIONS request for CORS preflight
+// Handle OPTIONS request for CORS preflight - separate function to avoid initializing Google APIs unnecessarily
 function handleOPTIONS(req) {
   return new Response(null, {
     status: 204,
@@ -53,7 +52,7 @@ function handleOPTIONS(req) {
 }
 
 // Get Google Cloud Vision credentials securely from environment variables
-const getVisionCredentials = ()=> {
+const getVisionCredentials = () => {
   try {
     // Try to get base64 encoded credentials first (preferred for Supabase Edge Functions)
     const base64Credentials = Deno.env.get('GOOGLE_VISION_CREDENTIALS_BASE64');
@@ -66,10 +65,12 @@ const getVisionCredentials = ()=> {
         console.error('Error decoding base64 credentials:', error);
       }
     }
+    
     // Fall back to individual credential fields if provided
     const projectId = Deno.env.get('GOOGLE_VISION_PROJECT_ID');
     const clientEmail = Deno.env.get('GOOGLE_VISION_CLIENT_EMAIL');
     const privateKey = Deno.env.get('GOOGLE_VISION_PRIVATE_KEY');
+    
     if (projectId && clientEmail && privateKey) {
       return {
         type: "service_account",
@@ -81,6 +82,7 @@ const getVisionCredentials = ()=> {
         auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs"
       };
     }
+    
     throw new Error('No valid Google Vision credentials found');
   } catch (error) {
     console.error('Failed to get Vision credentials:', error);
@@ -88,15 +90,9 @@ const getVisionCredentials = ()=> {
   }
 };
 
-// Create a Google Cloud Vision client using credentials from environment variable
-let client = null;
-try {
-  client = new ImageAnnotatorClient({
-    credentials: getVisionCredentials()
-  });
-} catch (error) {
-  console.error('Failed to initialize Google Vision API client:', error);
-}
+// Important: Don't initialize the client at the global level to avoid the error
+// We'll create it only when needed inside the request handler
+// This prevents issues with the initialization when handling OPTIONS requests
 
 // Enhanced damage detection configuration
 const DAMAGE_TYPES = {
@@ -180,7 +176,7 @@ const DAMAGE_TYPES = {
 };
 
 // Severity detection based on confidence score ranges
-const determineSeverity = (confidence)=> {
+const determineSeverity = (confidence) => {
   if (confidence > 0.85) return 'critical';
   if (confidence > 0.7) return 'severe';
   if (confidence > 0.5) return 'moderate';
@@ -188,7 +184,7 @@ const determineSeverity = (confidence)=> {
 };
 
 // Helper function to catch and log errors during API calls
-const safeApiCall = async (apiCall, defaultValue = [])=> {
+const safeApiCall = async (apiCall, defaultValue = []) => {
   try {
     return await apiCall;
   } catch (error) {
@@ -197,8 +193,9 @@ const safeApiCall = async (apiCall, defaultValue = [])=> {
   }
 };
 
-serve(async (req)=> {
-  // Handle CORS preflight request
+// Main request handler
+serve(async (req) => {
+  // Handle CORS preflight request immediately without initializing any clients
   if (req.method === 'OPTIONS') {
     return handleOPTIONS(req);
   }
@@ -209,27 +206,25 @@ serve(async (req)=> {
     if (!imageUrl) {
       throw new Error('Image URL is required');
     }
-    if (!client) {
-      throw new Error('Google Vision API client is not initialized');
-    }
+
+    // Create Google Vision client on demand only for POST requests
+    // This is the key fix - we avoid initializing it at the global level
+    const credentials = getVisionCredentials();
+    const { ImageAnnotatorClient } = vision;
+    const client = new ImageAnnotatorClient({ credentials });
 
     // Create a Supabase client (for updating the database with results)
-    const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Call multiple Google Vision API features for comprehensive analysis
     // Use safe API calls to prevent one failure from breaking the entire analysis
-    const [labelResult] = await safeApiCall(client.labelDetection(imageUrl), [
-      {}
-    ]);
-    const [objectResult] = await safeApiCall(client.objectLocalization(imageUrl), [
-      {}
-    ]);
-    const [textResult] = await safeApiCall(client.textDetection(imageUrl), [
-      {}
-    ]);
-    const [imageProperties] = await safeApiCall(client.imageProperties(imageUrl), [
-      {}
-    ]);
+    const [labelResult] = await safeApiCall(client.labelDetection(imageUrl), [{}]);
+    const [objectResult] = await safeApiCall(client.objectLocalization(imageUrl), [{}]);
+    const [textResult] = await safeApiCall(client.textDetection(imageUrl), [{}]);
+    const [imageProperties] = await safeApiCall(client.imageProperties(imageUrl), [{}]);
 
     // Combine results for analysis
     const labels = labelResult.labelAnnotations || [];
@@ -238,12 +233,12 @@ serve(async (req)=> {
     const colors = imageProperties.imagePropertiesAnnotation?.dominantColors?.colors || [];
 
     // Detect damage type
-    const detectedDamageTypes: { type: string; confidence: number }[] = [];
+    const detectedDamageTypes = [];
     let highestConfidence = 0;
     let primaryDamageType = 'other';
 
     // Process all detection categories
-    for (const [category, config] of Object.entries(DAMAGE_TYPES)){
+    for (const [category, config] of Object.entries(DAMAGE_TYPES)) {
       const categoryDetected = {
         detected: false,
         confidence: 0,
@@ -251,10 +246,10 @@ serve(async (req)=> {
       };
 
       // Check labels for damage indicators
-      for (const label of labels){
+      for (const label of labels) {
         const description = label.description?.toLowerCase() || '';
         const score = label.score || 0;
-        for (const keyword of config.keywords){
+        for (const keyword of config.keywords) {
           if (description.includes(keyword.toLowerCase()) && score > categoryDetected.confidence) {
             categoryDetected.detected = true;
             categoryDetected.confidence = score;
@@ -263,10 +258,10 @@ serve(async (req)=> {
       }
 
       // Check object annotations for damage indicators
-      for (const object of objects){
+      for (const object of objects) {
         const name = object.name?.toLowerCase() || '';
         const score = object.score || 0;
-        for (const keyword of config.keywords){
+        for (const keyword of config.keywords) {
           // Look for partial matches in object names since they tend to be more general
           if (keyword.toLowerCase().includes(name) || name.includes(keyword.toLowerCase())) {
             if (score > categoryDetected.confidence) {
@@ -280,13 +275,12 @@ serve(async (req)=> {
       // Also check text annotations for damage keywords
       // This can be helpful for images with report text or markings
       if (texts && texts.length > 0) {
-        for (const text of texts.slice(1)){
+        for (const text of texts.slice(1)) {
           const description = text.description?.toLowerCase() || '';
-          for (const keyword of config.keywords){
+          for (const keyword of config.keywords) {
             if (description.includes(keyword.toLowerCase())) {
               categoryDetected.detected = true;
-              categoryDetected.confidence = Math.max(categoryDetected.confidence, 0.7) // Default confidence for text matches
-              ;
+              categoryDetected.confidence = Math.max(categoryDetected.confidence, 0.7); // Default confidence for text matches
             }
           }
         }
@@ -310,14 +304,14 @@ serve(async (req)=> {
 
     // Prepare raw results for storage
     const rawResults = {
-      labels: labels.map((l)=>({
-          description: l.description,
-          score: l.score
-        })),
-      objects: objects.map((o)=>({
-          name: o.name,
-          score: o.score
-        })),
+      labels: labels.map((l) => ({
+        description: l.description,
+        score: l.score
+      })),
+      objects: objects.map((o) => ({
+        name: o.name,
+        score: o.score
+      })),
       detectedDamageTypes,
       primaryDamageType,
       severity,
@@ -365,7 +359,7 @@ serve(async (req)=> {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...getCorsHeaders(req)  // Include dynamic CORS headers in success response
+        ...getCorsHeaders(req) // Include dynamic CORS headers in success response
       }
     });
   } catch (error) {
@@ -376,9 +370,9 @@ serve(async (req)=> {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...getCorsHeaders(req)  // Include dynamic CORS headers in error response
+        ...getCorsHeaders(req) // Include dynamic CORS headers in error response
       },
-      status: 400
+      status: 500  // Changed from 400 to 500 since this is a server error
     });
   }
 });
