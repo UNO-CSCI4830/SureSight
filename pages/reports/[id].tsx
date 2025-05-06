@@ -9,7 +9,7 @@ import {
   LoadingSpinner,
   StatusMessage,
 } from "../../components/common";
-import { FormInput, Select, TextArea, Button } from "../../components/ui";
+import { FormInput, Select, TextArea, Button, ReportImages } from "../../components/ui";
 import FileUpload from "../../components/ui/FileUpload";
 
 // Define these types locally since they're not exported from the database types
@@ -219,58 +219,6 @@ const ReportDetailPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  // Helper function to get the public URL for an image path
-  const getPublicImageUrl = (() => {
-    // Create a cache to store previously processed URLs
-    const urlCache = new Map<string, string>();
-    
-    return (storagePath: string) => {
-      if (!storagePath) return '';
-      
-      // Check if we've already processed this path and have it in the cache
-      if (urlCache.has(storagePath)) {
-        return urlCache.get(storagePath) || '';
-      }
-      
-      // If the path already contains the full URL, return it directly
-      if (storagePath.startsWith('http')) {
-        urlCache.set(storagePath, storagePath);
-        return storagePath;
-      }
-      
-      try {
-        // Extract bucket and path from storage_path
-        // The storage_path in the database should have format: "bucket_name/path/to/file.ext"
-        const firstSlashIndex = storagePath.indexOf('/');
-        
-        // If no slash found, use as-is with the reports bucket
-        if (firstSlashIndex === -1) {
-          const url = supabase.storage.from('reports').getPublicUrl(storagePath).data?.publicUrl || '';
-          urlCache.set(storagePath, url);
-          return url;
-        }
-        
-        // Extract bucket name and remaining path
-        const bucketName = storagePath.substring(0, firstSlashIndex);
-        const filePath = storagePath.substring(firstSlashIndex + 1);
-        
-        console.log(`Processing image path: ${storagePath}`);
-        
-        // Get public URL using the correct bucket and path
-        const publicUrl = supabase.storage.from(bucketName).getPublicUrl(filePath).data?.publicUrl || '';
-        console.log(`Generated public URL for ${storagePath}: ${publicUrl}`);
-        
-        // Store URL in cache for future reference
-        urlCache.set(storagePath, publicUrl);
-        
-        return publicUrl;
-      } catch (err) {
-        console.error('Error getting public URL:', err, 'Path:', storagePath);
-        return '';
-      }
-    };
-  })();
 
   const handleUpdateReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1168,58 +1116,32 @@ const ReportDetailPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Images for this area */}
+                  {/* Images for this area using ReportImages component */}
                   <div className="mt-3">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Images
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {report.images
-                        ?.filter((img) => img.assessment_area_id === area.id)
-                        .map((image) => (
-                          <div key={image.id} className="relative group">
-                            <img
-                              src={getPublicImageUrl(image.storage_path)}
-                              alt={image.filename}
-                              className="h-24 w-24 object-cover rounded"
-                            />
-                            {report.status === "draft" && (
-                              <button
-                                onClick={() => handleDeleteImage(image.id)}
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100"
-                              >
-                                X
-                              </button>
-                            )}
-
-                            {image.ai_damage_type && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1 truncate">
-                                {formatDamageTypeName(image.ai_damage_type)}
-                                {image.ai_confidence &&
-                                  ` (${Math.round(
-                                    image.ai_confidence * 100
-                                  )}%)`}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                      {report.status === "draft" && (
-                        <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded p-1 flex flex-col items-center justify-center">
-                          <FileUpload
-                            bucket="reports"
-                            onUploadComplete={(urls) =>
-                              handleImagesUpload(urls, area.id)
-                            }
-                            acceptedFileTypes="image/*"
-                            storagePath={`${report.id}/${area.id}`}
-                            buttonLabel="Add"
-                            buttonClassName="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                            multiple={true}
-                          />
-                        </div>
-                      )}
+                    <div className="mb-4">
+                      <ReportImages 
+                        reportId={report.id}
+                        areaId={area.id}
+                        onDeleteImage={handleDeleteImage}
+                        readonly={report.status !== "draft"}
+                      />
                     </div>
+
+                    {report.status === "draft" && (
+                      <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded p-1 flex flex-col items-center justify-center">
+                        <FileUpload
+                          bucket="reports"
+                          onUploadComplete={(urls) =>
+                            handleImagesUpload(urls, area.id)
+                          }
+                          acceptedFileTypes="image/*"
+                          storagePath={`${report.id}/${area.id}`}
+                          buttonLabel="Add"
+                          buttonClassName="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                          multiple={true}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1247,73 +1169,30 @@ const ReportDetailPage: React.FC = () => {
   const renderGeneralImages = () => {
     if (!report) return null;
 
-    // General images are those not associated with a specific assessment area
-    const generalImages =
-      report.images?.filter((img) => !img.assessment_area_id) || [];
-
     return (
       <Card className="mb-6">
         <div className="p-4">
           <h2 className="text-xl font-semibold mb-4">General Images</h2>
+          
+          {/* Use the ReportImages component for general images */}
+          <ReportImages 
+            reportId={report.id}
+            onDeleteImage={handleDeleteImage}
+            readonly={report.status !== "draft"}
+          />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {generalImages.map((image) => (
-              <div key={image.id} className="relative group">
-                <a
-                  href={getPublicImageUrl(image.storage_path)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <img
-                    src={getPublicImageUrl(image.storage_path)}
-                    alt={image.filename}
-                    className="h-32 w-full object-cover rounded"
-                  />
-                </a>
-                {report.status === "draft" && (
-                  <button
-                    onClick={() => handleDeleteImage(image.id)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100"
-                  >
-                    X
-                  </button>
-                )}
-
-                {image.ai_damage_type && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1">
-                    {formatDamageTypeName(image.ai_damage_type)}
-                    {image.ai_confidence &&
-                      ` (${Math.round(image.ai_confidence * 100)}%)`}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {report.status === "draft" && (
-              <div className="h-32 border-2 border-dashed border-gray-300 rounded p-2 flex flex-col items-center justify-center">
-                <FileUpload
-                  bucket="reports"
-                  onUploadComplete={(urls) => handleImagesUpload(urls)}
-                  acceptedFileTypes="image/*"
-                  storagePath={`${report.id}/general`}
-                  buttonLabel="Select Images"
-                  buttonClassName="px-4 py-2 mb-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  multiple={true}
-                />
-                <p className="text-xs text-gray-500 mt-2">Supported formats: JPG, PNG, WebP</p>
-              </div>
-            )}
-          </div>
-
-          {generalImages.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-gray-500 mb-2">
-                No general images have been added yet.
-              </p>
-              <p className="text-sm text-gray-500">
-                Upload property overview images or those not specific to a
-                damage area.
-              </p>
+          {report.status === "draft" && (
+            <div className="h-32 border-2 border-dashed border-gray-300 rounded p-2 flex flex-col items-center justify-center mt-4">
+              <FileUpload
+                bucket="reports"
+                onUploadComplete={(urls) => handleImagesUpload(urls)}
+                acceptedFileTypes="image/*"
+                storagePath={`${report.id}/general`}
+                buttonLabel="Select Images"
+                buttonClassName="px-4 py-2 mb-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                multiple={true}
+              />
+              <p className="text-xs text-gray-500 mt-2">Supported formats: JPG, PNG, WebP</p>
             </div>
           )}
         </div>

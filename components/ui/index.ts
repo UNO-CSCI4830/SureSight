@@ -5,6 +5,7 @@ import Select from './Select';
 import TextArea from './TextArea';
 import Icon from './icons/Icon';
 import ManualImageAnalyzer from './ManualImageAnalyzer';
+import ReportImages from './ReportImages';
 
 export {
   Button,
@@ -13,5 +14,6 @@ export {
   Select,
   TextArea,
   Icon,
-  ManualImageAnalyzer
+  ManualImageAnalyzer,
+  ReportImages
 };
