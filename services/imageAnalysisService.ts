@@ -54,29 +54,37 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
 };
 
 /**
- * Analyze a newly uploaded image using the Supabase Edge Function
- * @param imageUrl The URL of the image to analyze
- * @param imageId The database ID of the image to update with analysis results
- * @returns Analysis results from the Google Vision API
+ * Check if image analysis is complete - useful for polling
+ * @param imageId The database ID of the image to check
+ * @returns Object indicating if the analysis is complete and details
  */
-export const analyzeImage = async (imageUrl: string, imageId: string) => {
+export const checkImageAnalysisStatus = async (imageId: string) => {
   try {
-    // Call the Supabase Edge Function to analyze the image
-    const { data: analysisData, error: analyzeError } = await supabase.functions.invoke('analyze-image-damage', {
-      body: { imageUrl, imageId },
-    });
+    // Check the image's AI processing status
+    const { data: imageData, error: imageError } = await supabase
+      .from('images')
+      .select('ai_processed, ai_damage_type, ai_damage_severity, ai_confidence')
+      .eq('id', imageId)
+      .single();
 
-    if (analyzeError) throw analyzeError;
+    if (imageError) throw imageError;
+    
+    // Check if analysis is complete
+    const isComplete = imageData?.ai_processed && 
+                      (imageData?.ai_damage_type !== null || 
+                       imageData?.ai_damage_severity !== null);
     
     return {
       success: true,
-      data: analysisData,
+      isComplete,
+      data: isComplete ? imageData : null
     };
   } catch (error) {
-    console.error('Error analyzing image:', error);
+    console.error('Error checking image analysis status:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during image analysis'
+      isComplete: false,
+      error: error instanceof Error ? error.message : 'Unknown error checking analysis status'
     };
   }
 };
