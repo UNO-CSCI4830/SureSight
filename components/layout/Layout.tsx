@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { Enums } from '../../types/supabase';
+import { Enums } from '../../types/database.types';
 import NavBar from './NavBar';
 import Footer from './Footer';
 import { supabase } from '../../utils/supabaseClient';
