@@ -13,6 +13,7 @@ interface FileUploadProps {
   multiple?: boolean; // Allow multiple file selection
   buttonLabel?: string; // Custom label for the button
   buttonClassName?: string; // Custom class for the button
+  propertyId?: string; // Added property ID for linking uploads to properties
 }
 
 interface FilePreview {
@@ -29,7 +30,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxFileSize = 5, // 5MB default
   multiple = true, // Default to true for multiple file uploads
   buttonLabel,
-  buttonClassName
+  buttonClassName,
+  propertyId
 }) => {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
@@ -168,6 +170,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
             content_type: file.type,
             file_size: file.size,
             report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null,
+            property_id: propertyId || null, // Add property_id to the insert
             uploaded_by: userId
           })
           .select('id')
@@ -190,7 +193,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 activity_type: 'image_upload',
                 details: {
                   image_id: imageData.id,
-                  filename: file.name
+                  filename: file.name,
+                  property_id: propertyId || null // Include property ID in activity details
                 }
               });
 

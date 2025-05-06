@@ -7,24 +7,34 @@ import { supabase } from '../utils/supabaseClient';
  */
 export const getPropertyImageAnalyses = async (propertyId: string) => {
   try {
-    // Fetch images associated with this property that have been analyzed
+    // Join images with reports to get images for a specific property
     const { data: imageData, error } = await supabase
-      .from('images')
+      .from('reports')
       .select(`
-        id,
-        storage_path,
-        created_at,
-        ai_processed,
-        ai_damage_type,
-        ai_damage_severity,
-        ai_confidence
+        images(
+          id,
+          storage_path,
+          created_at,
+          ai_processed,
+          ai_damage_type,
+          ai_damage_severity,
+          ai_confidence
+        )
       `)
-      .eq('property_id', propertyId)
-      .order('created_at', { ascending: false });
+      .eq('property_id', propertyId);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching property image analyses:', error);
+      throw error;
+    }
     
-    return imageData;
+    // Flatten the results to get an array of images
+    const images = imageData?.flatMap(report => report.images || []) || [];
+    
+    // Sort by created_at in descending order
+    return images.sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
   } catch (error) {
     console.error('Error fetching property image analyses:', error);
     return [];

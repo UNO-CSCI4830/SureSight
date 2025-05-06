@@ -69,6 +69,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
                 maxFileSize={5}
                 multiple={true}
                 onUploadComplete={handleUploadComplete}
+                propertyId={propertyId}
               />
               <div className="mt-4 text-sm text-gray-500">
                 <p>Only new images will be automatically analyzed.</p>
