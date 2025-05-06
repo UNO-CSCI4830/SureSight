@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FileUpload from './FileUpload';
 import { getPropertyImageAnalyses, getOrCreateGenericPropertyReport } from '../../services/imageAnalysisService';
 import Button from './Button';
+import { supabase } from '../../utils/supabaseClient';
 
 interface ImageUploadModalProps {
   propertyId: string;
@@ -20,6 +21,34 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   const [reportId, setReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Get user ID
+  useEffect(() => {
+    const getUserId = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Get the database user ID from the auth user ID
+          const { data: userData, error } = await supabase
+            .from("users")
+            .select("id")
+            .eq("auth_user_id", session.user.id)
+            .single();
+
+          if (!error && userData) {
+            setUserId(userData.id);
+          }
+        }
+      } catch (err) {
+        console.error('Error getting user ID:', err);
+      }
+    };
+
+    if (isOpen) {
+      getUserId();
+    }
+  }, [isOpen]);
 
   // Get or create a generic report for this property
   useEffect(() => {
@@ -102,7 +131,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
                 </p>
                 <FileUpload 
                   bucket="property-images"
-                  storagePath={`properties/${propertyId}`}
+                  storagePath={`${userId}/properties/${propertyId}`}
                   acceptedFileTypes="image/*"
                   maxFileSize={5}
                   multiple={true}
