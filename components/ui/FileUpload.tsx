@@ -136,6 +136,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     try {
       // Get the current authenticated user's auth_user_id (not the database user_id)
       const { data: sessionData } = await supabase.auth.getSession();
+      console.log('Auth session:', sessionData);
       const authUserId = sessionData?.session?.user?.id;
       
       if (!authUserId) {
@@ -143,6 +144,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
       }
       
       console.log(`Starting upload of ${files.length} files to bucket: ${bucket}, path: ${storagePath}`);
+      console.log('Current user ID:', userId);
+      console.log('Auth user ID:', authUserId);
       if (reportId) {
         console.log(`Using explicit report ID: ${reportId}`);
       }
@@ -225,47 +228,60 @@ const FileUpload: React.FC<FileUploadProps> = ({
           uploaded_by: userId
         };
         
-        console.log(`Inserting image record:`, imageInsertData);
+        console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
         
-        const { data: imageData, error: dbError } = await supabase
-          .from('images')
-          .insert(imageInsertData)
-          .select('id')
-          .single();
+        try {
+          console.log('Before database insert operation');
+          const { data: imageData, error: dbError } = await supabase
+            .from('images')
+            .insert(imageInsertData)
+            .select('id')
+            .single();
           
-        if (dbError) {
-          console.error('Error storing image metadata:', dbError);
-          // Continue anyway, as the file was uploaded successfully
-        } else if (imageData) {
-          uploadedImageIds.push(imageData.id);
-          console.log(`Image record created with ID: ${imageData.id}`);
+          console.log('After database insert operation');
+          
+          if (dbError) {
+            console.error('Error storing image metadata:', dbError);
+            console.log('Error details:', JSON.stringify(dbError, null, 2));
+            // Continue anyway, as the file was uploaded successfully
+          } else if (imageData) {
+            console.log('Successfully inserted image:', imageData);
+            uploadedImageIds.push(imageData.id);
+            console.log(`Image record created with ID: ${imageData.id}`);
 
-          // Record the activity with the user_id
-          if (userId) {
-            try {
-              // Add entry in activities table to track image upload with properly formatted details
-              const activityDetails = {
-                image_id: imageData.id,
-                filename: file.name
-              };
-              
-              const { error: activityError } = await supabase
-                .from('activities')
-                .insert({
-                  user_id: userId,
-                  report_id: imageReportId,
-                  activity_type: 'image_upload',
-                  details: activityDetails
-                });
+            // Record the activity with the user_id
+            if (userId) {
+              try {
+                // Add entry in activities table to track image upload with properly formatted details
+                const activityDetails = {
+                  image_id: imageData.id,
+                  filename: file.name
+                };
+                
+                console.log('Activity details:', JSON.stringify(activityDetails, null, 2));
+                
+                const { error: activityError } = await supabase
+                  .from('activities')
+                  .insert({
+                    user_id: userId,
+                    report_id: imageReportId,
+                    activity_type: 'image_upload',
+                    details: activityDetails
+                  });
 
-              if (activityError) {
-                console.error('Error recording activity:', activityError);
+                if (activityError) {
+                  console.error('Error recording activity:', activityError);
+                  console.log('Activity error details:', JSON.stringify(activityError, null, 2));
+                }
+              } catch (activityErr) {
+                console.error('Exception recording activity:', activityErr);
+                // Continue anyway as the image was uploaded successfully
               }
-            } catch (activityErr) {
-              console.error('Exception recording activity:', activityErr);
-              // Continue anyway as the image was uploaded successfully
             }
           }
+        } catch (insertErr) {
+          console.error('Exception during database operations:', insertErr);
+          failedUploads.push(file.name);
         }
         
         uploadedUrls.push(imageUrl);
