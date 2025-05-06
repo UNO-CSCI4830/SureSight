@@ -314,3 +314,123 @@ export const deletePropertyImage = async (imageId: string, storagePath: string):
     };
   }
 };
+
+/**
+ * Directly invoke the AI analysis function without relying on the database trigger
+ * @param imageId The database ID of the image to analyze
+ * @param imageUrl The public URL of the image to analyze
+ * @returns Object containing analysis results or error information
+ */
+export const invokeImageAnalysis = async (imageId: string, imageUrl: string): Promise<{
+  success: boolean;
+  damage_detected?: boolean;
+  damage_type?: string;
+  severity?: string;
+  confidence?: number;
+  analysis?: any;
+  error?: string;
+}> => {
+  try {
+    console.log(`Invoking AI analysis for image ${imageId} at ${imageUrl}`);
+    
+    // Call the Supabase Edge Function directly
+    const { data, error } = await supabase.functions.invoke("analyze-image-damage", {
+      body: { imageId, imageUrl }
+    });
+    
+    if (error) {
+      console.error('Error invoking analyze-image-damage function:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to invoke analysis function'
+      };
+    }
+    
+    console.log('AI Analysis results:', data);
+    
+    // Return the analysis results to the caller
+    return {
+      success: true,
+      damage_detected: data.damage_detected,
+      damage_type: data.damage_type,
+      severity: data.severity,
+      confidence: data.confidence,
+      analysis: data.analysis
+    };
+  } catch (error) {
+    console.error('Exception during image analysis invocation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error analyzing image'
+    };
+  }
+};
+
+/**
+ * Manually trigger AI analysis for an image by ID
+ * Useful for analyzing images that weren't processed automatically or re-analyzing images
+ * @param imageId The database ID of the image to analyze
+ * @returns Object containing analysis results or error information
+ */
+export const triggerImageAnalysis = async (imageId: string): Promise<{
+  success: boolean;
+  damage_detected?: boolean;
+  damage_type?: string;
+  severity?: string;
+  confidence?: number;
+  error?: string;
+}> => {
+  try {
+    // First, get the image data from the database
+    const { data: imageData, error: imageError } = await supabase
+      .from('images')
+      .select('storage_path')
+      .eq('id', imageId)
+      .single();
+    
+    if (imageError || !imageData) {
+      console.error('Error fetching image data:', imageError);
+      return {
+        success: false,
+        error: imageError?.message || 'Image not found'
+      };
+    }
+    
+    // Get the public URL for the image
+    const storagePath = imageData.storage_path;
+    
+    // Determine the bucket name from the storage path
+    const pathParts = storagePath.split('/');
+    if (pathParts.length < 2) {
+      return {
+        success: false,
+        error: 'Invalid storage path format'
+      };
+    }
+    
+    const bucket = pathParts[0]; // First part should be the bucket name
+    const filePath = storagePath.substring(bucket.length + 1); // +1 for the slash
+    
+    // Get public URL using Supabase
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    const imageUrl = urlData?.publicUrl;
+    
+    if (!imageUrl) {
+      return {
+        success: false,
+        error: 'Failed to generate public URL for image'
+      };
+    }
+    
+    console.log(`Manually triggering analysis for image ${imageId} at ${imageUrl}`);
+    
+    // Call our direct invocation function
+    return await invokeImageAnalysis(imageId, imageUrl);
+  } catch (error) {
+    console.error('Error triggering manual image analysis:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during analysis'
+    };
+  }
+};
