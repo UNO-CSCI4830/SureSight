@@ -225,10 +225,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
           file_size: file.size,
           report_id: imageReportId,
           assessment_area_id: assessmentAreaId,
-          uploaded_by: userId
+          uploaded_by: userId,
+          // Set metadata to null by default, fix potential parsing issues
+          metadata: null
         };
         
         console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
+        console.log('Headers for debugging:', JSON.stringify(supabase['headers'] || {}, null, 2));
         
         try {
           console.log('Before database insert operation');
@@ -243,6 +246,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
           if (dbError) {
             console.error('Error storing image metadata:', dbError);
             console.log('Error details:', JSON.stringify(dbError, null, 2));
+            console.log('Error message:', dbError.message);
+            console.log('Error column details:', dbError.details || 'No details available');
             // Continue anyway, as the file was uploaded successfully
           } else if (imageData) {
             console.log('Successfully inserted image:', imageData);
@@ -266,7 +271,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                     user_id: userId,
                     report_id: imageReportId,
                     activity_type: 'image_upload',
-                    details: JSON.stringify(activityDetails) // Convert object to JSON string
+                    details: activityDetails // Pass as object, not JSON string
                   });
 
                 if (activityError) {
