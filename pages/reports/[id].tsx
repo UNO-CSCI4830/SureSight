@@ -1176,7 +1176,7 @@ const ReportDetailPage: React.FC = () => {
                         ))}
 
                       {report.status === "draft" && (
-                        <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
+                        <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded p-1 flex flex-col items-center justify-center">
                           <FileUpload
                             bucket="reports"
                             onUploadComplete={(urls) =>
@@ -1184,8 +1184,9 @@ const ReportDetailPage: React.FC = () => {
                             }
                             acceptedFileTypes="image/*"
                             storagePath={`reports/${report.id}/${area.id}`}
-                            buttonLabel="+"
-                            buttonClassName="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl text-gray-600"
+                            buttonLabel="Add"
+                            buttonClassName="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                            multiple={true}
                           />
                         </div>
                       )}
@@ -1260,15 +1261,17 @@ const ReportDetailPage: React.FC = () => {
             ))}
 
             {report.status === "draft" && (
-              <div className="h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
+              <div className="h-32 border-2 border-dashed border-gray-300 rounded p-2 flex flex-col items-center justify-center">
                 <FileUpload
                   bucket="reports"
                   onUploadComplete={(urls) => handleImagesUpload(urls)}
                   acceptedFileTypes="image/*"
                   storagePath={`reports/${report.id}/general`}
-                  buttonLabel="Add Images"
-                  buttonClassName="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
+                  buttonLabel="Select Images"
+                  buttonClassName="px-4 py-2 mb-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  multiple={true}
                 />
+                <p className="text-xs text-gray-500 mt-2">Supported formats: JPG, PNG, WebP</p>
               </div>
             )}
           </div>
