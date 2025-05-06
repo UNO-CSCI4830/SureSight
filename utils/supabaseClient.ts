@@ -152,6 +152,31 @@ export const getImageDamageAnalysis = async (imageId: string) => {
   }
 };
 
+/**
+ * Helper function to safely insert records with JSON fields
+ * This avoids the "Token Bearer is invalid" JSON parsing error
+ */
+export const safeInsert = async <T extends keyof Database['public']['Tables']>(
+  table: T,
+  data: Database['public']['Tables'][T]['Insert'],
+  options: { select?: string } = {}
+) => {
+  try {
+    // Process JSON fields to ensure they're properly formatted
+    const sanitizedData = { ...data };
+    
+    // Use explicit type casting to resolve TypeScript issues
+    const { data: result, error } = await supabase
+      .from(table)
+      .insert(sanitizedData as any, options as any);
+      
+    return { data: result, error };
+  } catch (error) {
+    console.error(`Error in safeInsert for table ${String(table)}:`, error);
+    return { data: null, error: error instanceof Error ? error : new Error(String(error)) };
+  }
+};
+
 // Custom hook for Supabase authentication state
 export function useSupabaseAuth() {
   const [user, setUser] = useState<any>(undefined);

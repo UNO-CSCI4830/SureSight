@@ -9,7 +9,10 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
   try {
     console.log(`Fetching images for property: ${propertyId}`);
     
-    // First, get all reports that belong to this property
+    // Setup for aggregating results
+    let allImages: any[] = [];
+    
+    // APPROACH 1: Get images through reports linked to property
     const { data: reportData, error: reportError } = await supabase
       .from('reports')
       .select('id')
@@ -17,20 +20,12 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
 
     if (reportError) {
       console.error('Error fetching reports for property:', reportError);
-      throw reportError;
-    }
-    
-    // Extract report IDs
-    const reportIds = reportData?.map(report => report.id) || [];
-    console.log(`Found ${reportIds.length} reports for property ${propertyId}:`, reportIds);
-    
-    // If no reports found, check if we have direct images for this property
-    // (This is a fallback to handle possible direct property image uploads)
-    let imageData: any[] = [];
-    
-    if (reportIds.length > 0) {
-      // First try to get images from reports
-      const { data, error: imageError } = await supabase
+    } else if (reportData && reportData.length > 0) {
+      const reportIds = reportData.map(report => report.id);
+      console.log(`Found ${reportIds.length} reports for property ${propertyId}:`, reportIds);
+      
+      // Get images linked to these reports via report_id
+      const { data: reportImages, error: imagesError } = await supabase
         .from('images')
         .select(`
           id,
@@ -39,49 +34,96 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
           ai_processed,
           ai_damage_type,
           ai_damage_severity,
-          ai_confidence
+          ai_confidence,
+          filename
         `)
         .in('report_id', reportIds)
         .order('created_at', { ascending: false });
 
-      if (imageError) {
-        console.error('Error fetching images for reports:', imageError);
-      } else if (data) {
-        imageData = data;
+      if (imagesError) {
+        console.error('Error fetching images from reports:', imagesError);
+      } else if (reportImages && reportImages.length > 0) {
+        console.log(`Found ${reportImages.length} images through report links`);
+        allImages = [...reportImages];
       }
     }
     
-    // If no images found through reports, try to find images where storage_path contains the property ID
-    if (imageData.length === 0) {
-      console.log("No images found through reports, trying direct property path search");
+    // APPROACH 2: Find images with property ID in storage path
+    const { data: pathImages, error: pathError } = await supabase
+      .from('images')
+      .select(`
+        id,
+        storage_path,
+        created_at,
+        ai_processed,
+        ai_damage_type,
+        ai_damage_severity,
+        ai_confidence,
+        filename
+      `)
+      .ilike('storage_path', `%properties/${propertyId}%`)
+      .order('created_at', { ascending: false });
       
-      const { data, error: pathError } = await supabase
-        .from('images')
-        .select(`
-          id,
-          storage_path,
-          created_at,
-          ai_processed,
-          ai_damage_type,
-          ai_damage_severity,
-          ai_confidence
-        `)
-        .ilike('storage_path', `%properties/${propertyId}%`)
-        .order('created_at', { ascending: false });
+    if (pathError) {
+      console.error('Error searching images by path:', pathError);
+    } else if (pathImages && pathImages.length > 0) {
+      console.log(`Found ${pathImages.length} images through storage path`);
+      
+      // Merge with results from first approach, avoiding duplicates
+      const existingIds = new Set(allImages.map(img => img.id));
+      const newImages = pathImages.filter(img => !existingIds.has(img.id));
+      
+      allImages = [...allImages, ...newImages];
+      console.log(`Added ${newImages.length} unique images from path search`);
+    }
+    
+    // APPROACH 3: Direct database query to the bucket contents
+    // We need to get the actual files from storage
+    try {
+      const { data: bucketFiles, error: bucketError } = await supabase.storage
+        .from('property-images')
+        .list(`4bbab242-9f71-4df8-a88a-7ae68ff9026c/properties/${propertyId}`, { 
+          limit: 100, 
+          offset: 0 
+        });
         
-      if (pathError) {
-        console.error('Error searching images by path:', pathError);
-      } else if (data) {
-        imageData = data;
+      if (bucketError) {
+        console.error('Error listing bucket files:', bucketError);
+      } else if (bucketFiles && bucketFiles.length > 0) {
+        console.log(`Found ${bucketFiles.length} files directly in storage bucket`);
+        
+        // For any files found in storage but not in database, create minimal representations
+        const existingPaths = new Set(allImages.map(img => img.storage_path));
+        
+        for (const file of bucketFiles) {
+          // Construct the full path as it would appear in the database
+          const fullPath = `property-images/4bbab242-9f71-4df8-a88a-7ae68ff9026c/properties/${propertyId}/${file.name}`;
+          
+          if (!existingPaths.has(fullPath) && !file.name.includes('.emptyFolderPlaceholder')) {
+            console.log(`Adding missing file from bucket: ${file.name}`);
+            allImages.push({
+              id: `storage-${file.name}`, // Generate a pseudo-ID
+              storage_path: fullPath,
+              created_at: file.created_at,
+              ai_processed: false,
+              filename: file.name,
+              ai_damage_type: null,
+              ai_damage_severity: null,
+              ai_confidence: null
+            });
+          }
+        }
       }
+    } catch (storageErr) {
+      console.error('Error accessing storage:', storageErr);
     }
     
-    console.log(`Total images found for property ${propertyId}: ${imageData.length}`);
-    if (imageData.length > 0) {
-      console.log("Sample image data:", JSON.stringify(imageData[0], null, 2));
+    console.log(`Total images found for property ${propertyId}: ${allImages.length}`);
+    if (allImages.length > 0) {
+      console.log("First image data:", JSON.stringify(allImages[0], null, 2));
     }
     
-    return imageData;
+    return allImages;
   } catch (error) {
     console.error('Error fetching property image analyses:', error);
     return [];
