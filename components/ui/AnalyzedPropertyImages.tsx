@@ -146,8 +146,9 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
               <Image
                 src={getPublicImageUrl(image.storage_path)}
                 alt="Property image"
-                layout="fill"
-                objectFit="cover"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                style={{ objectFit: "cover" }}
               />
             </div>
             
@@ -237,8 +238,9 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
                         <Image
                           src={getPublicImageUrl(selectedImage.storage_path)}
                           alt="Property image"
-                          layout="fill"
-                          objectFit="contain"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          style={{ objectFit: "contain" }}
                         />
                       </div>
                       <p className="text-sm text-gray-500 mt-2">

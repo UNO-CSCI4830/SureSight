@@ -8,18 +8,47 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ImageAnnotatorClient } from 'https://esm.sh/@google-cloud/vision@4.0.1?deno-std=0.177.0';
 
 // CORS headers configuration
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // In production, specify your domains instead of *
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
+const allowedOriginPatterns = [
+  'https://.+\.vercel\.app$', // Matches any Vercel app domain including preview deployments
+  'https://suresight\.vercel\.app$',
+  'http://localhost:[0-9]+$', // Matches localhost with any port
+];
+
+// Function to add CORS headers to response based on request origin
+const getCorsHeaders = (req) => {
+  const origin = req.headers.get('origin');
+  
+  // Allow the origin if it matches any of our patterns
+  if (origin) {
+    const isAllowed = allowedOriginPatterns.some(pattern => {
+      const regex = new RegExp(pattern);
+      return regex.test(origin);
+    });
+    
+    if (isAllowed) {
+      return {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Max-Age': '86400',
+      };
+    }
+  }
+  
+  // Default headers for non-matching origins - use the first specific production URL as default
+  return {
+    'Access-Control-Allow-Origin': 'https://suresight.vercel.app',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+  };
 };
 
 // Handle OPTIONS request for CORS preflight
-function handleOPTIONS() {
+function handleOPTIONS(req) {
   return new Response(null, {
     status: 204,
-    headers: corsHeaders,
+    headers: getCorsHeaders(req),
   });
 }
 
@@ -171,7 +200,7 @@ const safeApiCall = async (apiCall, defaultValue = [])=> {
 serve(async (req)=> {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
-    return handleOPTIONS();
+    return handleOPTIONS(req);
   }
 
   try {
@@ -336,7 +365,7 @@ serve(async (req)=> {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...corsHeaders  // Include CORS headers in success response
+        ...getCorsHeaders(req)  // Include dynamic CORS headers in success response
       }
     });
   } catch (error) {
@@ -347,7 +376,7 @@ serve(async (req)=> {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        ...corsHeaders  // Include CORS headers in error response
+        ...getCorsHeaders(req)  // Include dynamic CORS headers in error response
       },
       status: 400
     });
