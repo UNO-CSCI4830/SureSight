@@ -46,12 +46,14 @@ export const handleSupabaseError = (error: any) => {
  * @param file The image file to upload
  * @param bucketName The storage bucket name
  * @param filePath The path where the file will be stored
+ * @param propertyId Optional property ID to associate with the image
  * @returns Object containing upload status and analysis results
  */
 export const uploadAndAnalyzeImage = async (
   file: File,
   bucketName: string = 'property-images',
-  filePath: string = `${Date.now()}-${file.name}`
+  filePath: string = `${Date.now()}-${file.name}`,
+  propertyId: string | undefined = undefined
 ): Promise<{
   success: boolean;
   data?: {
@@ -91,7 +93,8 @@ export const uploadAndAnalyzeImage = async (
         p_filename: file.name,
         p_content_type: file.type,
         p_file_size: file.size,
-        p_ai_processed: false
+        p_ai_processed: false,
+        p_property_id: propertyId
       });
 
     if (dbError) {
@@ -99,9 +102,8 @@ export const uploadAndAnalyzeImage = async (
       throw dbError;
     }
 
-    // The insert_image_record function now returns JSONB with image details
-    // We need to cast it as any or create a proper type definition
-    const imageId = (dbImageData as any)?.id;
+    // The insert_image_record function now returns the UUID directly
+    const imageId = dbImageData;
 
     if (!imageId) {
       throw new Error('Failed to get image ID from database');
@@ -114,7 +116,8 @@ export const uploadAndAnalyzeImage = async (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageUrl: publicUrl,
-        imageId: imageId
+        imageId: imageId,
+        propertyId: propertyId
       })
     });
 

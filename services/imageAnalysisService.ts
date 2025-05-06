@@ -406,45 +406,44 @@ export const getOrCreateGenericPropertyReport = async (propertyId: string): Prom
  */
 export const deletePropertyImage = async (imageId: string, storagePath: string): Promise<{success: boolean, error?: string}> => {
   try {
-    // First delete the image from the database
-    const { error: deleteError } = await supabase
-      .from('images')
-      .delete()
-      .eq('id', imageId);
+    // First check if this is a database image or just a storage image
+    const isDbImage = !imageId.startsWith('storage-');
+    
+    if (isDbImage) {
+      // Delete the image from the database
+      const { error: deleteError } = await supabase
+        .from('images')
+        .delete()
+        .eq('id', imageId);
+        
+      if (deleteError) {
+        console.error('Error deleting image from database:', deleteError);
+      }
       
-    if (deleteError) {
-      throw deleteError;
+      // Then delete any analysis results
+      await supabase
+        .from('image_analysis')
+        .delete()
+        .eq('image_id', imageId);
     }
     
-    // Then delete any analysis results
-    await supabase
-      .from('image_analysis')
-      .delete()
-      .eq('image_id', imageId);
+    // Split the storage path to get bucket name and file path
+    const parts = storagePath.split('/');
+    const bucket = parts[0];
+    const filePath = storagePath.substring(bucket.length + 1);
     
-    // Extract bucket name from the storage path
-    const pathParts = storagePath.split('/');
-    if (pathParts.length < 2) {
-      throw new Error('Invalid storage path format');
-    }
-    
-    const bucket = pathParts[0]; // First part should be the bucket name
-    
-    // Remove the bucket name from the path to get the actual file path for deletion
-    const filePath = storagePath;
+    console.log(`Deleting file from bucket: ${bucket}, path: ${filePath}`);
     
     // Delete the file from storage
-    const { error: storageError } = await supabase
-      .storage
+    const { error: storageError } = await supabase.storage
       .from(bucket)
       .remove([filePath]);
       
     if (storageError) {
       console.error('Error deleting file from storage:', storageError);
-      // We've already deleted from the database, so we'll continue despite storage error
       return {
-        success: true,
-        error: `Image deleted from database but there was an issue removing the file from storage: ${storageError.message}`
+        success: false,
+        error: `Error removing file from storage: ${storageError.message}`
       };
     }
     
