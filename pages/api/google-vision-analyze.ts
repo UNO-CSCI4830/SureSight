@@ -7,37 +7,53 @@ import { supabase } from '../../utils/supabaseClient';
  * Uses the GOOGLE_VISION_CREDENTIALS environment variable
  */
 export default async function handleGoogleVisionAnalysis(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Google Vision API endpoint called');
+  
   // Only allow POST method
   if (req.method !== 'POST') {
+    console.log('Method not allowed:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   // Check if this is an internal API call (from our analyze-image-proxy endpoint)
   // The proxy adds a special header we can check
   const isInternalRequest = req.headers['x-internal-api-call'] === 'true';
-  let userId = null;
+  let userId: string | null = null;
+
+  console.log('Is internal API request:', isInternalRequest);
 
   if (!isInternalRequest) {
     // Only verify authentication for external requests
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData?.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user) {
+        console.log('Authentication required - error:', authError);
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      userId = authData.user.id;
+      console.log('Authenticated user ID:', userId);
+    } catch (authEx) {
+      console.error('Authentication exception:', authEx);
+      return res.status(401).json({ error: 'Authentication failed', details: authEx instanceof Error ? authEx.message : 'Unknown auth error' });
     }
-    userId = authData.user.id;
   } else {
     console.log('Processing internal API request, skipping authentication check');
     // Use a service account user ID for internal requests
     userId = process.env.SERVICE_ACCOUNT_ID || 'system';
+    console.log('Using service account ID:', userId);
   }
 
   // Extract request parameters
   const { imageId, imageUrl } = req.body;
+  console.log('Request parameters - imageId:', imageId, 'imageUrl:', imageUrl?.substring(0, 50) + '...');
 
   if (!imageUrl) {
+    console.log('Missing required parameter: imageUrl');
     return res.status(400).json({ error: 'Image URL is required' });
   }
 
   if (!imageId) {
+    console.log('Missing required parameter: imageId');
     return res.status(400).json({ error: 'Image ID is required' });
   }
 
@@ -46,16 +62,39 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
     const credentialsEnv = process.env.GOOGLE_VISION_CREDENTIALS;
     
     if (!credentialsEnv) {
+      console.error('Google Vision credentials not configured');
       return res.status(500).json({ 
         error: 'Google Vision credentials not configured',
         details: 'The GOOGLE_VISION_CREDENTIALS environment variable is not set'
       });
     }
     
+    // Check if the credentials value looks valid (should be a JSON object in string form)
+    if (!credentialsEnv.includes('{') || !credentialsEnv.includes('}')) {
+      console.error('Invalid Google Vision credentials format - does not appear to be JSON');
+      return res.status(500).json({ 
+        error: 'Invalid Google Vision credentials format',
+        details: 'The credentials do not appear to be in valid JSON format'
+      });
+    }
+    
+    console.log('Google Vision credentials present, attempting to parse');
+    
     let credentials;
     try {
       // Parse the credentials JSON string
       credentials = JSON.parse(credentialsEnv);
+      
+      // Basic validation of the credentials object
+      if (!credentials.type || !credentials.project_id || !credentials.private_key) {
+        console.error('Parsed credentials missing required properties');
+        return res.status(500).json({ 
+          error: 'Invalid Google Vision credentials',
+          details: 'The credentials are missing required properties'
+        });
+      }
+      
+      console.log('Successfully parsed Google Vision credentials for project:', credentials.project_id);
     } catch (parseError) {
       console.error('Error parsing Google Vision credentials:', parseError);
       return res.status(500).json({ 
@@ -65,7 +104,9 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
     }
 
     // Initialize the Google Vision client with explicit type assertion
+    console.log('Initializing Google Vision client');
     const visionClient = new ImageAnnotatorClient({ credentials });
+    console.log('Google Vision client initialized successfully');
 
     // Default empty results 
     let labels: any[] = [];
@@ -75,29 +116,37 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
 
     // Use a simpler approach that avoids TypeScript issues
     try {
+      console.log('Calling Google Vision API for label detection');
       const [labelResponse] = await (visionClient as any).labelDetection(imageUrl);
       labels = labelResponse?.labelAnnotations || [];
+      console.log(`Label detection complete - found ${labels.length} labels`);
     } catch (error) {
       console.error('Error during label detection:', error);
     }
 
     try {
+      console.log('Calling Google Vision API for object localization');
       const [objectResponse] = await (visionClient as any).objectLocalization(imageUrl);
       objects = objectResponse?.localizedObjectAnnotations || [];
+      console.log(`Object localization complete - found ${objects.length} objects`);
     } catch (error) {
       console.error('Error during object localization:', error);
     }
 
     try {
+      console.log('Calling Google Vision API for text detection');
       const [textResponse] = await (visionClient as any).textDetection(imageUrl);
       texts = textResponse?.textAnnotations || [];
+      console.log(`Text detection complete - found ${texts.length} text annotations`);
     } catch (error) {
       console.error('Error during text detection:', error);
     }
 
     try {
+      console.log('Calling Google Vision API for image properties');
       const [propertiesResponse] = await (visionClient as any).imageProperties(imageUrl);
       colors = propertiesResponse?.imagePropertiesAnnotation?.dominantColors?.colors || [];
+      console.log(`Image properties analysis complete - found ${colors.length} colors`);
     } catch (error) {
       console.error('Error during image properties analysis:', error);
     }
@@ -136,6 +185,8 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
       }
     };
 
+    console.log('Analyzing results for damage detection');
+    
     // Detect damage type
     const detectedDamageTypes: any[] = [];
     let highestConfidence = 0;
@@ -195,12 +246,17 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
       if (damageMatches.length > 0) {
         textDamageConfidence = 0.7 + (damageMatches.length * 0.05);
         textDamageConfidence = Math.min(textDamageConfidence, 0.95); // Cap at 0.95
+        console.log(`Found ${damageMatches.length} damage keywords in text, confidence: ${textDamageConfidence}`);
       }
     }
 
     // Determine damage detected status and confidence
     const damageDetected = detectedDamageTypes.length > 0 || textDamageConfidence > 0;
     const overallConfidence = Math.max(highestConfidence, textDamageConfidence);
+    
+    console.log('Damage detected:', damageDetected);
+    console.log('Primary damage type:', primaryDamageType);
+    console.log('Overall confidence:', overallConfidence);
     
     // Determine severity based on confidence
     let severity = 'unknown';
@@ -215,6 +271,7 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
         severity = 'potential';
       }
     }
+    console.log('Determined severity:', severity);
 
     // Build the analysis results
     const analysisData = {
@@ -223,8 +280,8 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
       confidence: overallConfidence > 0 ? parseFloat(overallConfidence.toFixed(2)) : null,
       severity: damageDetected ? severity : null,
       analysis: {
-        labels: labels,
-        objects: objects,
+        labels: labels.map(l => ({ description: l.description, score: l.score })),
+        objects: objects.map(o => ({ name: o.name, score: o.score })),
         texts: texts.length > 0 ? texts[0]?.description : '',
         colors: colors.map((c: any) => ({ 
           color: c.color, 
@@ -235,6 +292,8 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
       }
     };
 
+    console.log('Analysis complete, saving results to database');
+    
     // Save to image_analysis table
     const { error: dbError } = await supabase
       .from('image_analysis')
@@ -270,6 +329,8 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
       // We continue anyway since the analysis table has the data
     }
 
+    console.log('Successfully completed analysis and database updates');
+    
     // Return successful response with analysis data
     return res.status(200).json({
       success: true,

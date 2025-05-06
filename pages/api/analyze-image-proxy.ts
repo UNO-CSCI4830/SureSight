@@ -2,6 +2,13 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../utils/supabaseClient';
 import fetch from 'node-fetch';
 
+// Define interfaces for error responses
+interface ErrorResponse {
+  error?: string;
+  details?: string;
+  [key: string]: any; // To allow for other properties
+}
+
 /**
  * Proxy API endpoint for analyzing images
  * This avoids CORS issues by making the request to Google Vision API directly
@@ -72,15 +79,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const protocol = host.includes('localhost') ? 'http://' : 'https://';
     baseUrl = `${protocol}${host}`;
     
-    console.log(`Calling Google Vision API at: ${baseUrl}/api/google-vision-analyze`);
+    console.log(`Calling Google Vision API endpoint at: ${baseUrl}/api/google-vision-analyze`);
     
-    // Call our Google Vision API endpoint with the image information
+    // Try direct analysis using our Google Vision API wrapper endpoint
     try {
       const response = await fetch(`${baseUrl}/api/google-vision-analyze`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          // Add special header to identify this as an internal API call
           'x-internal-api-call': 'true'
         },
         body: JSON.stringify({
@@ -89,44 +95,70 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
       });
 
-      // Get the response body
-      const responseText = await response.text();
-      let responseData;
-      
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Error parsing response:', e);
-        console.error('Response text:', responseText);
-        return res.status(500).json({ 
-          error: 'Failed to parse analysis response',
-          details: responseText.substring(0, 500) // Include part of the response for debugging
-        });
+      // Handle non-OK responses
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          // If JSON response, parse it with proper typing
+          const errorData = await response.json() as ErrorResponse;
+          console.error('Error from Google Vision API (JSON):', errorData);
+          return res.status(response.status).json({ 
+            error: errorData.error || `API error: ${response.status} ${response.statusText}`,
+            details: errorData.details || 'No additional details available'
+          });
+        } else {
+          // If not JSON, treat as text
+          const errorText = await response.text();
+          console.error('Error from Google Vision API (non-JSON):', errorText.substring(0, 500));
+          return res.status(response.status).json({ 
+            error: `API returned status ${response.status}`,
+            details: 'API returned HTML or non-JSON response (possible server error)'
+          });
+        }
       }
 
-      if (!response.ok) {
-        console.error('Error from Google Vision API:', responseData);
-        return res.status(response.status).json({ 
-          error: responseData.error || `API error: ${response.status} ${response.statusText}`,
-          details: responseData.details || 'No additional details available'
+      // Get the response body and ensure it's JSON
+      let responseData: unknown;
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Unexpected non-JSON response:', text.substring(0, 500));
+        return res.status(500).json({ 
+          error: 'Google Vision API returned non-JSON response',
+          details: 'Expected JSON but received different content type'
         });
       }
 
       // If successful, return the analysis results
       console.log('Analysis completed successfully');
-      return res.status(200).json(responseData.analysis);
-    } catch (error) {
-      console.error('Error calling Google Vision API:', error);
-      return res.status(500).json({ 
-        error: error instanceof Error ? error.message : 'Failed to analyze image',
-        details: error instanceof Error ? error.stack : 'No stack trace available'
-      });
-    }
+      if (responseData && typeof responseData === 'object' && responseData !== null && 'analysis' in responseData) {
+        return res.status(200).json(responseData.analysis);
+      } else {
+        return res.status(500).json({ 
+          error: 'Malformed response from Google Vision API',
+          details: 'Response does not contain expected "analysis" property'
+        });
+      }
   } catch (error) {
     console.error('Error in analyze-image-proxy:', error);
     return res.status(500).json({ 
       error: error instanceof Error ? error.message : 'Failed to analyze image',
       details: error instanceof Error ? error.stack : 'No stack trace available'
     });
-  }
+
+    }
+    }
+
+    catch (error) {
+    console.error('Error in analyze-image-proxy:', error);
+    return res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to analyze image',
+        details: error instanceof Error ? error.stack : 'No stack trace available'
+        });
+    }
 }
+// Note: Ensure to handle any potential errors in the Google Vision API call and return appropriate error messages.
