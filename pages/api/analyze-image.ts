@@ -44,6 +44,7 @@ export default async function analyzeImageHandler(req: NextApiRequest, res: Next
       damage_type: analysisData.damage_type,
       confidence: analysisData.confidence,
       severity: analysisData.severity,
+      raw_results: analysisData.analysis,
       analyzed_at: new Date().toISOString(),
       user_id: authData.user.id
     });
@@ -52,13 +53,35 @@ export default async function analyzeImageHandler(req: NextApiRequest, res: Next
       return res.status(500).json({ error: `Failed to save analysis results: ${dbError.message}` });
     }
 
+    // Also update the images table with AI analysis results
+    const { error: imageUpdateError } = await supabase
+      .from('images')
+      .update({
+        ai_processed: true,
+        ai_damage_type: analysisData.damage_type,
+        ai_damage_severity: analysisData.severity,
+        ai_confidence: analysisData.confidence
+      })
+      .eq('id', imageId);
+
+    if (imageUpdateError) {
+      console.error('Failed to update image with analysis results:', imageUpdateError);
+    }
+
     // Return successful response with analysis data
     return res.status(200).json({
       success: true,
-      analysis: analysisData
+      analysis: {
+        damage_detected: analysisData.damage_detected,
+        damage_type: analysisData.damage_type,
+        confidence: analysisData.confidence,
+        severity: analysisData.severity,
+        details: analysisData.analysis
+      }
     });
     
   } catch (error: any) {
+    console.error('Error analyzing image:', error);
     return res.status(500).json({ error: `Unexpected error: ${error.message}` });
   }
 }

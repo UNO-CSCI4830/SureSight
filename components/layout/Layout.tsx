@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { UserRole } from '../../types/supabase';
+import { Enums } from '../../types/database.types';
 import NavBar from './NavBar';
 import Footer from './Footer';
 import { supabase } from '../../utils/supabaseClient';
+
+// Define UserRole type using the Enums
+type UserRole = Enums<"user_role">;
 
 interface LayoutProps {
   title?: string;

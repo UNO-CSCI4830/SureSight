@@ -9,14 +9,39 @@ import {
   LoadingSpinner,
   StatusMessage,
 } from "../../components/common";
-import { FormInput, Select, TextArea, Button } from "../../components/ui";
+import { FormInput, Select, TextArea, Button, ReportImages } from "../../components/ui";
 import FileUpload from "../../components/ui/FileUpload";
-import {
-  Report,
-  AssessmentArea,
-  DamageType,
-  DamageSeverity,
-} from "../../types/supabase";
+
+// Define these types locally since they're not exported from the database types
+interface Report {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  incident_date: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  property_id: string;
+  creator_id: string;
+  contractor_id: string | null;
+  adjuster_id: string | null;
+}
+
+interface AssessmentArea {
+  id: string;
+  report_id: string;
+  damage_type: string;
+  location: string;
+  severity: string;
+  dimensions: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+type DamageType = "roof" | "siding" | "window" | "structural" | "water" | "other";
+type DamageSeverity = "minor" | "moderate" | "severe" | "critical";
 
 type ExtendedReport = Report & {
   property?: {
@@ -99,15 +124,25 @@ const ReportDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (id) {
+      const controller = new AbortController();
       fetchReport(id as string);
+      
+      // Clear any existing message timeout when component unmounts
+      return () => {
+        if (showMessageTimeout) {
+          clearTimeout(showMessageTimeout);
+        }
+        controller.abort(); // Cancel any pending requests
+        
+        // Clean up any potentially lingering message channel listeners
+        const cleanup = () => {
+          // This forces any lingering promises to resolve or reject
+          window.dispatchEvent(new Event('beforeunload'));
+        };
+        
+        cleanup();
+      };
     }
-
-    // Clear any existing message timeout when component unmounts
-    return () => {
-      if (showMessageTimeout) {
-        clearTimeout(showMessageTimeout);
-      }
-    };
   }, [id]);
 
   const fetchReport = async (reportId: string) => {
@@ -498,28 +533,46 @@ const ReportDetailPage: React.FC = () => {
         throw userError;
       }
 
+      console.log(`Preparing to add ${urls.length} images to report ${report.id}${areaId ? ` and area ${areaId}` : ''}`);
+
       // Create entries for each uploaded image
       const imagesData = urls.map((url) => {
-        const filename = url.split("/").pop() || "unknown";
+        // Extract the actual storage path from the URL - this is important
+        // URL format is something like: https://[project].supabase.co/storage/v1/object/public/reports/[path]
+        // We just need the part after the bucket name
+        const urlParts = url.split('/');
+        const bucketIndex = urlParts.indexOf('reports');
+        const storagePath = bucketIndex >= 0 && bucketIndex < urlParts.length - 1 
+          ? urlParts.slice(bucketIndex).join('/') 
+          : url; // Fallback to full URL if we can't parse it correctly
+        
+        const filename = urlParts[urlParts.length - 1] || "unknown";
+
+        console.log(`Processing image: ${filename}, area ID: ${areaId || 'none'}, path: ${storagePath}`);
 
         return {
           report_id: report.id,
           assessment_area_id: areaId || null,
           filename,
-          storage_path: url,
+          storage_path: storagePath,
           uploaded_by: userData.id,
           ai_processed: false,
         };
       });
 
       if (imagesData.length > 0) {
-        const { error: insertError } = await supabase
+        console.log("Inserting image records into database:", imagesData);
+        const { data: insertedData, error: insertError } = await supabase
           .from("images")
-          .insert(imagesData);
+          .insert(imagesData)
+          .select();
 
         if (insertError) {
+          console.error("Error inserting images:", insertError);
           throw insertError;
         }
+
+        console.log("Successfully inserted images:", insertedData);
 
         // Show success message
         setMessage({
@@ -1063,57 +1116,32 @@ const ReportDetailPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Images for this area */}
+                  {/* Images for this area using ReportImages component */}
                   <div className="mt-3">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Images
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {report.images
-                        ?.filter((img) => img.assessment_area_id === area.id)
-                        .map((image) => (
-                          <div key={image.id} className="relative group">
-                            <img
-                              src={image.storage_path}
-                              alt={image.filename}
-                              className="h-24 w-24 object-cover rounded"
-                            />
-                            {report.status === "draft" && (
-                              <button
-                                onClick={() => handleDeleteImage(image.id)}
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100"
-                              >
-                                X
-                              </button>
-                            )}
-
-                            {image.ai_damage_type && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1 truncate">
-                                {formatDamageTypeName(image.ai_damage_type)}
-                                {image.ai_confidence &&
-                                  ` (${Math.round(
-                                    image.ai_confidence * 100
-                                  )}%)`}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                      {report.status === "draft" && (
-                        <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
-                          <FileUpload
-                            bucket="reports"
-                            onUploadComplete={(urls) =>
-                              handleImagesUpload(urls, area.id)
-                            }
-                            acceptedFileTypes="image/*"
-                            storagePath={`reports/${report.id}/${area.id}`}
-                            buttonLabel="+"
-                            buttonClassName="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl text-gray-600"
-                          />
-                        </div>
-                      )}
+                    <div className="mb-4">
+                      <ReportImages 
+                        reportId={report.id}
+                        areaId={area.id}
+                        onDeleteImage={handleDeleteImage}
+                        readonly={report.status !== "draft"}
+                      />
                     </div>
+
+                    {report.status === "draft" && (
+                      <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded p-1 flex flex-col items-center justify-center">
+                        <FileUpload
+                          bucket="reports"
+                          onUploadComplete={(urls) =>
+                            handleImagesUpload(urls, area.id)
+                          }
+                          acceptedFileTypes="image/*"
+                          storagePath={`${report.id}/${area.id}`}
+                          buttonLabel="Add"
+                          buttonClassName="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                          multiple={true}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1141,71 +1169,30 @@ const ReportDetailPage: React.FC = () => {
   const renderGeneralImages = () => {
     if (!report) return null;
 
-    // General images are those not associated with a specific assessment area
-    const generalImages =
-      report.images?.filter((img) => !img.assessment_area_id) || [];
-
     return (
       <Card className="mb-6">
         <div className="p-4">
           <h2 className="text-xl font-semibold mb-4">General Images</h2>
+          
+          {/* Use the ReportImages component for general images */}
+          <ReportImages 
+            reportId={report.id}
+            onDeleteImage={handleDeleteImage}
+            readonly={report.status !== "draft"}
+          />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {generalImages.map((image) => (
-              <div key={image.id} className="relative group">
-                <a
-                  href={image.storage_path}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <img
-                    src={image.storage_path}
-                    alt={image.filename}
-                    className="h-32 w-full object-cover rounded"
-                  />
-                </a>
-                {report.status === "draft" && (
-                  <button
-                    onClick={() => handleDeleteImage(image.id)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100"
-                  >
-                    X
-                  </button>
-                )}
-
-                {image.ai_damage_type && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1">
-                    {formatDamageTypeName(image.ai_damage_type)}
-                    {image.ai_confidence &&
-                      ` (${Math.round(image.ai_confidence * 100)}%)`}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {report.status === "draft" && (
-              <div className="h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
-                <FileUpload
-                  bucket="reports"
-                  onUploadComplete={(urls) => handleImagesUpload(urls)}
-                  acceptedFileTypes="image/*"
-                  storagePath={`reports/${report.id}/general`}
-                  buttonLabel="Add Images"
-                  buttonClassName="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
-                />
-              </div>
-            )}
-          </div>
-
-          {generalImages.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-gray-500 mb-2">
-                No general images have been added yet.
-              </p>
-              <p className="text-sm text-gray-500">
-                Upload property overview images or those not specific to a
-                damage area.
-              </p>
+          {report.status === "draft" && (
+            <div className="h-32 border-2 border-dashed border-gray-300 rounded p-2 flex flex-col items-center justify-center mt-4">
+              <FileUpload
+                bucket="reports"
+                onUploadComplete={(urls) => handleImagesUpload(urls)}
+                acceptedFileTypes="image/*"
+                storagePath={`${report.id}/general`}
+                buttonLabel="Select Images"
+                buttonClassName="px-4 py-2 mb-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                multiple={true}
+              />
+              <p className="text-xs text-gray-500 mt-2">Supported formats: JPG, PNG, WebP</p>
             </div>
           )}
         </div>

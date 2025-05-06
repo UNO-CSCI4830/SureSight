@@ -15,10 +15,12 @@
         "update-types": "npx supabase gen types typescript --project-id khqevpnoodeggshfxeaa --schema public > types/database.types.ts"
     },
     "dependencies": {
+        "@google-cloud/vision": "^5.1.0",
         "@supabase/auth-helpers-nextjs": "^0.10.0",
         "@supabase/auth-helpers-react": "^0.5.0",
         "@supabase/ssr": "^0.6.1",
         "@supabase/supabase-js": "^2.49.4",
+        "flowbite-react": "^0.11.7",
         "next": "^15.3.1",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
@@ -40,7 +42,7 @@
         "jest-environment-jsdom": "^29.7.0",
         "node-mocks-http": "^1.16.2",
         "postcss": "^8.5.3",
-        "supabase": "^2.22.4",
+        "supabase": "^2.22.6",
         "tailwindcss": "^3.4.17",
         "ts-jest": "^29.3.2",
         "ts-node": "^10.9.2",

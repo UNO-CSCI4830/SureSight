@@ -831,6 +831,20 @@ export interface Database {
         };
         Returns: Json;
       };
+      insert_image_record: {
+        Args: {
+          p_storage_path: string;
+          p_filename: string;
+          p_content_type: string;
+          p_file_size: number;
+          p_report_id?: string;
+          p_assessment_area_id?: string;
+          p_uploaded_by?: string;
+          p_ai_processed?: boolean;
+          p_property_id?: string;
+        };
+        Returns: string;
+      };
       submit_report: {
         Args: {
           p_report_id: string;

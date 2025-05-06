@@ -4,3 +4,9 @@ node_modules/
 .DS_Store
 *.log
 .vercel
+.env.local
+
+# Google Cloud credentials - never commit these to version control
+google-vision-credentials.json
+google-vision-credentials-new.json
+*-credentials*.json

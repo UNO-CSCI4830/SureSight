@@ -10,7 +10,22 @@ import {
   StatusMessage,
 } from "../../components/common";
 import { FormInput, Select, Button } from "../../components/ui";
-import { Report } from "../../types/supabase";
+
+// Define Report type locally instead of importing from supabase.ts
+interface Report {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  incident_date: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  property_id: string;
+  creator_id: string;
+  contractor_id: string | null;
+  adjuster_id: string | null;
+}
 
 type ExtendedReport = Report & {
   property?: {
