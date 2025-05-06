@@ -283,28 +283,35 @@ const FileUpload: React.FC<FileUploadProps> = ({
             }
             
             // Determine if this is a property image
-            // For property images, we should never set an assessment_area_id
             if (isPropertyUpload) {
               assessmentAreaId = null;
               console.log('This is a property image upload - not using assessment area ID');
             }
             
+            // Prepare parameters for insert_image_record
+            const insertParams: any = {
+              p_storage_path: storedPath,
+              p_filename: file.name,
+              p_content_type: file.type,
+              p_file_size: file.size,
+              p_uploaded_by: userId,
+              p_ai_processed: false,
+            };
+            
+            // Only add report_id if it exists
+            if (reportId) {
+              insertParams.p_report_id = reportId;
+            }
+            
+            // Only add assessment_area_id if it exists and this is not a property image
+            if (assessmentAreaId && !isPropertyUpload) {
+              insertParams.p_assessment_area_id = assessmentAreaId;
+            }
+            
             // Use the RPC function to safely insert the image record
             const { data: imageId, error: rpcError } = await supabase.rpc(
               'insert_image_record',
-              {
-                p_storage_path: storedPath,
-                p_filename: file.name,
-                p_content_type: file.type,
-                p_file_size: file.size,
-                p_report_id: reportId || undefined,
-                // For property images, always send null for assessment_area_id
-                p_assessment_area_id: assessmentAreaId || undefined,
-                p_uploaded_by: userId,
-                p_ai_processed: false,
-                // For property images, add the property ID
-                p_property_id: isPropertyUpload ? propertyId : undefined
-              }
+              insertParams
             );
             
             if (rpcError) {
@@ -313,19 +320,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
               // If foreign key error occurred, try inserting without the assessment_area_id
               if (rpcError.code === '23503' && rpcError.message.includes('images_assessment_area_id_fkey')) {
                 console.log('Trying again without assessment_area_id');
+                delete insertParams.p_assessment_area_id;
+                
                 const { data: retryImageId, error: retryError } = await supabase.rpc(
                   'insert_image_record',
-                  {
-                    p_storage_path: storedPath,
-                    p_filename: file.name,
-                    p_content_type: file.type,
-                    p_file_size: file.size,
-                    p_report_id: reportId || undefined,
-                    p_assessment_area_id: undefined, // Don't use the area ID
-                    p_uploaded_by: userId,
-                    p_ai_processed: false,
-                    p_property_id: isPropertyUpload ? propertyId : undefined
-                  }
+                  insertParams
                 );
                 
                 if (retryError) {

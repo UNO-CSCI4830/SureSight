@@ -10,10 +10,9 @@ CREATE OR REPLACE FUNCTION public.insert_image_record(
   p_report_id TEXT DEFAULT NULL,
   p_assessment_area_id TEXT DEFAULT NULL,
   p_uploaded_by TEXT DEFAULT NULL,
-  p_ai_processed BOOLEAN DEFAULT FALSE,
-  p_property_id TEXT DEFAULT NULL
+  p_ai_processed BOOLEAN DEFAULT FALSE
 ) 
-RETURNS UUID
+RETURNS JSONB  -- Changed to return JSONB with more details
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -22,7 +21,7 @@ DECLARE
   v_report_id UUID;
   v_assessment_area_id UUID;
   v_uploaded_by UUID;
-  v_property_id UUID;
+  v_result JSONB;
 BEGIN
   -- Handle UUID conversions safely
   BEGIN
@@ -54,17 +53,6 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     v_uploaded_by := NULL;
   END;
-  
-  -- Handle property_id conversion
-  BEGIN
-    IF p_property_id IS NOT NULL AND p_property_id != '' THEN
-      v_property_id := p_property_id::UUID;
-    ELSE
-      v_property_id := NULL;
-    END IF;
-  EXCEPTION WHEN OTHERS THEN
-    v_property_id := NULL;
-  END;
 
   -- Insert the record with explicit parameters to avoid JSON parsing issues
   INSERT INTO public.images (
@@ -75,8 +63,7 @@ BEGIN
     report_id,
     assessment_area_id,
     uploaded_by,
-    ai_processed,
-    property_id
+    ai_processed
   ) 
   VALUES (
     p_storage_path,
@@ -86,18 +73,27 @@ BEGIN
     v_report_id,
     v_assessment_area_id,
     v_uploaded_by,
-    p_ai_processed,
-    v_property_id
+    p_ai_processed
   )
   RETURNING id INTO v_image_id;
   
-  RETURN v_image_id;
+  -- Build a result JSON with all details needed for client-side processing
+  v_result := jsonb_build_object(
+    'id', v_image_id,
+    'storage_path', p_storage_path,
+    'filename', p_filename,
+    'content_type', p_content_type,
+    'file_size', p_file_size,
+    'ai_processed', p_ai_processed
+  );
+  
+  RETURN v_result;
 END;
 $$;
 
 -- Grant usage to authenticated users
-GRANT EXECUTE ON FUNCTION public.insert_image_record(TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.insert_image_record(TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.insert_image_record(TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.insert_image_record(TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, BOOLEAN) TO service_role;
 
 -- Comment to explain the function
-COMMENT ON FUNCTION public.insert_image_record(TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, BOOLEAN, TEXT) IS 'Safely inserts an image record in the database with support for both report images and property images';
+COMMENT ON FUNCTION public.insert_image_record(TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, BOOLEAN) IS 'Safely inserts an image record in the database with support for both report images and property images, returning detailed information for client-side processing';
