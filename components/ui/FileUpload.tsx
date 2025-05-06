@@ -217,7 +217,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
         }
         
-        // Store image metadata in the database
+        // Store image metadata in the database using a different approach
         const imageInsertData = {
           storage_path: fileName,
           filename: file.name,
@@ -226,9 +226,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           report_id: imageReportId,
           assessment_area_id: assessmentAreaId,
           uploaded_by: userId,
-          // Explicitly set metadata to null to avoid JSON parsing issues
           metadata: null,
-          // Ensure these fields are explicitly typed as null to avoid potential issues
           ai_processed: false,
           ai_confidence: null,
           ai_damage_type: null,
@@ -238,27 +236,78 @@ const FileUpload: React.FC<FileUploadProps> = ({
         console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
         
         try {
-          // Use POST client directly to work around potential auth header issues
-          const accessToken = sessionData.session.access_token;
-          const apiUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/images`;
-          
           console.log('Before database insert operation');
           
-          // First attempt with supabase client
-          const { data: imageData, error: dbError } = await supabase
-            .from('images')
-            .insert(imageInsertData)
-            .select('id')
-            .single();
+          // Using two-step approach: first try standard client
+          let imageData = null;
+          let dbError = null;
+          
+          try {
+            // First try with standard client
+            const result = await supabase
+              .from('images')
+              .insert(imageInsertData)
+              .select('id')
+              .single();
+              
+            imageData = result.data;
+            dbError = result.error;
+          } catch (directError) {
+            console.error('Direct supabase client error:', directError);
+            dbError = directError;
+          }
+          
+          // If the first approach fails, try using a direct fetch with specific headers
+          if (dbError && !imageData) {
+            console.log('First insert attempt failed, trying alternative approach');
+            
+            try {
+              // Add a null check for sessionData.session
+              if (!sessionData?.session) {
+                throw new Error('No active session available for authentication');
+              }
+              
+              // Get the access token for authentication
+              const token = sessionData.session.access_token;
+              const apiUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khqevpnoodeggshfxeaa.supabase.co'}/rest/v1/images`;
+              
+              // Perform a direct fetch with controlled headers
+              const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                  'Prefer': 'return=representation'
+                },
+                body: JSON.stringify([imageInsertData])
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Fetch API error:', response.status, errorText);
+                throw new Error(`API error: ${response.status} ${errorText}`);
+              }
+              
+              const responseData = await response.json();
+              if (responseData && responseData.length > 0) {
+                imageData = { id: responseData[0].id };
+                dbError = null;
+                console.log('Successful insert using fetch API:', imageData);
+              }
+            } catch (fetchError) {
+              console.error('Fetch attempt failed:', fetchError);
+            }
+          }
           
           console.log('After database insert operation');
           
           if (dbError) {
             console.error('Error storing image metadata:', dbError);
             console.log('Error details:', JSON.stringify(dbError, null, 2));
-            console.log('Error message:', dbError.message);
-            console.log('Error column details:', dbError.details || 'No details available');
-            // Continue anyway, as the file was uploaded successfully
+            console.log('Error message:', (dbError as any).message || 'No message available');
+            console.log('Error column details:', (dbError as any).details || 'No details available');
+            // Continue anyway, as the file was uploaded successfully to storage
           } else if (imageData) {
             console.log('Successfully inserted image:', imageData);
             uploadedImageIds.push(imageData.id);
@@ -267,7 +316,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
             // Record the activity with the user_id
             if (userId) {
               try {
-                // Add entry in activities table to track image upload with properly formatted details
+                // Add entry in activities table to track image upload
                 const activityDetails = {
                   image_id: imageData.id,
                   filename: file.name

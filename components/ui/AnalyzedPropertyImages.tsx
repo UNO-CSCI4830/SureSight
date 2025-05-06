@@ -74,36 +74,39 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
   const getPublicImageUrl = (storagePath: string) => {
     if (!storagePath) return '';
     
-    // Handle the case where the bucket name is "property-images"
-    const bucket = storagePath.startsWith('property-images/') ? 'property-images' : 'property-images';
+    console.log('Processing image path:', storagePath);
     
-    // Clean up the storage path to get just the file path part
-    let filePath = storagePath;
+    // Always use 'property-images' as the bucket name
+    const bucket = 'property-images';
     
-    // If the path has the format: property-images/auth_user_id/properties/property_id/filename
-    // or property-images/property-images/auth_user_id/properties/property_id/filename
-    // Extract just the path without the initial bucket prefix
-    if (storagePath.startsWith(`${bucket}/${bucket}/`)) {
-      // Handle doubled bucket name
-      filePath = storagePath;
-    } else if (storagePath.startsWith(`${bucket}/`)) {
-      // Handle single bucket name
-      filePath = storagePath;
-    }
-    
-    // Log path information for debugging
-    console.log('Getting public URL for path:', storagePath);
-    console.log('Using bucket:', bucket);
-    console.log('Using file path:', filePath);
+    // We don't need to modify the storage path when getting a public URL
+    // The path in the database already contains the full path needed
     
     // Get public URL using Supabase client
     try {
-      const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      console.log('Generated public URL:', data?.publicUrl);
-      return data?.publicUrl || '';
+      const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+      const publicUrl = data?.publicUrl || '';
+      
+      console.log('Generated public URL:', publicUrl);
+      
+      // Store this URL for future reference
+      if (publicUrl) {
+        try {
+          localStorage.setItem(`img_path_${storagePath}`, publicUrl);
+        } catch (e) {
+          // Ignore storage errors
+        }
+      }
+      
+      return publicUrl;
     } catch (err) {
       console.error('Error getting public URL:', err);
-      return '';
+      
+      // Attempt to use a direct URL construction as a fallback
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khqevpnoodeggshfxeaa.supabase.co';
+      const fallbackUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodeURIComponent(storagePath)}`;
+      console.log('Using fallback URL:', fallbackUrl);
+      return fallbackUrl;
     }
   };
   
