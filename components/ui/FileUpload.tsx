@@ -158,21 +158,21 @@ const FileUpload: React.FC<FileUploadProps> = ({
         // Construct storage path based on bucket type to match RLS policies
         let fileName;
         if (bucket === 'reports') {
-          // For reports bucket: reports/reports/{auth_user_id}/{optional_report_id}-{timestamp}-{file_id}.{ext}
+          // For reports bucket: reports/{auth_user_id}/{optional_report_id}/{timestamp}-{file_id}.{ext}
           const reportPrefix = reportId ? `${reportId}/` : '';
-          fileName = `${bucket}/${authUserId}/${reportPrefix}${fileId}-${file.name}`;
+          fileName = `${authUserId}/${reportPrefix}${fileId}-${file.name}`;
         } else if (bucket === 'property-images') {
-          // For property-images bucket: property-images/property-images/{auth_user_id}/properties/{optional_property_id}/{timestamp}-{file_id}.{ext}
+          // For property-images bucket: {auth_user_id}/properties/{optional_property_id}/{timestamp}-{file_id}.{ext}
           // Extract property ID from storage path if available
           const propertyId = storagePath.includes('properties/') ? 
             storagePath.split('properties/')[1].split('/')[0] : '';
-          fileName = `${bucket}/${authUserId}/properties/${propertyId}/${fileId}-${file.name}`;
+          fileName = `${authUserId}/properties/${propertyId}/${fileId}-${file.name}`;
         } else {
           // For other buckets, include auth user ID at the beginning of the path
-          fileName = `${bucket}/${authUserId}/${storagePath}${storagePath ? '/' : ''}${fileId}-${file.name}`;
+          fileName = `${authUserId}/${storagePath}${storagePath ? '/' : ''}${fileId}-${file.name}`;
         }
         
-        console.log(`Uploading file: ${file.name} to path: ${fileName}`);
+        console.log(`Uploading file: ${file.name} to path: ${fileName} in bucket: ${bucket}`);
         
         // Upload the file to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -204,7 +204,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         console.log(`Got public URL: ${imageUrl}`);
         
         // Determine the report ID from the provided prop or from the storage path
-        const imageReportId = reportId || 
+        let imageReportId = reportId || 
           (storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null);
         
         console.log(`Using report ID for database entry: ${imageReportId || 'none'}`);
@@ -215,6 +215,37 @@ const FileUpload: React.FC<FileUploadProps> = ({
         if (pathParts[0] === 'reports' && pathParts.length >= 3 && pathParts[2] !== 'general') {
           assessmentAreaId = pathParts[2];
           console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
+        }
+
+        // Validate foreign keys before inserting
+        if (imageReportId) {
+          // Check if report exists before attempting to reference it
+          const { data: reportExists, error: reportCheckError } = await supabase
+            .from('reports')
+            .select('id')
+            .eq('id', imageReportId)
+            .single();
+            
+          if (reportCheckError) {
+            console.error(`Invalid report ID: ${imageReportId}`, reportCheckError);
+            // Don't use the report ID if it's invalid
+            imageReportId = null;
+          }
+        }
+        
+        if (assessmentAreaId) {
+          // Check if assessment area exists before attempting to reference it
+          const { data: areaExists, error: areaCheckError } = await supabase
+            .from('assessment_areas')
+            .select('id')
+            .eq('id', assessmentAreaId)
+            .single();
+            
+          if (areaCheckError) {
+            console.error(`Invalid assessment area ID: ${assessmentAreaId}`, areaCheckError);
+            // Don't use the assessment area ID if it's invalid
+            assessmentAreaId = null;
+          }
         }
         
         // Store image metadata in the database using our safer approach
@@ -229,8 +260,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
           metadata: null, // Explicitly set JSON fields to null
           ai_processed: false,
           ai_confidence: null,
+          // These are custom enum types, so set them to null explicitly
           ai_damage_type: null,
-          ai_damage_severity: null
+          ai_damage_severity: null,
+          // Add width and height if available (for images)
+          width: null,
+          height: null
         };
         
         console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
@@ -312,18 +347,28 @@ const FileUpload: React.FC<FileUploadProps> = ({
         });
         setFiles([]);
       } else {
+        // Provide more detailed error messaging
+        let errorMessage = `${uploadedUrls.length} of ${uploadedUrls.length + failedUploads.length} files uploaded.`;
+        if (failedUploads.length > 0) {
+          errorMessage += ` Failed: ${failedUploads.join(', ')}`;
+        }
+        
         setMessage({
-          text: `${uploadedUrls.length} file(s) uploaded. Failed: ${failedUploads.join(', ')}`,
+          text: errorMessage,
           type: 'error'
         });
         // Remove only successfully uploaded files
         const successIds = new Set(uploadedUrls.map(url => {
           const parts = url.split('/');
           const fileNameWithExt = parts[parts.length - 1];
-          return fileNameWithExt.split('.')[0]; // Extract the ID part
+          const fileIdPart = fileNameWithExt.split('-')[0];
+          return fileIdPart; // Extract just the ID part without timestamp
         }));
         
-        setFiles(prevFiles => prevFiles.filter(f => !successIds.has(f.id)));
+        setFiles(prevFiles => prevFiles.filter(f => {
+          const fileIdPart = f.id.split('-')[1]; // Get the random part after timestamp
+          return !successIds.has(fileIdPart);
+        }));
       }
       
       // Call the callback with URLs if provided

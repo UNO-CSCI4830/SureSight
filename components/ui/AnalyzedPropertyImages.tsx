@@ -76,18 +76,28 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
     
     console.log('Processing image path:', storagePath);
     
-    // Always use 'property-images' as the bucket name
-    const bucket = 'property-images';
+    // Determine the correct bucket based on the storage path
+    let bucket = 'property-images'; // Default bucket
     
-    // We don't need to modify the storage path when getting a public URL
-    // The path in the database already contains the full path needed
+    // If the path already contains the full URL, return it directly
+    if (storagePath.startsWith('http')) {
+      return storagePath;
+    }
+    
+    // If the path already includes the bucket name at the start, extract it
+    if (storagePath.startsWith('property-images/') || storagePath.startsWith('reports/')) {
+      const parts = storagePath.split('/');
+      bucket = parts[0];
+      // Remove the bucket name from the path for proper URL construction
+      storagePath = storagePath.substring(bucket.length + 1); // +1 for the slash
+    }
     
     // Get public URL using Supabase client
     try {
       const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
       const publicUrl = data?.publicUrl || '';
       
-      console.log('Generated public URL:', publicUrl);
+      console.log(`Generated public URL for ${bucket}/${storagePath}:`, publicUrl);
       
       // Store this URL for future reference
       if (publicUrl) {
