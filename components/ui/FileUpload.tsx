@@ -146,19 +146,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
       console.log('Current user ID:', userId);
       console.log('Auth user ID:', authUserId);
       if (reportId) {
-        console.log(`Using explicit report ID: ${reportId}`);
+        console.log(`Using report ID: ${reportId}`);
       }
       
       for (const filePreview of files) {
         const file = filePreview.file;
         const fileId = `${Date.now()}-${filePreview.id}`;
         
-        // Generate a deterministic file path based on authenticated user and timestamp
-        let fileName = `${authUserId}/${fileId}-${file.name}`;
-        
-        // If a storage path is provided, use it to structure the file location
+        // Generate file path based on provided storagePath or default path
+        let fileName: string;
         if (storagePath) {
           fileName = `${storagePath}/${fileId}-${file.name}`;
+        } else {
+          fileName = `${authUserId}/${fileId}-${file.name}`;
         }
         
         console.log(`Uploading file: ${file.name} to path: ${fileName} in bucket: ${bucket}`);
@@ -192,14 +192,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
         
         console.log(`Got public URL: ${imageUrl}`);
         
-        // Determine assessment area ID if applicable (from storagePath)
+        // Determine assessment area ID if applicable from the storage path
         let assessmentAreaId: string | null = null;
-        if (storagePath && storagePath.includes('/') && !storagePath.endsWith('general')) {
-          const pathSegments = storagePath.split('/');
-          // Check if the last segment might be an assessment area ID 
-          // (assumes format like 'reports/{reportId}/{areaId}')
-          if (pathSegments.length >= 3) {
-            assessmentAreaId = pathSegments[pathSegments.length - 1];
+        if (storagePath && storagePath.includes('/')) {
+          const pathParts = storagePath.split('/');
+          // For paths like reports/[reportId]/[areaId]
+          if (pathParts.length >= 3 && pathParts[2] && pathParts[2] !== 'general') {
+            assessmentAreaId = pathParts[2];
             console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
           }
         }
@@ -207,27 +206,28 @@ const FileUpload: React.FC<FileUploadProps> = ({
         // Only try to insert into database if we have a user ID
         if (userId) {
           try {
-            // Insert a record in the images table
-            const { data: imageData, error: imageError } = await supabase
-              .from('images')
-              .insert({
-                storage_path: `${bucket}/${fileName}`, // Store the full path including bucket
-                filename: file.name,
-                content_type: file.type,
-                file_size: file.size,
-                report_id: reportId, // Will be null if not provided
-                assessment_area_id: assessmentAreaId, // Will be null if not detected
-                uploaded_by: userId,
-                ai_processed: false
-              })
-              .select('id')
-              .single();
-              
-            if (imageError) {
-              console.error('Error storing image record in database:', imageError);
-              // Continue with the upload even if database insertion fails
-            } else {
-              console.log(`Successfully stored image record with ID: ${imageData.id}`);
+            // Store the full path with bucket prefix for consistent retrieval
+            const fullStoragePath = `${bucket}/${fileName}`;
+            
+            // Use the RPC function to safely insert the image record
+            const { data: imageId, error: rpcError } = await supabase.rpc(
+              'insert_image_record',
+              {
+                p_storage_path: fullStoragePath,
+                p_filename: file.name,
+                p_content_type: file.type,
+                p_file_size: file.size,
+                p_report_id: reportId ?? undefined,
+                p_assessment_area_id: assessmentAreaId ?? undefined,
+                p_uploaded_by: userId ?? undefined,
+                p_ai_processed: false
+              }
+            );
+            
+            if (rpcError) {
+              console.error('Error calling insert_image_record function:', rpcError);
+            } else if (imageId) {
+              console.log(`Successfully inserted image record with ID: ${imageId}`);
             }
           } catch (dbError) {
             console.error('Exception during database operations:', dbError);
