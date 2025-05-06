@@ -75,6 +75,8 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   }, [propertyId, isOpen]);
 
   const handleUploadComplete = (urls: string[]) => {
+    console.log(`Upload completed with ${urls.length} images for property ${propertyId}`);
+    
     // Refresh the property images after upload
     onUploadComplete();
     
@@ -136,7 +138,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
                   maxFileSize={5}
                   multiple={true}
                   onUploadComplete={handleUploadComplete}
-                  reportId={reportId || undefined}
+                  // Don't include reportId for property images to keep them separate
                 />
                 <div className="mt-4 text-sm text-gray-500">
                   <p>Only new images will be automatically analyzed.</p>
