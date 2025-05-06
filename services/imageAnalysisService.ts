@@ -458,12 +458,10 @@ export const deletePropertyImage = async (imageId: string, storagePath: string):
 };
 
 /**
- * Directly invoke the AI analysis function without relying on the database trigger
- * @param imageId The database ID of the image to analyze
- * @param imageUrl The public URL of the image to analyze
- * @returns Object containing analysis results or error information
+ * Directly invoke the AI analysis function using our API proxy
+ * This avoids CORS issues that occur when calling the Edge Function directly from the browser
  */
-export const invokeImageAnalysis = async (imageId: string, imageUrl: string): Promise<{
+export const invokeImageAnalysisViaProxy = async (imageId: string): Promise<{
   success: boolean;
   damage_detected?: boolean;
   damage_type?: string;
@@ -473,22 +471,43 @@ export const invokeImageAnalysis = async (imageId: string, imageUrl: string): Pr
   error?: string;
 }> => {
   try {
-    console.log(`Invoking AI analysis for image ${imageId} at ${imageUrl}`);
+    console.log(`Invoking AI analysis via proxy API for image ${imageId}`);
     
-    // Call the Supabase Edge Function directly
-    const { data, error } = await supabase.functions.invoke("analyze-image-damage", {
-      body: { imageId, imageUrl }
+    // Call our API proxy endpoint instead of the Supabase Edge Function directly
+    const response = await fetch('/api/analyze-image-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ imageId })
     });
     
-    if (error) {
-      console.error('Error invoking analyze-image-damage function:', error);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Proxy API error:', errorData);
       return {
         success: false,
-        error: error.message || 'Failed to invoke analysis function'
+        error: errorData.error || `API error: ${response.status} ${response.statusText}`
       };
     }
     
-    console.log('AI Analysis results:', data);
+    const data = await response.json();
+    console.log('AI Analysis results from proxy:', data);
+    
+    // Update the image record in the database with the results
+    const { error: updateError } = await supabase
+      .from('images')
+      .update({
+        ai_processed: true,
+        ai_damage_type: data.damage_type || null,
+        ai_damage_severity: data.severity || null,
+        ai_confidence: data.confidence || 0,
+      })
+      .eq('id', imageId);
+      
+    if (updateError) {
+      console.error('Error updating image with analysis results:', updateError);
+    }
     
     // Return the analysis results to the caller
     return {
@@ -500,7 +519,7 @@ export const invokeImageAnalysis = async (imageId: string, imageUrl: string): Pr
       analysis: data.analysis
     };
   } catch (error) {
-    console.error('Exception during image analysis invocation:', error);
+    console.error('Exception during image analysis invocation via proxy:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error analyzing image'
@@ -523,51 +542,8 @@ export const triggerImageAnalysis = async (imageId: string): Promise<{
   error?: string;
 }> => {
   try {
-    // First, get the image data from the database
-    const { data: imageData, error: imageError } = await supabase
-      .from('images')
-      .select('storage_path')
-      .eq('id', imageId)
-      .single();
-    
-    if (imageError || !imageData) {
-      console.error('Error fetching image data:', imageError);
-      return {
-        success: false,
-        error: imageError?.message || 'Image not found'
-      };
-    }
-    
-    // Get the public URL for the image
-    const storagePath = imageData.storage_path;
-    
-    // Determine the bucket name from the storage path
-    const pathParts = storagePath.split('/');
-    if (pathParts.length < 2) {
-      return {
-        success: false,
-        error: 'Invalid storage path format'
-      };
-    }
-    
-    const bucket = pathParts[0]; // First part should be the bucket name
-    const filePath = storagePath.substring(bucket.length + 1); // +1 for the slash
-    
-    // Get public URL using Supabase
-    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    const imageUrl = urlData?.publicUrl;
-    
-    if (!imageUrl) {
-      return {
-        success: false,
-        error: 'Failed to generate public URL for image'
-      };
-    }
-    
-    console.log(`Manually triggering analysis for image ${imageId} at ${imageUrl}`);
-    
-    // Call our direct invocation function
-    return await invokeImageAnalysis(imageId, imageUrl);
+    // Call our proxy endpoint instead of directly invoking the Edge Function
+    return await invokeImageAnalysisViaProxy(imageId);
   } catch (error) {
     console.error('Error triggering manual image analysis:', error);
     return {
