@@ -242,21 +242,27 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
           // Record the activity with the user_id
           if (userId) {
-            // Add entry in activities table to track image upload
-            const { error: activityError } = await supabase
-              .from('activities')
-              .insert({
-                user_id: userId,
-                report_id: imageReportId,
-                activity_type: 'image_upload',
-                details: {
-                  image_id: imageData.id,
-                  filename: file.name
-                }
-              });
+            try {
+              // Add entry in activities table to track image upload with properly formatted details
+              const activityDetails = {
+                image_id: imageData.id,
+                filename: file.name
+              };
+              
+              const { error: activityError } = await supabase
+                .from('activities')
+                .insert({
+                  user_id: userId,
+                  report_id: imageReportId,
+                  activity_type: 'image_upload',
+                  details: activityDetails
+                });
 
-            if (activityError) {
-              console.error('Error recording activity:', activityError);
+              if (activityError) {
+                console.error('Error recording activity:', activityError);
+              }
+            } catch (activityErr) {
+              console.error('Exception recording activity:', activityErr);
               // Continue anyway as the image was uploaded successfully
             }
           }
