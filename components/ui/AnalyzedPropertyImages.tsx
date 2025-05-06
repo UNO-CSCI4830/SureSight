@@ -75,19 +75,31 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
     if (!storagePath) return '';
     
     // Handle the case where the bucket name is "property-images"
-    const bucket = 'property-images';
+    const bucket = storagePath.startsWith('property-images/') ? 'property-images' : 'property-images';
     
-    // Extract the file path correctly, handling the duplicate "property-images/" prefix if present
+    // Clean up the storage path to get just the file path part
     let filePath = storagePath;
     
-    // If storagePath starts with the bucket name, remove it to prevent duplication
-    if (storagePath.startsWith(`${bucket}/`)) {
-      filePath = storagePath.substring(bucket.length + 1); // +1 for the slash
+    // If the path has the format: property-images/auth_user_id/properties/property_id/filename
+    // or property-images/property-images/auth_user_id/properties/property_id/filename
+    // Extract just the path without the initial bucket prefix
+    if (storagePath.startsWith(`${bucket}/${bucket}/`)) {
+      // Handle doubled bucket name
+      filePath = storagePath;
+    } else if (storagePath.startsWith(`${bucket}/`)) {
+      // Handle single bucket name
+      filePath = storagePath;
     }
+    
+    // Log path information for debugging
+    console.log('Getting public URL for path:', storagePath);
+    console.log('Using bucket:', bucket);
+    console.log('Using file path:', filePath);
     
     // Get public URL using Supabase client
     try {
       const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      console.log('Generated public URL:', data?.publicUrl);
       return data?.publicUrl || '';
     } catch (err) {
       console.error('Error getting public URL:', err);

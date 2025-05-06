@@ -19,12 +19,14 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
     }
     
     if (!reportData || reportData.length === 0) {
+      console.log(`No reports found for property: ${propertyId}`);
       // No reports found for this property
       return [];
     }
     
     // Extract report IDs
     const reportIds = reportData.map(report => report.id);
+    console.log(`Found ${reportIds.length} reports for property: ${propertyId}`, reportIds);
     
     // Then fetch all images that belong to these reports
     const { data: imageData, error: imageError } = await supabase
@@ -44,6 +46,11 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
     if (imageError) {
       console.error('Error fetching images for reports:', imageError);
       throw imageError;
+    }
+    
+    console.log(`Retrieved ${imageData?.length || 0} images for property: ${propertyId}`);
+    if (imageData && imageData.length > 0) {
+      console.log("Sample image data:", JSON.stringify(imageData[0], null, 2));
     }
     
     return imageData || [];

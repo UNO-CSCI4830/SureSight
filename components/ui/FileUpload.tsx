@@ -226,15 +226,25 @@ const FileUpload: React.FC<FileUploadProps> = ({
           report_id: imageReportId,
           assessment_area_id: assessmentAreaId,
           uploaded_by: userId,
-          // Set metadata to null by default, fix potential parsing issues
-          metadata: null
+          // Explicitly set metadata to null to avoid JSON parsing issues
+          metadata: null,
+          // Ensure these fields are explicitly typed as null to avoid potential issues
+          ai_processed: false,
+          ai_confidence: null,
+          ai_damage_type: null,
+          ai_damage_severity: null
         };
         
         console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
-        console.log('Headers for debugging:', JSON.stringify(supabase['headers'] || {}, null, 2));
         
         try {
+          // Use POST client directly to work around potential auth header issues
+          const accessToken = sessionData.session.access_token;
+          const apiUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/images`;
+          
           console.log('Before database insert operation');
+          
+          // First attempt with supabase client
           const { data: imageData, error: dbError } = await supabase
             .from('images')
             .insert(imageInsertData)
