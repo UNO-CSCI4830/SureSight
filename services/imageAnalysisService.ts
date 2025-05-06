@@ -7,34 +7,46 @@ import { supabase } from '../utils/supabaseClient';
  */
 export const getPropertyImageAnalyses = async (propertyId: string) => {
   try {
-    // Join images with reports to get images for a specific property
-    const { data: imageData, error } = await supabase
+    // First, get all reports that belong to this property
+    const { data: reportData, error: reportError } = await supabase
       .from('reports')
-      .select(`
-        images(
-          id,
-          storage_path,
-          created_at,
-          ai_processed,
-          ai_damage_type,
-          ai_damage_severity,
-          ai_confidence
-        )
-      `)
+      .select('id')
       .eq('property_id', propertyId);
 
-    if (error) {
-      console.error('Error fetching property image analyses:', error);
-      throw error;
+    if (reportError) {
+      console.error('Error fetching reports for property:', reportError);
+      throw reportError;
     }
     
-    // Flatten the results to get an array of images
-    const images = imageData?.flatMap(report => report.images || []) || [];
+    if (!reportData || reportData.length === 0) {
+      // No reports found for this property
+      return [];
+    }
     
-    // Sort by created_at in descending order
-    return images.sort((a, b) => {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    // Extract report IDs
+    const reportIds = reportData.map(report => report.id);
+    
+    // Then fetch all images that belong to these reports
+    const { data: imageData, error: imageError } = await supabase
+      .from('images')
+      .select(`
+        id,
+        storage_path,
+        created_at,
+        ai_processed,
+        ai_damage_type,
+        ai_damage_severity,
+        ai_confidence
+      `)
+      .in('report_id', reportIds)
+      .order('created_at', { ascending: false });
+
+    if (imageError) {
+      console.error('Error fetching images for reports:', imageError);
+      throw imageError;
+    }
+    
+    return imageData || [];
   } catch (error) {
     console.error('Error fetching property image analyses:', error);
     return [];
@@ -94,5 +106,75 @@ export const getImageAnalysis = async (imageId: string) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error fetching analysis'
     };
+  }
+};
+
+/**
+ * Get or create a generic report for a property to use for direct property image uploads
+ * This allows images to be uploaded directly on the property page without having to create a report first
+ * @param propertyId The ID of the property
+ * @returns The report ID to use for image uploads
+ */
+export const getOrCreateGenericPropertyReport = async (propertyId: string): Promise<string | null> => {
+  try {
+    // First check if a generic report already exists for this property
+    const { data: existingReports, error: fetchError } = await supabase
+      .from('reports')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('title', 'Property Images')
+      .limit(1);
+
+    if (fetchError) {
+      console.error('Error checking for generic property report:', fetchError);
+      throw fetchError;
+    }
+
+    // If a generic report exists, return its ID
+    if (existingReports && existingReports.length > 0) {
+      return existingReports[0].id;
+    }
+
+    // Get the current user for creator_id
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      console.error('No authenticated user to create report');
+      return null;
+    }
+
+    // Get the database user ID from the auth user ID
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', session.user.id)
+      .single();
+
+    if (userError || !userData) {
+      console.error('Error fetching user data:', userError);
+      return null;
+    }
+
+    // Create a new generic report for this property
+    const { data: newReport, error: createError } = await supabase
+      .from('reports')
+      .insert({
+        property_id: propertyId,
+        creator_id: userData.id,
+        title: 'Property Images',
+        description: 'Generic report for property images uploaded directly from the property page',
+        status: 'draft'
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Error creating generic property report:', createError);
+      throw createError;
+    }
+
+    return newReport.id;
+  } catch (error) {
+    console.error('Failed to get or create generic property report:', error);
+    return null;
   }
 };

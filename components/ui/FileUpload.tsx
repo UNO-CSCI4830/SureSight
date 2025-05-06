@@ -13,7 +13,7 @@ interface FileUploadProps {
   multiple?: boolean; // Allow multiple file selection
   buttonLabel?: string; // Custom label for the button
   buttonClassName?: string; // Custom class for the button
-  propertyId?: string; // Added property ID for linking uploads to properties
+  reportId?: string; // ID of the report to link images to
 }
 
 interface FilePreview {
@@ -31,7 +31,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   multiple = true, // Default to true for multiple file uploads
   buttonLabel,
   buttonClassName,
-  propertyId
+  reportId
 }) => {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
@@ -135,21 +135,30 @@ const FileUpload: React.FC<FileUploadProps> = ({
     const failedUploads: string[] = [];
     
     try {
+      console.log(`Starting upload of ${files.length} files to bucket: ${bucket}, path: ${storagePath}`);
+      if (reportId) {
+        console.log(`Using explicit report ID: ${reportId}`);
+      }
+      
       for (const filePreview of files) {
         const file = filePreview.file;
         const fileExt = file.name.split('.').pop();
         const fileId = `${Date.now()}-${filePreview.id}`;
         const fileName = `${storagePath}${storagePath ? '/' : ''}${fileId}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
+        console.log(`Uploading file: ${file.name} to path: ${fileName}`);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from(bucket)
           .upload(fileName, file);
         
         if (uploadError) {
+          console.error(`Error uploading file ${file.name}:`, uploadError);
           failedUploads.push(file.name);
           continue;
         }
         
+        console.log(`File uploaded successfully, getting public URL...`);
         const { data: publicUrlData } = supabase.storage
           .from(bucket)
           .getPublicUrl(fileName);
@@ -157,22 +166,43 @@ const FileUpload: React.FC<FileUploadProps> = ({
         const imageUrl = publicUrlData?.publicUrl;
         
         if (!imageUrl) {
+          console.error(`Failed to get public URL for ${fileName}`);
           failedUploads.push(file.name);
           continue;
         }
         
+        console.log(`Got public URL: ${imageUrl}`);
+        
+        // Determine the report ID from the provided prop or from the storage path
+        const imageReportId = reportId || 
+          (storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null);
+        
+        console.log(`Using report ID for database entry: ${imageReportId || 'none'}`);
+        
+        // Check if an assessment area ID is included in the path
+        let assessmentAreaId: string | null = null;
+        const pathParts = storagePath.split('/');
+        if (pathParts[0] === 'reports' && pathParts.length >= 3 && pathParts[2] !== 'general') {
+          assessmentAreaId = pathParts[2];
+          console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
+        }
+        
         // Store image metadata in the database
+        const imageInsertData = {
+          storage_path: fileName,
+          filename: file.name,
+          content_type: file.type,
+          file_size: file.size,
+          report_id: imageReportId,
+          assessment_area_id: assessmentAreaId,
+          uploaded_by: userId
+        };
+        
+        console.log(`Inserting image record:`, imageInsertData);
+        
         const { data: imageData, error: dbError } = await supabase
           .from('images')
-          .insert({
-            storage_path: fileName,
-            filename: file.name,
-            content_type: file.type,
-            file_size: file.size,
-            report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null,
-            property_id: propertyId || null, // Add property_id to the insert
-            uploaded_by: userId
-          })
+          .insert(imageInsertData)
           .select('id')
           .single();
           
@@ -181,6 +211,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           // Continue anyway, as the file was uploaded successfully
         } else if (imageData) {
           uploadedImageIds.push(imageData.id);
+          console.log(`Image record created with ID: ${imageData.id}`);
 
           // Record the activity with the user_id
           if (userId) {
@@ -189,12 +220,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
               .from('activities')
               .insert({
                 user_id: userId,
-                report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null,
+                report_id: imageReportId,
                 activity_type: 'image_upload',
                 details: {
                   image_id: imageData.id,
-                  filename: file.name,
-                  property_id: propertyId || null // Include property ID in activity details
+                  filename: file.name
                 }
               });
 
@@ -207,6 +237,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           // Trigger image analysis for newly uploaded images
           if (file.type.startsWith('image/')) {
             try {
+              console.log(`Starting image analysis for ${imageData.id}`);
               await analyzeImage(imageUrl, imageData.id);
             } catch (analyzeErr) {
               console.error('Error analyzing image:', analyzeErr);
@@ -247,9 +278,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
       
       // Call the callback with URLs if provided
       if (onUploadComplete && uploadedUrls.length > 0) {
+        console.log(`Upload complete, calling onUploadComplete with ${uploadedUrls.length} URLs`);
         onUploadComplete(uploadedUrls);
       }
     } catch (error: any) {
+      console.error('Error in file upload process:', error);
       setMessage({
         text: `Upload failed: ${error.message}`,
         type: 'error'

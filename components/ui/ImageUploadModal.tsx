@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FileUpload from './FileUpload';
-import { getPropertyImageAnalyses } from '../../services/imageAnalysisService';
+import { getPropertyImageAnalyses, getOrCreateGenericPropertyReport } from '../../services/imageAnalysisService';
 import Button from './Button';
 
 interface ImageUploadModalProps {
@@ -17,6 +17,33 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   onUploadComplete
 }) => {
   const [uploading, setUploading] = useState(false);
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get or create a generic report for this property
+  useEffect(() => {
+    const getReport = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const reportId = await getOrCreateGenericPropertyReport(propertyId);
+        if (!reportId) {
+          throw new Error('Unable to create or find a report for this property');
+        }
+        setReportId(reportId);
+      } catch (err) {
+        console.error('Error getting report for property:', err);
+        setError('Failed to prepare upload. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isOpen && propertyId) {
+      getReport();
+    }
+  }, [propertyId, isOpen]);
 
   const handleUploadComplete = (urls: string[]) => {
     // Refresh the property images after upload
@@ -57,25 +84,37 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
           
           {/* Modal body */}
           <div className="p-6">
-            <div className="p-2">
-              <p className="mb-4 text-gray-600">
-                Upload new images of your property. Each image will be automatically analyzed 
-                for potential damage using our AI-powered detection system.
-              </p>
-              <FileUpload 
-                bucket="property-images"
-                storagePath={`properties/${propertyId}`}
-                acceptedFileTypes="image/*"
-                maxFileSize={5}
-                multiple={true}
-                onUploadComplete={handleUploadComplete}
-                propertyId={propertyId}
-              />
-              <div className="mt-4 text-sm text-gray-500">
-                <p>Only new images will be automatically analyzed.</p>
-                <p>Supported formats: JPG, PNG, WebP (Max: 5MB per image)</p>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-t-blue-500 border-gray-200"></div>
+                <p className="mt-2 text-gray-600">Preparing upload...</p>
               </div>
-            </div>
+            ) : error ? (
+              <div className="bg-red-50 p-4 rounded-md border border-red-200">
+                <p className="text-red-700">{error}</p>
+                <Button variant="outline" className="mt-3" onClick={onClose}>Close</Button>
+              </div>
+            ) : (
+              <div className="p-2">
+                <p className="mb-4 text-gray-600">
+                  Upload new images of your property. Each image will be automatically analyzed 
+                  for potential damage using our AI-powered detection system.
+                </p>
+                <FileUpload 
+                  bucket="property-images"
+                  storagePath={`properties/${propertyId}`}
+                  acceptedFileTypes="image/*"
+                  maxFileSize={5}
+                  multiple={true}
+                  onUploadComplete={handleUploadComplete}
+                  reportId={reportId || undefined}
+                />
+                <div className="mt-4 text-sm text-gray-500">
+                  <p>Only new images will be automatically analyzed.</p>
+                  <p>Supported formats: JPG, PNG, WebP (Max: 5MB per image)</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

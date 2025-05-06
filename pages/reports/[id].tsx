@@ -523,28 +523,46 @@ const ReportDetailPage: React.FC = () => {
         throw userError;
       }
 
+      console.log(`Preparing to add ${urls.length} images to report ${report.id}${areaId ? ` and area ${areaId}` : ''}`);
+
       // Create entries for each uploaded image
       const imagesData = urls.map((url) => {
-        const filename = url.split("/").pop() || "unknown";
+        // Extract the actual storage path from the URL - this is important
+        // URL format is something like: https://[project].supabase.co/storage/v1/object/public/reports/[path]
+        // We just need the part after the bucket name
+        const urlParts = url.split('/');
+        const bucketIndex = urlParts.indexOf('reports');
+        const storagePath = bucketIndex >= 0 && bucketIndex < urlParts.length - 1 
+          ? urlParts.slice(bucketIndex).join('/') 
+          : url; // Fallback to full URL if we can't parse it correctly
+        
+        const filename = urlParts[urlParts.length - 1] || "unknown";
+
+        console.log(`Processing image: ${filename}, area ID: ${areaId || 'none'}, path: ${storagePath}`);
 
         return {
           report_id: report.id,
           assessment_area_id: areaId || null,
           filename,
-          storage_path: url,
+          storage_path: storagePath,
           uploaded_by: userData.id,
           ai_processed: false,
         };
       });
 
       if (imagesData.length > 0) {
-        const { error: insertError } = await supabase
+        console.log("Inserting image records into database:", imagesData);
+        const { data: insertedData, error: insertError } = await supabase
           .from("images")
-          .insert(imagesData);
+          .insert(imagesData)
+          .select();
 
         if (insertError) {
+          console.error("Error inserting images:", insertError);
           throw insertError;
         }
+
+        console.log("Successfully inserted images:", insertedData);
 
         // Show success message
         setMessage({
