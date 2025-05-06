@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { getPropertyImageAnalyses } from '../../services/imageAnalysisService';
+import { getPropertyImageAnalyses, deletePropertyImage } from '../../services/imageAnalysisService';
 import ImageAnalysisResults from './ImageAnalysisResults';
 import Button from './Button';
+import { supabase } from '../../utils/supabaseClient';
 
 interface AnalyzedPropertyImagesProps {
   propertyId: string;
@@ -10,7 +11,7 @@ interface AnalyzedPropertyImagesProps {
 
 interface PropertyImage {
   id: string;
-  storage_path: string; // Changed from url to storage_path
+  storage_path: string;
   created_at: string;
   ai_processed: boolean;
   ai_damage_type: string | null;
@@ -28,6 +29,7 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<PropertyImage | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -67,6 +69,54 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
       day: 'numeric',
     });
   };
+  
+  // Function to get the public URL for an image
+  const getPublicImageUrl = (storagePath: string) => {
+    if (!storagePath) return '';
+    
+    // Extract bucket name from the storage path
+    const pathParts = storagePath.split('/');
+    if (pathParts.length < 2) return '';
+    
+    const bucket = pathParts[0]; // First part should be the bucket name
+    
+    // Get public URL using Supabase client
+    try {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+      return data?.publicUrl || '';
+    } catch (err) {
+      console.error('Error getting public URL:', err);
+      return '';
+    }
+  };
+  
+  // Function to handle image deletion
+  const handleDeleteImage = async (imageId: string, storagePath: string) => {
+    if (!window.confirm('Are you sure you want to delete this image?')) {
+      return;
+    }
+    
+    try {
+      setDeletingImageId(imageId);
+      
+      // Call the service to delete the image
+      await deletePropertyImage(imageId, storagePath);
+      
+      // Remove the image from the local state
+      setImages(prevImages => prevImages.filter(img => img.id !== imageId));
+      
+      // If the deleted image was selected, close the modal
+      if (selectedImage?.id === imageId) {
+        setShowModal(false);
+        setSelectedImage(null);
+      }
+    } catch (err) {
+      console.error('Error deleting image:', err);
+      alert('Failed to delete image. Please try again.');
+    } finally {
+      setDeletingImageId(null);
+    }
+  };
 
   if (loading) {
     return <div className="text-center p-4">Loading property images...</div>;
@@ -89,7 +139,7 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
           <div key={image.id} className="bg-white border border-gray-200 rounded-lg shadow overflow-hidden dark:bg-gray-800 dark:border-gray-700">
             <div className="relative h-48 w-full cursor-pointer" onClick={() => handleImageClick(image)}>
               <Image
-                src={image.storage_path}
+                src={getPublicImageUrl(image.storage_path)}
                 alt="Property image"
                 layout="fill"
                 objectFit="cover"
@@ -120,14 +170,28 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
                 </div>
               )}
               
-              <Button 
-                size="sm"
-                variant="outline"
-                className="mt-2"
-                onClick={() => handleImageClick(image)}
-              >
-                View Details
-              </Button>
+              <div className="flex justify-between mt-2">
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleImageClick(image)}
+                >
+                  View Details
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteImage(image.id, image.storage_path);
+                  }}
+                  disabled={deletingImageId === image.id}
+                  className={deletingImageId === image.id ? "opacity-50 cursor-not-allowed" : ""}
+                >
+                  {deletingImageId === image.id ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
             </div>
           </div>
         ))}
@@ -166,7 +230,7 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
                     <div className="flex-1">
                       <div className="relative h-96 w-full">
                         <Image
-                          src={selectedImage.storage_path}
+                          src={getPublicImageUrl(selectedImage.storage_path)}
                           alt="Property image"
                           layout="fill"
                           objectFit="contain"
@@ -201,8 +265,17 @@ const AnalyzedPropertyImages: React.FC<AnalyzedPropertyImagesProps> = ({ propert
                 )}
               </div>
               
-              {/* Modal footer */}
-              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-end">
+              {/* Modal footer with added delete button */}
+              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-between">
+                <Button 
+                  variant="danger"
+                  disabled={!!selectedImage && deletingImageId === selectedImage.id}
+                  className={selectedImage && deletingImageId === selectedImage.id ? "opacity-50 cursor-not-allowed" : ""}
+                  onClick={() => selectedImage && handleDeleteImage(selectedImage.id, selectedImage.storage_path)}
+                >
+                  {selectedImage && deletingImageId === selectedImage.id ? "Deleting..." : "Delete Image"}
+                </Button>
+                
                 <Button 
                   variant="outline"
                   onClick={() => setShowModal(false)}

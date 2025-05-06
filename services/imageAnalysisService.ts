@@ -178,3 +178,63 @@ export const getOrCreateGenericPropertyReport = async (propertyId: string): Prom
     return null;
   }
 };
+
+/**
+ * Delete a property image from both database and storage
+ * @param imageId The database ID of the image to delete
+ * @param storagePath The storage path of the image to delete
+ * @returns Object indicating success or failure
+ */
+export const deletePropertyImage = async (imageId: string, storagePath: string): Promise<{success: boolean, error?: string}> => {
+  try {
+    // First delete the image from the database
+    const { error: deleteError } = await supabase
+      .from('images')
+      .delete()
+      .eq('id', imageId);
+      
+    if (deleteError) {
+      throw deleteError;
+    }
+    
+    // Then delete any analysis results
+    await supabase
+      .from('image_analysis')
+      .delete()
+      .eq('image_id', imageId);
+    
+    // Extract bucket name from the storage path
+    const pathParts = storagePath.split('/');
+    if (pathParts.length < 2) {
+      throw new Error('Invalid storage path format');
+    }
+    
+    const bucket = pathParts[0]; // First part should be the bucket name
+    
+    // Remove the bucket name from the path to get the actual file path for deletion
+    const filePath = storagePath;
+    
+    // Delete the file from storage
+    const { error: storageError } = await supabase
+      .storage
+      .from(bucket)
+      .remove([filePath]);
+      
+    if (storageError) {
+      console.error('Error deleting file from storage:', storageError);
+      // We've already deleted from the database, so we'll continue despite storage error
+      return {
+        success: true,
+        error: `Image deleted from database but there was an issue removing the file from storage: ${storageError.message}`
+      };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting property image:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error deleting image'
+    };
+  }
+};
