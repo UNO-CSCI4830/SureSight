@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import Icon from './icons/Icon';
 import Button from './Button';
+import { triggerImageAnalysis } from '../../services/imageAnalysisService';
 
 interface FileUploadProps {
   bucket: string;
@@ -339,18 +340,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
               // Directly trigger image analysis after successful upload
               try {
                 console.log(`Triggering AI analysis for image: ${imageId}`);
-                const { data: analysisData, error: analysisError } = await supabase.functions
-                  .invoke("analyze-image-damage", {
-                    body: { 
-                      imageId: imageId,
-                      imageUrl: imageUrl
-                    }
-                  });
+                // Use our proxy API instead of directly calling the Edge Function
+                const result = await triggerImageAnalysis(imageId);
                 
-                if (analysisError) {
-                  console.error(`Error analyzing image ${imageId}:`, analysisError);
+                if (!result.success) {
+                  console.error(`Error analyzing image ${imageId}:`, result.error);
                 } else {
-                  console.log(`Analysis completed for image ${imageId}:`, analysisData);
+                  console.log(`Analysis completed for image ${imageId}:`, result);
                 }
               } catch (analysisErr) {
                 console.error(`Exception during image analysis for ${imageId}:`, analysisErr);
