@@ -1196,7 +1196,7 @@ const ReportDetailPage: React.FC = () => {
                               handleImagesUpload(urls, area.id)
                             }
                             acceptedFileTypes="image/*"
-                            storagePath={`reports/${report.id}/${area.id}`}
+                            storagePath={`${report.id}/${area.id}`}
                             buttonLabel="Add"
                             buttonClassName="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
                             multiple={true}
@@ -1279,7 +1279,7 @@ const ReportDetailPage: React.FC = () => {
                   bucket="reports"
                   onUploadComplete={(urls) => handleImagesUpload(urls)}
                   acceptedFileTypes="image/*"
-                  storagePath={`reports/${report.id}/general`}
+                  storagePath={`${report.id}/general`}
                   buttonLabel="Select Images"
                   buttonClassName="px-4 py-2 mb-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                   multiple={true}

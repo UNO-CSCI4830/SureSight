@@ -206,14 +206,23 @@ const FileUpload: React.FC<FileUploadProps> = ({
         // Only try to insert into database if we have a user ID
         if (userId) {
           try {
-            // Store the full path with bucket prefix for consistent retrieval
-            const fullStoragePath = `${bucket}/${fileName}`;
+            // Fix: Store the path without adding the bucket name again to avoid duplication
+            let storedPath: string = fileName;
+            
+            // If the path already starts with the bucket name, we need to ensure we don't create double bucket prefixes
+            if (fileName.startsWith(`${bucket}/`)) {
+              console.log(`Path already includes bucket name: ${fileName}`);
+              storedPath = fileName;
+            } else {
+              console.log(`Adding bucket name to path: ${bucket}/${fileName}`);
+              storedPath = `${bucket}/${fileName}`;
+            }
             
             // Use the RPC function to safely insert the image record
             const { data: imageId, error: rpcError } = await supabase.rpc(
               'insert_image_record',
               {
-                p_storage_path: fullStoragePath,
+                p_storage_path: storedPath,
                 p_filename: file.name,
                 p_content_type: file.type,
                 p_file_size: file.size,
