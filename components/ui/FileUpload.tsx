@@ -266,7 +266,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                     user_id: userId,
                     report_id: imageReportId,
                     activity_type: 'image_upload',
-                    details: activityDetails
+                    details: JSON.stringify(activityDetails) // Convert object to JSON string
                   });
 
                 if (activityError) {
