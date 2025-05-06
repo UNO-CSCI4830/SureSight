@@ -94,7 +94,8 @@ export const uploadAndAnalyzeImage = async (
         p_content_type: file.type,
         p_file_size: file.size,
         p_ai_processed: false,
-        p_property_id: propertyId
+        p_property_id: propertyId,
+        p_report_id: undefined
       });
 
     if (dbError) {

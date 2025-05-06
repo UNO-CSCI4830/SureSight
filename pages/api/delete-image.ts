@@ -27,15 +27,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let deletionSuccess = false;
     let dbDeletionSuccess = false;
     
+    // Handle URL-encoded paths
+    const decodedPath = decodeURIComponent(imagePath);
+    
     // Extract bucket name from path
-    const pathParts = imagePath.split('/');
+    const pathParts = decodedPath.split('/');
     if (pathParts.length < 2) {
       return res.status(400).json({ error: 'Invalid image path format' });
     }
     
     const bucketName = pathParts[0];
-    const filePath = imagePath.substring(bucketName.length + 1);
+    const filePath = decodedPath.substring(bucketName.length + 1);
 
+    console.log(`Attempting to delete: bucket=${bucketName}, path=${filePath}`);
+    
     // Delete from storage
     const { data: storageData, error: storageError } = await supabase
       .storage
