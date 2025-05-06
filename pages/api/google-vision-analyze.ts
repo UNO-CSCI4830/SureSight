@@ -12,10 +12,22 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify user is authenticated
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData?.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+  // Check if this is an internal API call (from our analyze-image-proxy endpoint)
+  // The proxy adds a special header we can check
+  const isInternalRequest = req.headers['x-internal-api-call'] === 'true';
+  let userId = null;
+
+  if (!isInternalRequest) {
+    // Only verify authentication for external requests
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    userId = authData.user.id;
+  } else {
+    console.log('Processing internal API request, skipping authentication check');
+    // Use a service account user ID for internal requests
+    userId = process.env.SERVICE_ACCOUNT_ID || 'system';
   }
 
   // Extract request parameters
@@ -234,7 +246,7 @@ export default async function handleGoogleVisionAnalysis(req: NextApiRequest, re
         severity: analysisData.severity,
         raw_results: analysisData.analysis,
         analyzed_at: new Date().toISOString(),
-        user_id: authData.user.id
+        user_id: userId
       });
 
     if (dbError) {
