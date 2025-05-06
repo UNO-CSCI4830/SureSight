@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { analyzeImage } from '../../services/imageAnalysisService';
 import Icon from './icons/Icon';
@@ -35,7 +35,28 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get the user ID on component mount
+  useEffect(() => {
+    async function getUserId() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // Get the database user ID from the auth user ID
+        const { data: userData, error } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_user_id", session.user.id)
+          .single();
+
+        if (!error && userData) {
+          setUserId(userData.id);
+        }
+      }
+    }
+    getUserId();
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
@@ -146,7 +167,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
             filename: file.name,
             content_type: file.type,
             file_size: file.size,
-            report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null
+            report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null,
+            uploaded_by: userId
           })
           .select('id')
           .single();
@@ -156,6 +178,27 @@ const FileUpload: React.FC<FileUploadProps> = ({
           // Continue anyway, as the file was uploaded successfully
         } else if (imageData) {
           uploadedImageIds.push(imageData.id);
+
+          // Record the activity with the user_id
+          if (userId) {
+            // Add entry in activities table to track image upload
+            const { error: activityError } = await supabase
+              .from('activities')
+              .insert({
+                user_id: userId,
+                report_id: storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null,
+                activity_type: 'image_upload',
+                details: {
+                  image_id: imageData.id,
+                  filename: file.name
+                }
+              });
+
+            if (activityError) {
+              console.error('Error recording activity:', activityError);
+              // Continue anyway as the image was uploaded successfully
+            }
+          }
           
           // Trigger image analysis for newly uploaded images
           if (file.type.startsWith('image/')) {
