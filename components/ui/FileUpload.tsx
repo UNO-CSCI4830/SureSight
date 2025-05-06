@@ -156,21 +156,41 @@ const FileUpload: React.FC<FileUploadProps> = ({
         // Construct storage path based on bucket type to match RLS policies
         let fileName;
         if (bucket === 'reports') {
-          // For reports bucket: reports/{bucket}/{auth_user_id}/{optional_report_id}-{timestamp}-{file_id}.{ext}
-          const reportPrefix = reportId ? `${reportId}-` : '';
-          fileName = `${bucket}/${authUserId}/${reportPrefix}${fileId}.${fileExt}`;
+          // For reports bucket: reports/reports/{auth_user_id}/{optional_report_id}-{timestamp}-{file_id}.{ext}
+          const reportPrefix = reportId ? `${reportId}/` : '';
+          fileName = `${bucket}/${authUserId}/${reportPrefix}${fileId}-${file.name}`;
         } else if (bucket === 'property-images') {
-          // For property-images bucket: property-images/{auth_user_id}/properties/{optional_property_id}/{timestamp}-{file_id}.{ext}
+          // For property-images bucket: property-images/property-images/{auth_user_id}/properties/{optional_property_id}/{timestamp}-{file_id}.{ext}
           // Extract property ID from storage path if available
           const propertyId = storagePath.includes('properties/') ? 
             storagePath.split('properties/')[1].split('/')[0] : '';
-          fileName = `${bucket}/${authUserId}/properties/${propertyId}/${fileId}.${fileExt}`;
+          fileName = `${bucket}/${authUserId}/properties/${propertyId}/${fileId}-${file.name}`;
         } else {
           // For other buckets, include auth user ID at the beginning of the path
-          fileName = `${bucket}/${authUserId}/${storagePath}${storagePath ? '/' : ''}${fileId}.${fileExt}`;
+          fileName = `${bucket}/${authUserId}/${storagePath}${storagePath ? '/' : ''}${fileId}-${file.name}`;
         }
         
         console.log(`Uploading file: ${file.name} to path: ${fileName}`);
+        
+        // Upload the file to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+          
+        if (uploadError) {
+          console.error(`Error uploading file ${file.name}:`, uploadError);
+          failedUploads.push(file.name);
+          continue;
+        }
+        
+        // Get the public URL for the uploaded file
+        const { data: publicUrlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(fileName);
+          
         const imageUrl = publicUrlData?.publicUrl;
         
         if (!imageUrl) {
