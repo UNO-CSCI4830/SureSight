@@ -13,6 +13,9 @@ interface FileUploadProps {
   buttonLabel?: string; // Custom label for the button
   buttonClassName?: string; // Custom class for the button
   reportId?: string; // ID of the report to link images to
+  isPropertyUpload?: boolean; // Flag to indicate this is a property image upload
+  propertyId?: string; // ID of the property for property images
+  dbUserId?: string | null; // Database user ID passed from parent
 }
 
 interface FilePreview {
@@ -30,7 +33,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
   multiple = true, // Default to true for multiple file uploads
   buttonLabel,
   buttonClassName,
-  reportId
+  reportId,
+  isPropertyUpload = false,
+  propertyId,
+  dbUserId
 }) => {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
@@ -39,9 +45,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const [userId, setUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get the user ID on component mount
+  // Get the user ID on component mount or when dbUserId changes
   useEffect(() => {
     async function getUserId() {
+      // If parent component provided the database user ID, use it
+      if (dbUserId) {
+        setUserId(dbUserId);
+        return;
+      }
+      
+      // Otherwise fetch it
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         // Get the database user ID from the auth user ID
@@ -57,7 +70,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       }
     }
     getUserId();
-  }, []);
+  }, [dbUserId]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
@@ -174,6 +187,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
       if (reportId) {
         console.log(`Using report ID: ${reportId}`);
       }
+      if (isPropertyUpload) {
+        console.log(`This is a property image upload for property: ${propertyId}`);
+      }
       
       // Ensure the storage path exists before uploading
       if (storagePath) {
@@ -227,7 +243,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
         let assessmentAreaId: string | null = null;
         
         // Only set an assessment area ID if this is for a report and the path contains an area ID
-        if (reportId && storagePath && storagePath.includes('/')) {
+        // But NOT if this is a property image (which should never have an assessment area ID)
+        if (!isPropertyUpload && reportId && storagePath && storagePath.includes('/')) {
           const pathParts = storagePath.split('/');
           // For paths like reports/[reportId]/[areaId]
           if (pathParts.length >= 3 && pathParts[2] && pathParts[2] !== 'general') {
@@ -265,8 +282,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
               storedPath = `${bucket}/${fileName}`;
             }
             
-            // Determine if this is a property image (based on bucket and path)
-            const isPropertyImage = bucket === 'property-images' && storagePath.includes('/properties/');
+            // Determine if this is a property image
+            // For property images, we should never set an assessment_area_id
+            if (isPropertyUpload) {
+              assessmentAreaId = null;
+              console.log('This is a property image upload - not using assessment area ID');
+            }
             
             // Use the RPC function to safely insert the image record
             const { data: imageId, error: rpcError } = await supabase.rpc(
@@ -277,10 +298,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 p_content_type: file.type,
                 p_file_size: file.size,
                 p_report_id: reportId || undefined,
-                // Only pass assessment_area_id if it exists and has been verified
+                // For property images, always send null for assessment_area_id
                 p_assessment_area_id: assessmentAreaId || undefined,
-                p_uploaded_by: userId ?? null,
-                p_ai_processed: false
+                p_uploaded_by: userId,
+                p_ai_processed: false,
+                // For property images, add the property ID
+                p_property_id: isPropertyUpload ? propertyId : undefined
               }
             );
             
@@ -299,8 +322,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
                     p_file_size: file.size,
                     p_report_id: reportId || undefined,
                     p_assessment_area_id: undefined, // Don't use the area ID
-                    p_uploaded_by: userId ?? null,
-                    p_ai_processed: false
+                    p_uploaded_by: userId,
+                    p_ai_processed: false,
+                    p_property_id: isPropertyUpload ? propertyId : undefined
                   }
                 );
                 

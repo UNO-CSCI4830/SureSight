@@ -22,6 +22,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   // Get user ID
   useEffect(() => {
@@ -29,6 +30,9 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          // Store the auth user ID
+          setAuthUserId(session.user.id);
+          
           // Get the database user ID from the auth user ID
           const { data: userData, error } = await supabase
             .from("users")
@@ -133,12 +137,14 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
                 </p>
                 <FileUpload 
                   bucket="property-images"
-                  storagePath={`${userId}/properties/${propertyId}`}
+                  storagePath={`${authUserId}/properties/${propertyId}`}
                   acceptedFileTypes="image/*"
                   maxFileSize={5}
                   multiple={true}
                   onUploadComplete={handleUploadComplete}
-                  // Don't include reportId for property images to keep them separate
+                  isPropertyUpload={true}
+                  propertyId={propertyId}
+                  dbUserId={userId}
                 />
                 <div className="mt-4 text-sm text-gray-500">
                   <p>Only new images will be automatically analyzed.</p>

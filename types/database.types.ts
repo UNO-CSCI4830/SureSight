@@ -841,6 +841,7 @@ export interface Database {
           p_assessment_area_id?: string;
           p_uploaded_by?: string;
           p_ai_processed?: boolean;
+          p_property_id?: string;
         };
         Returns: string;
       };

@@ -11,6 +11,7 @@ const allowedOriginPatterns = [
   'https://.+\.vercel\.app$', // Matches any Vercel app domain including preview deployments
   'https://suresight\.vercel\.app$',
   'http://localhost:[0-9]+$', // Matches localhost with any port
+  'https://sure-sight-git-.+-scottfausts-projects\.vercel\.app$' // Matches Git branch deployments
 ];
 
 // Function to add CORS headers to response based on request origin

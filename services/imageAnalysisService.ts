@@ -19,40 +19,52 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
       return [];
     }
 
-    const userUuid = session.user.id;
-    console.log(`Fetching property images for user UUID: ${userUuid}`);
+    const authUserId = session.user.id;
+    console.log(`Fetching property images for user UUID: ${authUserId}`);
     
-    // ONLY fetch images directly from property-images bucket with the correct path structure:
-    // property-images/[userUuid]/properties/[propertyId]/...
-    try {
-      const basePath = `${userUuid}/properties/${propertyId}`;
-      console.log(`Looking for images in path: ${basePath}`);
+    // Get the database user ID from the auth user ID
+    let dbUserId = null;
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_user_id", authUserId)
+      .single();
       
-      const { data: bucketFiles, error: bucketError } = await supabase.storage
+    if (!userError && userData) {
+      dbUserId = userData.id;
+    }
+    
+    // FIRST check for images using auth user ID path (newer images)
+    try {
+      const authBasePath = `${authUserId}/properties/${propertyId}`;
+      console.log(`Looking for images in path: ${authBasePath}`);
+      
+      const { data: authBucketFiles, error: authBucketError } = await supabase.storage
         .from('property-images')
-        .list(basePath, { 
+        .list(authBasePath, { 
           limit: 100, 
           offset: 0 
         });
         
-      if (bucketError) {
-        console.error('Error listing bucket files:', bucketError);
-      } else if (bucketFiles && bucketFiles.length > 0) {
-        console.log(`Found ${bucketFiles.length} files in property-images bucket`);
+      if (authBucketError) {
+        console.error('Error listing bucket files with auth ID:', authBucketError);
+      } else if (authBucketFiles && authBucketFiles.length > 0) {
+        console.log(`Found ${authBucketFiles.length} files in property-images bucket using auth ID path`);
         
         // Filter out placeholders or folders
-        const imageFiles = bucketFiles.filter(file => 
+        const imageFiles = authBucketFiles.filter(file => 
           !file.name.includes('.emptyFolderPlaceholder') && 
           !file.metadata?.isFolder &&
-          file.name !== '.emptyFolderPlaceholder'
+          file.name !== '.emptyFolderPlaceholder' &&
+          file.name !== '.folder'
         );
         
-        console.log(`Found ${imageFiles.length} valid image files after filtering`);
+        console.log(`Found ${imageFiles.length} valid image files after filtering (auth ID path)`);
         
         // Look up these files in the database to get any analysis results
         if (imageFiles.length > 0) {
           const storagePaths = imageFiles.map(file => 
-            `property-images/${basePath}/${file.name}`
+            `property-images/${authBasePath}/${file.name}`
           );
           
           const { data: dbImages, error: dbError } = await supabase
@@ -70,13 +82,13 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
             .in('storage_path', storagePaths);
             
           if (dbError) {
-            console.error('Error fetching image records from database:', dbError);
+            console.error('Error fetching image records from database (auth ID path):', dbError);
           }
           
           // Create a map of storage path to image record
           const imageMap = new Map();
           if (dbImages && dbImages.length > 0) {
-            console.log(`Found ${dbImages.length} matching database records`);
+            console.log(`Found ${dbImages.length} matching database records (auth ID path)`);
             dbImages.forEach(img => {
               imageMap.set(img.storage_path, img);
             });
@@ -85,14 +97,14 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
           // Now create the complete image list, using DB records where available
           // or creating placeholder entries for images only in storage
           for (const file of imageFiles) {
-            const storagePath = `property-images/${basePath}/${file.name}`;
+            const storagePath = `property-images/${authBasePath}/${file.name}`;
             
             if (imageMap.has(storagePath)) {
               // Use the database record with analysis results
               allImages.push(imageMap.get(storagePath));
             } else {
               // Create a placeholder record for images only in storage
-              console.log(`Creating placeholder for file with no DB record: ${file.name}`);
+              console.log(`Creating placeholder for file with no DB record: ${file.name} (auth ID path)`);
               allImages.push({
                 id: `storage-${file.name}`, // Generate a pseudo-ID
                 storage_path: storagePath,
@@ -107,10 +119,141 @@ export const getPropertyImageAnalyses = async (propertyId: string) => {
           }
         }
       } else {
-        console.log(`No images found in property-images/${basePath}`);
+        console.log(`No images found in property-images/${authBasePath} (auth ID path)`);
       }
     } catch (storageErr) {
-      console.error('Error accessing storage:', storageErr);
+      console.error('Error accessing storage with auth user ID:', storageErr);
+    }
+    
+    // If we have a DB user ID, ALSO check for images using that path (older images)
+    if (dbUserId) {
+      try {
+        const dbBasePath = `${dbUserId}/properties/${propertyId}`;
+        console.log(`Looking for images in DB user path: ${dbBasePath}`);
+        
+        const { data: dbBucketFiles, error: dbBucketError } = await supabase.storage
+          .from('property-images')
+          .list(dbBasePath, { 
+            limit: 100, 
+            offset: 0 
+          });
+          
+        if (dbBucketError) {
+          console.error('Error listing bucket files with DB ID:', dbBucketError);
+        } else if (dbBucketFiles && dbBucketFiles.length > 0) {
+          console.log(`Found ${dbBucketFiles.length} files in property-images bucket using DB ID path`);
+          
+          // Filter out placeholders or folders
+          const imageFiles = dbBucketFiles.filter(file => 
+            !file.name.includes('.emptyFolderPlaceholder') && 
+            !file.metadata?.isFolder &&
+            file.name !== '.emptyFolderPlaceholder' &&
+            file.name !== '.folder'
+          );
+          
+          console.log(`Found ${imageFiles.length} valid image files after filtering (DB ID path)`);
+          
+          // Look up these files in the database to get any analysis results
+          if (imageFiles.length > 0) {
+            const storagePaths = imageFiles.map(file => 
+              `property-images/${dbBasePath}/${file.name}`
+            );
+            
+            const { data: dbImages, error: dbError } = await supabase
+              .from('images')
+              .select(`
+                id,
+                storage_path,
+                created_at,
+                ai_processed,
+                ai_damage_type,
+                ai_damage_severity,
+                ai_confidence,
+                filename
+              `)
+              .in('storage_path', storagePaths);
+              
+            if (dbError) {
+              console.error('Error fetching image records from database (DB ID path):', dbError);
+            }
+            
+            // Create a map of storage path to image record
+            const imageMap = new Map();
+            if (dbImages && dbImages.length > 0) {
+              console.log(`Found ${dbImages.length} matching database records (DB ID path)`);
+              dbImages.forEach(img => {
+                imageMap.set(img.storage_path, img);
+              });
+            }
+            
+            // Now create the complete image list, using DB records where available
+            // or creating placeholder entries for images only in storage
+            for (const file of imageFiles) {
+              const storagePath = `property-images/${dbBasePath}/${file.name}`;
+              
+              if (imageMap.has(storagePath)) {
+                // Use the database record with analysis results
+                allImages.push(imageMap.get(storagePath));
+              } else {
+                // Create a placeholder record for images only in storage
+                console.log(`Creating placeholder for file with no DB record: ${file.name} (DB ID path)`);
+                allImages.push({
+                  id: `storage-${file.name}`, // Generate a pseudo-ID
+                  storage_path: storagePath,
+                  created_at: file.created_at || new Date().toISOString(),
+                  ai_processed: false,
+                  filename: file.name,
+                  ai_damage_type: null,
+                  ai_damage_severity: null,
+                  ai_confidence: null
+                });
+              }
+            }
+          }
+        } else {
+          console.log(`No images found in property-images/${dbBasePath} (DB ID path)`);
+        }
+      } catch (storageErr) {
+        console.error('Error accessing storage with DB user ID:', storageErr);
+      }
+    }
+    
+    // Also check for images directly associated with the property ID in the database
+    // This helps find any images that might be in unusual paths or were uploaded differently
+    try {
+      console.log(`Checking database for images directly linked to property ID: ${propertyId}`);
+      
+      const { data: directDbImages, error: directDbError } = await supabase
+        .from('images')
+        .select(`
+          id,
+          storage_path,
+          created_at,
+          ai_processed,
+          ai_damage_type,
+          ai_damage_severity,
+          ai_confidence,
+          filename
+        `)
+        .eq('property_id', propertyId);
+        
+      if (directDbError) {
+        console.error('Error fetching directly linked property images:', directDbError);
+      } else if (directDbImages && directDbImages.length > 0) {
+        console.log(`Found ${directDbImages.length} images directly linked to property in database`);
+        
+        // Create a set of all storage paths we already have to avoid duplicates
+        const existingPaths = new Set(allImages.map(img => img.storage_path));
+        
+        // Add any new images that weren't already found
+        for (const img of directDbImages) {
+          if (!existingPaths.has(img.storage_path)) {
+            allImages.push(img);
+          }
+        }
+      }
+    } catch (dbError) {
+      console.error('Error checking for images linked to property in database:', dbError);
     }
     
     console.log(`Total property images found: ${allImages.length}`);
