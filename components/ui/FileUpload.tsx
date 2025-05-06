@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { analyzeImage } from '../../services/imageAnalysisService';
 import Icon from './icons/Icon';
 import Button from './Button';
 
@@ -259,17 +258,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
             if (activityError) {
               console.error('Error recording activity:', activityError);
               // Continue anyway as the image was uploaded successfully
-            }
-          }
-          
-          // Trigger image analysis for newly uploaded images
-          if (file.type.startsWith('image/')) {
-            try {
-              console.log(`Starting image analysis for ${imageData.id}`);
-              await analyzeImage(imageUrl, imageData.id);
-            } catch (analyzeErr) {
-              console.error('Error analyzing image:', analyzeErr);
-              // Continue anyway, as the file was uploaded successfully
             }
           }
         }
