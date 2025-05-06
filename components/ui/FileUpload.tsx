@@ -164,7 +164,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         } else if (bucket === 'property-images') {
           // For property-images bucket: {auth_user_id}/properties/{optional_property_id}/{timestamp}-{file_id}.{ext}
           // Extract property ID from storage path if available
-          const propertyId = storagePath.includes('properties/') ? 
+          const propertyId: string = storagePath.includes('properties/') ? 
             storagePath.split('properties/')[1].split('/')[0] : '';
           fileName = `${authUserId}/properties/${propertyId}/${fileId}-${file.name}`;
         } else {
@@ -203,15 +203,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
         
         console.log(`Got public URL: ${imageUrl}`);
         
+        // Store the storage path WITHOUT the bucket prefix to avoid duplication
+        // This is important because the database should only contain the path after the bucket name
+        const filePath = fileName;
+        
         // Determine the report ID from the provided prop or from the storage path
         let imageReportId = reportId || 
-          (storagePath.split('/')[0] === 'reports' ? storagePath.split('/')[1] : null);
+          (filePath.split('/')[0] === 'reports' ? filePath.split('/')[1] : null);
         
         console.log(`Using report ID for database entry: ${imageReportId || 'none'}`);
         
         // Check if an assessment area ID is included in the path
         let assessmentAreaId: string | null = null;
-        const pathParts = storagePath.split('/');
+        const pathParts = filePath.split('/');
         if (pathParts[0] === 'reports' && pathParts.length >= 3 && pathParts[2] !== 'general') {
           assessmentAreaId = pathParts[2];
           console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
@@ -257,15 +261,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
           report_id: imageReportId,
           assessment_area_id: assessmentAreaId,
           uploaded_by: userId,
-          metadata: null, // Explicitly set JSON fields to null
+          // Ensure metadata is properly formatted as a valid JSON value or null
+          metadata: null, // Don't try to use an object here, use null for now
           ai_processed: false,
           ai_confidence: null,
-          // These are custom enum types, so set them to null explicitly
           ai_damage_type: null,
-          ai_damage_severity: null,
-          // Add width and height if available (for images)
-          width: null,
-          height: null
+          ai_damage_severity: null
         };
         
         console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
@@ -278,12 +279,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
           let dbError = null;
           
           try {
-            // First try with standard client
-            const result = await import('../../utils/supabaseClient')
-              .then(module => module.safeInsert('images', imageInsertData, { select: 'id' }));
+            // First try with standard direct insert instead of using safeInsert
+            const { data: insertResult, error: insertError } = await supabase
+              .from('images')
+              .insert({
+                ...imageInsertData,
+                // Override metadata with explicit null to avoid JSON parsing errors
+                metadata: null
+              })
+              .select('id')
+              .single();
               
-            imageData = result.data;
-            dbError = result.error;
+            imageData = insertResult;
+            dbError = insertError;
           } catch (directError) {
             console.error('Direct supabase client error:', directError);
             dbError = directError;
@@ -307,9 +315,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
               const response = await fetch('/api/store-image-metadata', {
                 method: 'POST',
                 headers: {
-                  'Content-Type': 'application/json'
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}` // Add authorization token
                 },
-                body: JSON.stringify(imageInsertData)
+                body: JSON.stringify({
+                  ...imageInsertData,
+                  metadata: null // Ensure metadata is null
+                })
               });
               
               if (!response.ok) {
@@ -464,13 +476,23 @@ const FileUpload: React.FC<FileUploadProps> = ({
               title="Upload your files here"
             />
             
+            {files.length > 0 && (
+              <button 
+                type="submit" 
+                className="mt-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                disabled={isUploading}
+              >
+                {isUploading ? "Uploading..." : `Upload ${files.length} file(s)`}
+              </button>
+            )}
+            
             {message && (
               <div className={`p-2 mt-2 text-xs rounded-md border ${getMessageClass()}`}>
                 <p>{message.text}</p>
               </div>
             )}
             
-            {isUploading && (
+            {isUploading && !files.length && (
               <div className="mt-2 text-xs text-gray-500">Uploading...</div>
             )}
           </div>
