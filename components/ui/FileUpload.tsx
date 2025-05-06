@@ -228,6 +228,26 @@ const FileUpload: React.FC<FileUploadProps> = ({
               console.error('Error calling insert_image_record function:', rpcError);
             } else if (imageId) {
               console.log(`Successfully inserted image record with ID: ${imageId}`);
+              
+              // Directly trigger image analysis after successful upload
+              try {
+                console.log(`Triggering AI analysis for image: ${imageId}`);
+                const { data: analysisData, error: analysisError } = await supabase.functions
+                  .invoke("analyze-image-damage", {
+                    body: { 
+                      imageId: imageId,
+                      imageUrl: imageUrl
+                    }
+                  });
+                
+                if (analysisError) {
+                  console.error(`Error analyzing image ${imageId}:`, analysisError);
+                } else {
+                  console.log(`Analysis completed for image ${imageId}:`, analysisData);
+                }
+              } catch (analysisErr) {
+                console.error(`Exception during image analysis for ${imageId}:`, analysisErr);
+              }
             }
           } catch (dbError) {
             console.error('Exception during database operations:', dbError);

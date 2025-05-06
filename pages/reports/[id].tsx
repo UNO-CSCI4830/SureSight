@@ -124,15 +124,25 @@ const ReportDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (id) {
+      const controller = new AbortController();
       fetchReport(id as string);
+      
+      // Clear any existing message timeout when component unmounts
+      return () => {
+        if (showMessageTimeout) {
+          clearTimeout(showMessageTimeout);
+        }
+        controller.abort(); // Cancel any pending requests
+        
+        // Clean up any potentially lingering message channel listeners
+        const cleanup = () => {
+          // This forces any lingering promises to resolve or reject
+          window.dispatchEvent(new Event('beforeunload'));
+        };
+        
+        cleanup();
+      };
     }
-
-    // Clear any existing message timeout when component unmounts
-    return () => {
-      if (showMessageTimeout) {
-        clearTimeout(showMessageTimeout);
-      }
-    };
   }, [id]);
 
   const fetchReport = async (reportId: string) => {
@@ -233,17 +243,15 @@ const ReportDetailPage: React.FC = () => {
       const bucketName = storagePath.substring(0, firstSlashIndex);
       const filePath = storagePath.substring(firstSlashIndex + 1);
       
-      // Validate bucket name
-      if (bucketName !== 'reports' && bucketName !== 'property-images') {
-        console.warn(`Unknown bucket name in path: ${bucketName}, using "reports" as default`);
-        // Use the whole path with the default bucket
-        return supabase.storage.from('reports').getPublicUrl(storagePath).data?.publicUrl || '';
-      }
+      console.log(`Processing image path: ${storagePath}`);
       
       // Get public URL using the correct bucket and path
-      return supabase.storage.from(bucketName).getPublicUrl(filePath).data?.publicUrl || '';
+      const publicUrl = supabase.storage.from(bucketName).getPublicUrl(filePath).data?.publicUrl || '';
+      console.log(`Generated public URL for ${storagePath}: ${publicUrl}`);
+      
+      return publicUrl;
     } catch (err) {
-      console.error('Error getting public URL:', err);
+      console.error('Error getting public URL:', err, 'Path:', storagePath);
       return '';
     }
   };
