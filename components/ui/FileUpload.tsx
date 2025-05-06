@@ -130,11 +130,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
     
     setIsUploading(true);
     const uploadedUrls: string[] = [];
-    const uploadedImageIds: string[] = [];
     const failedUploads: string[] = [];
     
     try {
-      // Get the current authenticated user's auth_user_id (not the database user_id)
+      // Get the current authenticated user's auth_user_id
       const { data: sessionData } = await supabase.auth.getSession();
       console.log('Auth session:', sessionData);
       const authUserId = sessionData?.session?.user?.id;
@@ -152,24 +151,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
       
       for (const filePreview of files) {
         const file = filePreview.file;
-        const fileExt = file.name.split('.').pop();
         const fileId = `${Date.now()}-${filePreview.id}`;
         
-        // Construct storage path based on bucket type to match RLS policies
-        let fileName;
-        if (bucket === 'reports') {
-          // For reports bucket: reports/{auth_user_id}/{optional_report_id}/{timestamp}-{file_id}.{ext}
-          const reportPrefix = reportId ? `${reportId}/` : '';
-          fileName = `${authUserId}/${reportPrefix}${fileId}-${file.name}`;
-        } else if (bucket === 'property-images') {
-          // For property-images bucket: {auth_user_id}/properties/{optional_property_id}/{timestamp}-{file_id}.{ext}
-          // Extract property ID from storage path if available
-          const propertyId: string = storagePath.includes('properties/') ? 
-            storagePath.split('properties/')[1].split('/')[0] : '';
-          fileName = `${authUserId}/properties/${propertyId}/${fileId}-${file.name}`;
-        } else {
-          // For other buckets, include auth user ID at the beginning of the path
-          fileName = `${authUserId}/${storagePath}${storagePath ? '/' : ''}${fileId}-${file.name}`;
+        // Generate a deterministic file path based on authenticated user and timestamp
+        let fileName = `${authUserId}/${fileId}-${file.name}`;
+        
+        // If a storage path is provided, use it to structure the file location
+        if (storagePath) {
+          fileName = `${storagePath}/${fileId}-${file.name}`;
         }
         
         console.log(`Uploading file: ${file.name} to path: ${fileName} in bucket: ${bucket}`);
@@ -203,145 +192,47 @@ const FileUpload: React.FC<FileUploadProps> = ({
         
         console.log(`Got public URL: ${imageUrl}`);
         
-        // Store the storage path WITHOUT the bucket prefix to avoid duplication
-        // This is important because the database should only contain the path after the bucket name
-        const filePath = fileName;
-        
-        // Determine the report ID from the provided prop or from the storage path
-        let imageReportId = reportId || 
-          (filePath.split('/')[0] === 'reports' ? filePath.split('/')[1] : null);
-        
-        console.log(`Using report ID for database entry: ${imageReportId || 'none'}`);
-        
-        // Check if an assessment area ID is included in the path
+        // Determine assessment area ID if applicable (from storagePath)
         let assessmentAreaId: string | null = null;
-        const pathParts = filePath.split('/');
-        if (pathParts[0] === 'reports' && pathParts.length >= 3 && pathParts[2] !== 'general') {
-          assessmentAreaId = pathParts[2];
-          console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
-        }
-
-        // Validate foreign keys before inserting
-        if (imageReportId) {
-          // Check if report exists before attempting to reference it
-          const { data: reportExists, error: reportCheckError } = await supabase
-            .from('reports')
-            .select('id')
-            .eq('id', imageReportId)
-            .single();
-            
-          if (reportCheckError) {
-            console.error(`Invalid report ID: ${imageReportId}`, reportCheckError);
-            // Don't use the report ID if it's invalid
-            imageReportId = null;
+        if (storagePath && storagePath.includes('/') && !storagePath.endsWith('general')) {
+          const pathSegments = storagePath.split('/');
+          // Check if the last segment might be an assessment area ID 
+          // (assumes format like 'reports/{reportId}/{areaId}')
+          if (pathSegments.length >= 3) {
+            assessmentAreaId = pathSegments[pathSegments.length - 1];
+            console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
           }
         }
         
-        if (assessmentAreaId) {
-          // Check if assessment area exists before attempting to reference it
-          const { data: areaExists, error: areaCheckError } = await supabase
-            .from('assessment_areas')
-            .select('id')
-            .eq('id', assessmentAreaId)
-            .single();
-            
-          if (areaCheckError) {
-            console.error(`Invalid assessment area ID: ${assessmentAreaId}`, areaCheckError);
-            // Don't use the assessment area ID if it's invalid
-            assessmentAreaId = null;
-          }
-        }
-        
-        // Store image metadata in the database using our safer approach
-        const imageInsertData = {
-          storage_path: fileName,
-          filename: file.name,
-          content_type: file.type,
-          file_size: file.size,
-          report_id: imageReportId,
-          assessment_area_id: assessmentAreaId,
-          uploaded_by: userId,
-          // Ensure metadata is properly formatted as a valid JSON value or null
-          metadata: null, // Don't try to use an object here, use null for now
-          ai_processed: false,
-          ai_confidence: null,
-          ai_damage_type: null,
-          ai_damage_severity: null
-        };
-        
-        console.log('Image insert data:', JSON.stringify(imageInsertData, null, 2));
-        
-        try {
-          console.log('Before database insert operation via safeInsert');
-          
-          // Use our safer insert method to avoid JSON parsing issues
-          let imageData = null;
-          let dbError = null;
-          
+        // Only try to insert into database if we have a user ID
+        if (userId) {
           try {
-            // First try with standard direct insert instead of using safeInsert
-            const { data: insertResult, error: insertError } = await supabase
+            // Insert a record in the images table
+            const { data: imageData, error: imageError } = await supabase
               .from('images')
               .insert({
-                ...imageInsertData,
-                // Override metadata with explicit null to avoid JSON parsing errors
-                metadata: null
+                storage_path: `${bucket}/${fileName}`, // Store the full path including bucket
+                filename: file.name,
+                content_type: file.type,
+                file_size: file.size,
+                report_id: reportId, // Will be null if not provided
+                assessment_area_id: assessmentAreaId, // Will be null if not detected
+                uploaded_by: userId,
+                ai_processed: false
               })
               .select('id')
               .single();
               
-            imageData = insertResult;
-            dbError = insertError;
-          } catch (directError) {
-            console.error('Direct supabase client error:', directError);
-            dbError = directError;
-          }
-          
-          console.log('After database insert operation');
-          
-          if (dbError) {
-            console.error('Error storing image metadata:', dbError);
-            // Add type assertion to ensure TypeScript recognizes the message property
-            console.log('Error message:', (dbError as Error).message || String(dbError));
-            
-            // Second attempt using fetch API as last resort
-            try {
-              if (!sessionData.session) {
-                throw new Error('No active session available for authentication');
-              }
-              
-              console.log('First insert failed, trying direct API approach');
-              const token = sessionData.session.access_token;
-              
-              // Remove the 'metadata' field completely from the request
-              const { metadata, ...cleanedImageData } = imageInsertData;
-              
-              const response = await fetch('/api/store-image-metadata', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(cleanedImageData)
-              });
-              
-              if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API error: ${response.status} ${JSON.stringify(errorData)}`);
-              }
-              
-              const result = await response.json();
-              if (result.success) {
-                imageData = { id: result.id };
-                console.log('API approach succeeded with ID:', result.id);
-              }
-            } catch (apiError) {
-              console.error('API approach failed:', apiError);
+            if (imageError) {
+              console.error('Error storing image record in database:', imageError);
+              // Continue with the upload even if database insertion fails
+            } else {
+              console.log(`Successfully stored image record with ID: ${imageData.id}`);
             }
+          } catch (dbError) {
+            console.error('Exception during database operations:', dbError);
+            // Continue with the upload even if database insertion fails
           }
-        } catch (insertErr) {
-          console.error('Exception during database operations:', insertErr);
-          failedUploads.push(file.name);
         }
         
         uploadedUrls.push(imageUrl);
@@ -375,11 +266,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
           const parts = url.split('/');
           const fileNameWithExt = parts[parts.length - 1];
           const fileIdPart = fileNameWithExt.split('-')[0];
-          return fileIdPart; // Extract just the ID part without timestamp
+          return fileIdPart;
         }));
         
         setFiles(prevFiles => prevFiles.filter(f => {
-          const fileIdPart = f.id.split('-')[1]; // Get the random part after timestamp
+          const fileIdPart = f.id.split('-')[1];
           return !successIds.has(fileIdPart);
         }));
       }

@@ -219,27 +219,32 @@ const ReportDetailPage: React.FC = () => {
       return storagePath;
     }
     
-    // Determine the correct bucket based on the storage path
-    let bucket = 'reports'; // Default bucket for reports page
-    
-    // If the path already includes the bucket name at the start, extract it
-    if (storagePath.startsWith('property-images/') || storagePath.startsWith('reports/')) {
-      const parts = storagePath.split('/');
-      bucket = parts[0];
-      // Remove the bucket name from the path for proper URL construction
-      storagePath = storagePath.substring(bucket.length + 1); // +1 for the slash
-    }
-    
-    // Get public URL using Supabase client
     try {
-      const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
-      return data?.publicUrl || '';
+      // Extract bucket and path from storage_path
+      // The storage_path in the database should have format: "bucket_name/path/to/file.ext"
+      const firstSlashIndex = storagePath.indexOf('/');
+      
+      // If no slash found, use as-is with the reports bucket
+      if (firstSlashIndex === -1) {
+        return supabase.storage.from('reports').getPublicUrl(storagePath).data?.publicUrl || '';
+      }
+      
+      // Extract bucket name and remaining path
+      const bucketName = storagePath.substring(0, firstSlashIndex);
+      const filePath = storagePath.substring(firstSlashIndex + 1);
+      
+      // Validate bucket name
+      if (bucketName !== 'reports' && bucketName !== 'property-images') {
+        console.warn(`Unknown bucket name in path: ${bucketName}, using "reports" as default`);
+        // Use the whole path with the default bucket
+        return supabase.storage.from('reports').getPublicUrl(storagePath).data?.publicUrl || '';
+      }
+      
+      // Get public URL using the correct bucket and path
+      return supabase.storage.from(bucketName).getPublicUrl(filePath).data?.publicUrl || '';
     } catch (err) {
       console.error('Error getting public URL:', err);
-      
-      // Attempt to use a direct URL construction as a fallback
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khqevpnoodeggshfxeaa.supabase.co';
-      return `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodeURIComponent(storagePath)}`;
+      return '';
     }
   };
 
