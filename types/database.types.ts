@@ -470,38 +470,64 @@ export interface Database {
           created_at: string;
           id: string;
           is_read: boolean;
-          recipient_id: string;
+          receiver_id: string;
           sender_id: string;
+          report_id: string | null;
+          property_id: string | null;
+          message_type: string;
+          conversation_id: string | null;
         };
         Insert: {
           content: string;
           created_at?: string;
           id?: string;
           is_read?: boolean;
-          recipient_id: string;
+          receiver_id: string;
           sender_id: string;
+          report_id?: string | null;
+          property_id?: string | null;
+          message_type?: string;
+          conversation_id?: string | null;
         };
         Update: {
           content?: string;
           created_at?: string;
           id?: string;
           is_read?: boolean;
-          recipient_id?: string;
+          receiver_id?: string;
           sender_id?: string;
+          report_id?: string | null;
+          property_id?: string | null;
+          message_type?: string;
+          conversation_id?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "messages_recipient_id_fkey";
-            columns: ["recipient_id"];
+            foreignKeyName: "messages_receiver_id_fkey";
+            columns: ["receiver_id"];
             isOneToOne: false;
             referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedColumns: ["auth_user_id"];
           },
           {
             foreignKeyName: "messages_sender_id_fkey";
             columns: ["sender_id"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["auth_user_id"];
+          },
+          {
+            foreignKeyName: "messages_report_id_fkey";
+            columns: ["report_id"];
+            isOneToOne: false;
+            referencedRelation: "reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
             referencedColumns: ["id"];
           }
         ];

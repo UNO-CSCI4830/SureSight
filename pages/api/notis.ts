@@ -9,6 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {   
+    // Using foreign key relationship properly with auth_user_id
     const { data, error } = await supabase
       .from('messages')
       .select(`
@@ -21,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         sender:sender_id(email),
         receiver:receiver_id(email)
       `)
-      .eq('receiver_id', user_id) 
+      .eq('receiver_id', user_id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;

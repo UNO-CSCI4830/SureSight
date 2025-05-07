@@ -3,10 +3,14 @@ import { supabase } from '../utils/supabaseClient';
 export interface Message {
   id: string;
   sender_id: string;
-  recipient_id: string; // Changed from receiver_id to recipient_id
+  receiver_id: string; // Changed to use receiver_id to match DB schema
   content: string;
   is_read: boolean;
   created_at: string;
+  report_id?: string | null;
+  property_id?: string | null;
+  message_type?: string;
+  conversation_id?: string | null;
 }
 
 /**
@@ -53,7 +57,7 @@ export class NotificationService {
         const { data, error } = await supabase
           .from('messages')
           .select('*')
-          .eq('recipient_id', userId)
+          .eq('receiver_id', userId) // Use receiver_id to match DB schema
           .order('created_at', { ascending: false });
           
         console.log("RLS DEBUG - Notification query response:", { data, error });
@@ -81,7 +85,7 @@ export class NotificationService {
       
       // Filter messages for this recipient and sort by created_at
       const filteredMessages = allMessages
-        .filter(msg => msg.recipient_id === userId)
+        .filter(msg => msg.receiver_id === userId) // Use receiver_id to match DB schema
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
       console.log("RLS DEBUG - Filtered notifications count:", filteredMessages.length);
@@ -123,8 +127,12 @@ export class NotificationService {
    */
   static async sendMessage(messageData: {
     sender_id: string;
-    recipient_id: string; // Changed from receiver_id to recipient_id
+    receiver_id: string; // Changed to match DB schema
     content: string;
+    report_id?: string | null;
+    property_id?: string | null;
+    message_type?: string;
+    conversation_id?: string | null;
   }) {
     try {
       const { data, error } = await supabase
@@ -158,7 +166,7 @@ export class NotificationService {
       const { data, error, count } = await supabase
         .from('messages')
         .select('id', { count: 'exact' })
-        .eq('recipient_id', userId) // Changed from receiver_id to recipient_id
+        .eq('receiver_id', userId) // Use receiver_id to match DB schema
         .eq('is_read', false);
 
       if (error) throw error;
