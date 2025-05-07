@@ -26,7 +26,7 @@ const NotificationsPage = () => {
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
 
-   useEffect(() => {
+  useEffect(() => {
     const checkUser = async () => {
       try {
         const { data: { user: fetchedUser } } = await supabase.auth.getUser();
@@ -35,7 +35,7 @@ const NotificationsPage = () => {
           console.log("Authenticated user ID:", fetchedUser.id);
 
           const { data: users, error: userError } = await supabase
-            .from('users') // This assumes you have a 'users' table with public user info
+            .from('users') 
             .select('id, email');
 
           if (userError) throw userError;
@@ -55,7 +55,7 @@ const NotificationsPage = () => {
   useEffect(() => {
     if (user) {
       fetchMessages();
-  
+
       const channel = supabase
         .channel('realtime:messages')
         .on('postgres_changes', {
@@ -64,7 +64,7 @@ const NotificationsPage = () => {
           table: 'messages',
           filter: `receiver_id=eq.${user.id}`,
         }, (payload) => {
-          console.log('New message:', payload);
+          console.log('New message payload:', payload); 
           fetchMessages();
         })
         .on('postgres_changes', {
@@ -72,18 +72,17 @@ const NotificationsPage = () => {
           schema: 'public',
           table: 'messages',
         }, (payload) => {
-          console.log('Message updated:', payload);
-          fetchMessages(); 
+          console.log('Message updated payload:', payload); 
+          fetchMessages();
         })
         .subscribe();
-  
+
       return () => {
         supabase.removeChannel(channel); 
       };
     }
   }, [user]);
-  
-      
+
   const fetchMessages = async () => {
     setLoading(true);
     setError(null);
@@ -100,8 +99,9 @@ const NotificationsPage = () => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Error: ${response.status}`);
       }
-      
+
       const data = await response.json();
+      console.log("Fetched messages:", data); 
       setMessages(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
@@ -122,9 +122,9 @@ const NotificationsPage = () => {
       if (error) {
         throw error;
       }
-      
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
+
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
           msg.id === id ? { ...msg, is_read: true } : msg
         )
       );
@@ -133,25 +133,26 @@ const NotificationsPage = () => {
       console.error('Error marking message as read:', err);
     }
   };
+
   const sendMessage = async () => {
     if (!selectedReceiver || !messageText) return;
     setSending(true);
-  
+
     const { data: userExists, error: checkError } = await supabase
       .from('users')
       .select('id')
       .eq('id', selectedReceiver)
       .single();
-  
+
     if (checkError || !userExists) {
       setError('Selected recipient does not exist.');
       setSending(false);
       return;
     }
-  
+
     try {
-      console.log("Receiver ID:", selectedReceiver); 
-      
+      console.log("Sending message to Receiver ID:", selectedReceiver);
+
       const { error } = await supabase.from('messages').insert([
         {
           sender_id: user.id,
@@ -160,8 +161,9 @@ const NotificationsPage = () => {
           is_read: false,
         },
       ]);
+
       if (error) throw error;
-  
+
       setMessageText('');
       setSelectedReceiver('');
       fetchMessages();
