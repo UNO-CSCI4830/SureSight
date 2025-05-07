@@ -228,22 +228,45 @@ const Dashboard: React.FC = () => {
 
         // Create a new report for each uploaded image
         for (const imageUrl of urls) {
-          const { error } = await supabase.from("reports").insert([
-            {
-              property_id: propertyId,
-              creator_id: userData.id,
-              status: "submitted",
-              title: `Inspection Report - ${new Date().toLocaleDateString()}`,
-              main_image_url: imageUrl,
-            },
-          ]);
+          // First create the report
+          const { data: reportData, error: reportError } = await supabase
+            .from("reports")
+            .insert([
+              {
+                property_id: propertyId,
+                creator_id: userData.id,
+                status: "submitted",
+                title: `Inspection Report - ${new Date().toLocaleDateString()}`
+              }
+            ])
+            .select();
 
-          if (error) {
-            console.error("Error saving to reports table:", error);
+          if (reportError) {
+            console.error("Error saving to reports table:", reportError);
             setMessage({
               text: "Error saving some uploads to the database.",
               type: "error",
             });
+            continue; // Skip to next iteration if this one failed
+          }
+
+          // If report creation was successful, create an image record linked to this report
+          if (reportData && reportData[0]) {
+            const { error: imageError } = await supabase
+              .from("images")
+              .insert([
+                {
+                  report_id: reportData[0].id,
+                  filename: imageUrl.split('/').pop() || 'unknown',
+                  storage_path: imageUrl,
+                  uploaded_by: userData.id,
+                  ai_processed: false
+                }
+              ]);
+
+            if (imageError) {
+              console.error("Error saving image metadata:", imageError);
+            }
           }
         }
 

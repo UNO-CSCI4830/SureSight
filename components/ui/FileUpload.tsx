@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import Icon from './icons/Icon';
 import Button from './Button';
+import { triggerImageAnalysis } from '../../services/imageAnalysisService';
 
 interface FileUploadProps {
   bucket: string;
@@ -12,6 +13,10 @@ interface FileUploadProps {
   multiple?: boolean; // Allow multiple file selection
   buttonLabel?: string; // Custom label for the button
   buttonClassName?: string; // Custom class for the button
+  reportId?: string; // ID of the report to link images to
+  isPropertyUpload?: boolean; // Flag to indicate this is a property image upload
+  propertyId?: string; // ID of the property for property images
+  dbUserId?: string | null; // Database user ID passed from parent
 }
 
 interface FilePreview {
@@ -28,13 +33,45 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxFileSize = 5, // 5MB default
   multiple = true, // Default to true for multiple file uploads
   buttonLabel,
-  buttonClassName
+  buttonClassName,
+  reportId,
+  isPropertyUpload = false,
+  propertyId,
+  dbUserId
 }) => {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [message, setMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get the user ID on component mount or when dbUserId changes
+  useEffect(() => {
+    async function getUserId() {
+      // If parent component provided the database user ID, use it
+      if (dbUserId) {
+        setUserId(dbUserId);
+        return;
+      }
+      
+      // Otherwise fetch it
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // Get the database user ID from the auth user ID
+        const { data: userData, error } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_user_id", session.user.id)
+          .single();
+
+        if (!error && userData) {
+          setUserId(userData.id);
+        }
+      }
+    }
+    getUserId();
+  }, [dbUserId]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
@@ -93,6 +130,32 @@ const FileUpload: React.FC<FileUploadProps> = ({
     });
   };
 
+  // Function to check if storage path exists and create it if needed
+  const ensureStoragePathExists = async (fullPath: string): Promise<boolean> => {
+    try {
+      // Try to create a temporary empty placeholder file to ensure the path exists
+      const tempFileName = `${Date.now()}-placeholder.tmp`;
+      const tempContent = new Blob([''], { type: 'text/plain' });
+      
+      // Use the last segment of the path for the directory check
+      const pathParts = fullPath.split('/');
+      const directoryPath = pathParts.slice(0, -1).join('/');
+      
+      // Upload a placeholder file to create directory structure
+      await supabase.storage
+        .from(bucket)
+        .upload(`${directoryPath}/.folder`, tempContent, {
+          cacheControl: '0',
+          upsert: true
+        });
+      
+      return true;
+    } catch (error) {
+      console.error('Error ensuring storage path exists:', error);
+      return false;
+    }
+  };
+
   const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage(null);
@@ -110,29 +173,189 @@ const FileUpload: React.FC<FileUploadProps> = ({
     const failedUploads: string[] = [];
     
     try {
+      // Get the current authenticated user's auth_user_id
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('Auth session:', sessionData);
+      const authUserId = sessionData?.session?.user?.id;
+      
+      if (!authUserId) {
+        throw new Error('User is not authenticated');
+      }
+      
+      console.log(`Starting upload of ${files.length} files to bucket: ${bucket}, path: ${storagePath}`);
+      console.log('Current user ID:', userId);
+      console.log('Auth user ID:', authUserId);
+      if (reportId) {
+        console.log(`Using report ID: ${reportId}`);
+      }
+      if (isPropertyUpload) {
+        console.log(`This is a property image upload for property: ${propertyId}`);
+      }
+      
+      // Ensure the storage path exists before uploading
+      if (storagePath) {
+        await ensureStoragePathExists(storagePath);
+      }
+      
       for (const filePreview of files) {
         const file = filePreview.file;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${storagePath}${storagePath ? '/' : ''}${Date.now()}-${filePreview.id}.${fileExt}`;
+        const fileId = `${Date.now()}-${filePreview.id}`;
         
-        const { error: uploadError } = await supabase.storage
+        // Generate file path based on provided storagePath or default path
+        let fileName: string;
+        if (storagePath) {
+          fileName = `${storagePath}/${fileId}-${file.name}`;
+        } else {
+          fileName = `${authUserId}/${fileId}-${file.name}`;
+        }
+        
+        console.log(`Uploading file: ${file.name} to path: ${fileName} in bucket: ${bucket}`);
+        
+        // Upload the file to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(fileName, file);
-        
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+          
         if (uploadError) {
+          console.error(`Error uploading file ${file.name}:`, uploadError);
           failedUploads.push(file.name);
           continue;
         }
         
+        // Get the public URL for the uploaded file
         const { data: publicUrlData } = supabase.storage
           .from(bucket)
           .getPublicUrl(fileName);
-        
+          
         const imageUrl = publicUrlData?.publicUrl;
         
         if (!imageUrl) {
+          console.error(`Failed to get public URL for ${fileName}`);
           failedUploads.push(file.name);
           continue;
+        }
+        
+        console.log(`Got public URL: ${imageUrl}`);
+        
+        // Determine assessment area ID if applicable from the storage path
+        let assessmentAreaId: string | null = null;
+        
+        // Only set an assessment area ID if this is for a report and the path contains an area ID
+        // But NOT if this is a property image (which should never have an assessment area ID)
+        if (!isPropertyUpload && reportId && storagePath && storagePath.includes('/')) {
+          const pathParts = storagePath.split('/');
+          // For paths like reports/[reportId]/[areaId]
+          if (pathParts.length >= 3 && pathParts[2] && pathParts[2] !== 'general') {
+            assessmentAreaId = pathParts[2];
+            console.log(`Detected assessment area ID from path: ${assessmentAreaId}`);
+            
+            // Verify assessment area exists before trying to use it
+            if (assessmentAreaId) {
+              const { data: areaExists, error: areaCheckError } = await supabase
+                .from('assessment_areas')
+                .select('id')
+                .eq('id', assessmentAreaId)
+                .maybeSingle();
+                
+              if (areaCheckError || !areaExists) {
+                console.warn(`Assessment area ${assessmentAreaId} does not exist or error checking it:`, areaCheckError);
+                assessmentAreaId = null; // Don't use this ID if it doesn't exist
+              }
+            }
+          }
+        }
+        
+        // Only try to insert into database if we have a user ID
+        if (userId) {
+          try {
+            // Fix: Store the path without adding the bucket name again to avoid duplication
+            let storedPath: string = fileName;
+            
+            // If the path already starts with the bucket name, we need to ensure we don't create double bucket prefixes
+            if (fileName.startsWith(`${bucket}/`)) {
+              console.log(`Path already includes bucket name: ${fileName}`);
+              storedPath = fileName;
+            } else {
+              console.log(`Adding bucket name to path: ${bucket}/${fileName}`);
+              storedPath = `${bucket}/${fileName}`;
+            }
+            
+            // Determine if this is a property image
+            if (isPropertyUpload) {
+              assessmentAreaId = null;
+              console.log('This is a property image upload - not using assessment area ID');
+            }
+            
+            // Prepare parameters for insert_image_record
+            const insertParams: any = {
+              p_storage_path: storedPath,
+              p_filename: file.name,
+              p_content_type: file.type,
+              p_file_size: file.size,
+              p_uploaded_by: userId,
+              p_ai_processed: false,
+            };
+            
+            // Only add report_id if it exists
+            if (reportId) {
+              insertParams.p_report_id = reportId;
+            }
+            
+            // Only add assessment_area_id if it exists and this is not a property image
+            if (assessmentAreaId && !isPropertyUpload) {
+              insertParams.p_assessment_area_id = assessmentAreaId;
+            }
+            
+            // Use the RPC function to safely insert the image record
+            const { data: imageId, error: rpcError } = await supabase.rpc(
+              'insert_image_record',
+              insertParams
+            );
+            
+            if (rpcError) {
+              console.error('Error calling insert_image_record function:', rpcError);
+              
+              // If foreign key error occurred, try inserting without the assessment_area_id
+              if (rpcError.code === '23503' && rpcError.message.includes('images_assessment_area_id_fkey')) {
+                console.log('Trying again without assessment_area_id');
+                delete insertParams.p_assessment_area_id;
+                
+                const { data: retryImageId, error: retryError } = await supabase.rpc(
+                  'insert_image_record',
+                  insertParams
+                );
+                
+                if (retryError) {
+                  console.error('Retry failed:', retryError);
+                } else if (retryImageId) {
+                  console.log(`Successfully inserted image record on retry with ID: ${retryImageId}`);
+                }
+              }
+            } else if (imageId) {
+              console.log(`Successfully inserted image record with ID: ${imageId}`);
+              
+              // Directly trigger image analysis after successful upload
+              try {
+                console.log(`Triggering AI analysis for image: ${imageId}`);
+                // Use our proxy API instead of directly calling the Edge Function
+                const result = await triggerImageAnalysis(imageId);
+                
+                if (!result.success) {
+                  console.error(`Error analyzing image ${imageId}:`, result.error);
+                } else {
+                  console.log(`Analysis completed for image ${imageId}:`, result);
+                }
+              } catch (analysisErr) {
+                console.error(`Exception during image analysis for ${imageId}:`, analysisErr);
+              }
+            }
+          } catch (dbError) {
+            console.error('Exception during database operations:', dbError);
+            // Continue with the upload even if database insertion fails
+          }
         }
         
         uploadedUrls.push(imageUrl);
@@ -151,27 +374,39 @@ const FileUpload: React.FC<FileUploadProps> = ({
         });
         setFiles([]);
       } else {
+        // Provide more detailed error messaging
+        let errorMessage = `${uploadedUrls.length} of ${uploadedUrls.length + failedUploads.length} files uploaded.`;
+        if (failedUploads.length > 0) {
+          errorMessage += ` Failed: ${failedUploads.join(', ')}`;
+        }
+        
         setMessage({
-          text: `${uploadedUrls.length} file(s) uploaded. Failed: ${failedUploads.join(', ')}`,
+          text: errorMessage,
           type: 'error'
         });
         // Remove only successfully uploaded files
         const successIds = new Set(uploadedUrls.map(url => {
           const parts = url.split('/');
           const fileNameWithExt = parts[parts.length - 1];
-          return fileNameWithExt.split('.')[0]; // Extract the ID part
+          const fileIdPart = fileNameWithExt.split('-')[0];
+          return fileIdPart;
         }));
         
-        setFiles(prevFiles => prevFiles.filter(f => !successIds.has(f.id)));
+        setFiles(prevFiles => prevFiles.filter(f => {
+          const fileIdPart = f.id.split('-')[1];
+          return !successIds.has(fileIdPart);
+        }));
       }
       
       // Call the callback with URLs if provided
       if (onUploadComplete && uploadedUrls.length > 0) {
+        console.log(`Upload complete, calling onUploadComplete with ${uploadedUrls.length} URLs`);
         onUploadComplete(uploadedUrls);
       }
     } catch (error: any) {
+      console.error('Error in file upload process:', error);
       setMessage({
-        text: `Upload failed: ${error.message}`,
+        text: `Upload failed: ${(error as Error).message || String(error)}`,
         type: 'error'
       });
     } finally {
@@ -256,13 +491,49 @@ const FileUpload: React.FC<FileUploadProps> = ({
               title="Upload your files here"
             />
             
+            {/* Show file thumbnails when files are selected, even in button mode */}
+            {files.length > 0 && (
+              <div className="mt-2">
+                <div className="text-xs text-gray-700 mb-1">{files.length} file(s) selected:</div>
+                <div className="flex flex-wrap gap-2">
+                  {files.map(file => (
+                    <div key={file.id} className="relative w-16 h-16 border border-gray-200 rounded overflow-hidden">
+                      <img 
+                        src={file.previewUrl}
+                        alt={file.file.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs rounded-bl"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFile(file.id);
+                        }}
+                        title="Remove file"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button 
+                  type="submit" 
+                  className="mt-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                  disabled={isUploading}
+                >
+                  {isUploading ? "Uploading..." : `Upload ${files.length} file(s)`}
+                </button>
+              </div>
+            )}
+            
             {message && (
               <div className={`p-2 mt-2 text-xs rounded-md border ${getMessageClass()}`}>
                 <p>{message.text}</p>
               </div>
             )}
             
-            {isUploading && (
+            {isUploading && !files.length && (
               <div className="mt-2 text-xs text-gray-500">Uploading...</div>
             )}
           </div>
