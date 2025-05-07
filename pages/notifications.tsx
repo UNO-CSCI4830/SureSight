@@ -136,46 +136,48 @@ const NotificationsPage = () => {
 
   const sendMessage = async () => {
     if (!selectedReceiver || !messageText) return;
-  
     setSending(true);
   
+    const { data: userExists, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', selectedReceiver)
+      .single();
+  
+    if (checkError || !userExists) {
+      setError('Selected recipient does not exist.');
+      setSending(false);
+      return;
+    }
+  
     try {
-      const { data: receiverExists, error: receiverError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', selectedReceiver)
-        .single();
-  
-      if (receiverError || !receiverExists) {
-        setError('Selected recipient does not exist.');
-        setSending(false);
-        return;
-      }
-  
-      console.log("Sending message to Receiver ID:", selectedReceiver);
-  
+      console.log("Sender ID:", user.id); 
+      console.log("Receiver ID:", selectedReceiver); 
+      console.log("Message Content:", messageText);  
+      
       const { error } = await supabase.from('messages').insert([
         {
-          sender_id: user.id,
-          receiver_id: selectedReceiver,
-          content: messageText,
-          is_read: false,
-        },
-      ]);
-  
+          sender_id: user.id,  // Sender ID is the authenticated user's ID
+        receiver_id: selectedReceiver,  // Receiver ID is the selected recipient's ID
+        content: messageText,
+        is_read: false, 
+        report_id: null,  
+        property_id: null,  
+        message_type: 'text',  
+      },
+    ]);
       if (error) {
-        setError("Failed to send message");
-        console.error("Error inserting message:", error);
-        setSending(false);
-        return;
+        throw error;
       }
   
+      // Reset the form after sending the message
       setMessageText('');
       setSelectedReceiver('');
-      fetchMessages(); 
+      fetchMessages();  // Fetch updated messages
+  
     } catch (err) {
-      setError('Failed to send message');
-      console.error('Error sending message:', err);
+      setError("Failed to send message");
+      console.error(err);
     } finally {
       setSending(false);
     }
