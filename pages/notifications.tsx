@@ -55,29 +55,34 @@ const NotificationsPage = () => {
   useEffect(() => {
     if (user) {
       fetchMessages();
-      
-      // Real-time message subscription using Supabase channel
+  
       const channel = supabase
         .channel('realtime:messages')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${user.id}`,
+        }, (payload) => {
           console.log('New message:', payload);
           fetchMessages();
         })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        }, (payload) => {
           console.log('Message updated:', payload);
-          fetchMessages();
+          fetchMessages(); 
         })
-        .subscribe((status) => {
-          if (status !== 'SUBSCRIBED') {
-            console.error('Failed to subscribe to real-time changes:', status);
-          }
-        });
-
+        .subscribe();
+  
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(channel); 
       };
     }
   }, [user]);
+  
       
   const fetchMessages = async () => {
     setLoading(true);
