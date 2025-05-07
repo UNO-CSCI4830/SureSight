@@ -4,3 +4,7 @@ node_modules/
 .DS_Store
 *.log
 .vercel
+
+# Google Cloud API credentials
+google-vision-credentials.json
+*-credentials.json

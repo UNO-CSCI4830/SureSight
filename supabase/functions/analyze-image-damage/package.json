@@ -1,0 +1,10 @@
+{
+  "name": "analyze-image-damage",
+  "version": "1.0.0",
+  "description": "Edge function for analyzing property damage images with Google Cloud Vision API",
+  "main": "index.ts",
+  "dependencies": {
+    "@google-cloud/vision": "^3.1.3",
+    "@supabase/supabase-js": "^2.7.1"
+  }
+}

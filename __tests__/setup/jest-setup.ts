@@ -4,6 +4,15 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Polyfill for setImmediate which is used by google-cloud libraries
+// but not available in Jest's jsdom environment
+if (typeof setImmediate === 'undefined') {
+  global.setImmediate = (callback, ...args) => setTimeout(callback, 0, ...args);
+}
+
+// Increase default timeout for all tests to accommodate API calls
+jest.setTimeout(60000); // 60 seconds
+
 // Load environment variables from .env files
 const envPaths = [
   path.resolve(process.cwd(), '.env'),

@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Layout from "../../components/layout/Layout";
 import AuthGuard from "../../components/auth/AuthGuard";
-import { supabase, handleSupabaseError } from "../../utils/supabaseClient";
+import { 
+  supabase, 
+  handleSupabaseError, 
+  analyzeImageDamage, 
+  analyzeAllReportImages 
+} from "../../utils/supabaseClient";
 import {
   PageHeader,
   Card,
@@ -528,7 +533,43 @@ const ReportDetailPage: React.FC = () => {
         });
 
         // Refresh the report data
-        fetchReport(report.id);
+        await fetchReport(report.id);
+        
+        // NEW CODE: Analyze the newly uploaded images
+        try {
+          // Find the newly added images that we need to analyze
+          const { data: newImages } = await supabase
+            .from("images")
+            .select("id")
+            .eq("report_id", report.id)
+            .eq("ai_processed", false);
+          
+          if (newImages && newImages.length > 0) {
+            setMessage({
+              text: "Analyzing images with AI... This may take a moment.",
+              type: "info",
+            });
+            
+            // Run AI analysis on all unprocessed images in the report
+            const result = await analyzeAllReportImages(report.id);
+            
+            if (result.success) {
+              setMessage({
+                text: `Analysis complete: ${result.damage_detected || 0} damaged areas detected in ${result.processed} images`,
+                type: "success",
+              });
+            } else {
+              console.error("Analysis failed:", result.error);
+              setMessage({
+                text: "Image upload succeeded but AI analysis couldn't be completed. You can retry analysis later.",
+                type: "info",
+              });
+            }
+          }
+        } catch (analysisError) {
+          console.error("Error during image analysis:", analysisError);
+          // Don't show error to user as the upload was still successful
+        }
 
         // Clear any existing message timeout
         if (showMessageTimeout) {
@@ -597,6 +638,54 @@ const ReportDetailPage: React.FC = () => {
       const errorDetails = handleSupabaseError(error);
       setMessage({
         text: `Failed to delete image: ${errorDetails.message}`,
+        type: "error",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAnalyzeImage = async (imageId: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Get the image data
+      const { data: imageData, error: imageError } = await supabase
+        .from("images")
+        .select("storage_path")
+        .eq("id", imageId)
+        .single();
+        
+      if (imageError) throw new Error(`Could not find image: ${imageError.message}`);
+      
+      // Run the analysis
+      setMessage({
+        text: "Analyzing image with AI...",
+        type: "info",
+      });
+      
+      const result = await analyzeImageDamage(imageId, imageData.storage_path);
+      
+      if (result.success) {
+        // Refresh the report to show updated AI tags
+        await fetchReport(report?.id);
+        
+        setMessage({
+          text: result.data?.damage_detected 
+            ? `Damage detected with ${Math.round((result.data.confidence || 0) * 100)}% confidence` 
+            : "No damage detected in image",
+          type: result.data?.damage_detected ? "success" : "info",
+        });
+      } else {
+        setMessage({
+          text: `Analysis failed: ${result.error}`,
+          type: "error",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error analyzing image:", error);
+      setMessage({
+        text: `Failed to analyze image: ${error.message}`,
         type: "error",
       });
     } finally {
@@ -1078,13 +1167,30 @@ const ReportDetailPage: React.FC = () => {
                               alt={image.filename}
                               className="h-24 w-24 object-cover rounded"
                             />
-                            {report.status === "draft" && (
-                              <button
-                                onClick={() => handleDeleteImage(image.id)}
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100"
-                              >
-                                X
-                              </button>
+                            <div className="absolute top-1 right-1 flex gap-1">
+                              {report.status === "draft" && (
+                                <button
+                                  onClick={() => handleDeleteImage(image.id)}
+                                  className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100"
+                                >
+                                  X
+                                </button>
+                              )}
+                              {!image.ai_processed && (
+                                <button
+                                  onClick={() => handleAnalyzeImage(image.id)}
+                                  className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100"
+                                  title="Analyze with AI"
+                                >
+                                  AI
+                                </button>
+                              )}
+                            </div>
+                            
+                            {image.ai_processed && (
+                              <div className="absolute top-1 left-1 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" title="AI processed">
+                                AI
+                              </div>
                             )}
 
                             {image.ai_damage_type && (
@@ -1114,6 +1220,55 @@ const ReportDetailPage: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Add option to analyze all images in this area */}
+                    {report.images?.filter(img => img.assessment_area_id === area.id).some(img => !img.ai_processed) && (
+                      <div className="mt-2 text-right">
+                        <button 
+                          onClick={async () => {
+                            setIsLoading(true);
+                            try {
+                              // Get the images in this area that need processing
+                              const { data: areaImages } = await supabase
+                                .from("images")
+                                .select("id, storage_path")
+                                .eq("assessment_area_id", area.id)
+                                .eq("ai_processed", false);
+                                
+                              if (areaImages && areaImages.length > 0) {
+                                setMessage({
+                                  text: `Analyzing ${areaImages.length} images...`,
+                                  type: "info",
+                                });
+                                
+                                // Process each image
+                                let processed = 0;
+                                for (const img of areaImages) {
+                                  await analyzeImageDamage(img.id, img.storage_path);
+                                  processed++;
+                                }
+                                
+                                await fetchReport(report.id);
+                                setMessage({
+                                  text: `Analyzed ${processed} images in this area`,
+                                  type: "success",
+                                });
+                              }
+                            } catch (error: any) {
+                              setMessage({
+                                text: `Analysis error: ${error.message}`,
+                                type: "error",
+                              });
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Analyze images
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1164,13 +1319,30 @@ const ReportDetailPage: React.FC = () => {
                     className="h-32 w-full object-cover rounded"
                   />
                 </a>
-                {report.status === "draft" && (
-                  <button
-                    onClick={() => handleDeleteImage(image.id)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100"
-                  >
-                    X
-                  </button>
+                <div className="absolute top-1 right-1 flex gap-1">
+                  {report.status === "draft" && (
+                    <button
+                      onClick={() => handleDeleteImage(image.id)}
+                      className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100"
+                    >
+                      X
+                    </button>
+                  )}
+                  {!image.ai_processed && (
+                    <button
+                      onClick={() => handleAnalyzeImage(image.id)}
+                      className="bg-blue-500 text-white rounded p-1 text-xs opacity-0 group-hover:opacity-100"
+                      title="Analyze with AI"
+                    >
+                      AI
+                    </button>
+                  )}
+                </div>
+
+                {image.ai_processed && (
+                  <div className="absolute top-1 left-1 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" title="AI processed">
+                    AI
+                  </div>
                 )}
 
                 {image.ai_damage_type && (
@@ -1206,6 +1378,46 @@ const ReportDetailPage: React.FC = () => {
                 Upload property overview images or those not specific to a
                 damage area.
               </p>
+            </div>
+          )}
+          
+          {/* Add option to analyze all unprocessed images */}
+          {generalImages.some(img => !img.ai_processed) && (
+            <div className="mt-4 text-center">
+              <button 
+                onClick={async () => {
+                  setIsLoading(true);
+                  try {
+                    setMessage({
+                      text: "Analyzing all images with AI... This may take a moment.",
+                      type: "info",
+                    });
+                    const result = await analyzeAllReportImages(report.id);
+                    if (result.success) {
+                      await fetchReport(report.id);
+                      setMessage({
+                        text: `Analysis complete: ${result.damage_detected || 0} damaged areas detected in ${result.processed} images`,
+                        type: "success",
+                      });
+                    } else {
+                      setMessage({
+                        text: `Analysis failed: ${result.error}`,
+                        type: "error",
+                      });
+                    }
+                  } catch (error: any) {
+                    setMessage({
+                      text: `Analysis error: ${error.message}`,
+                      type: "error",
+                    });
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                Analyze all unprocessed images with AI
+              </button>
             </div>
           )}
         </div>

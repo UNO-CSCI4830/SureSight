@@ -19,12 +19,14 @@
         "@supabase/auth-helpers-react": "^0.5.0",
         "@supabase/ssr": "^0.6.1",
         "@supabase/supabase-js": "^2.49.4",
+        "axios": "^1.9.0",
         "next": "^15.3.1",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "vercel": "^25.2.0"
     },
     "devDependencies": {
+        "@google-cloud/vision": "^5.1.0",
         "@testing-library/jest-dom": "^6.6.3",
         "@testing-library/react": "^16.3.0",
         "@testing-library/user-event": "^14.6.1",
