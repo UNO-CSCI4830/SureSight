@@ -150,6 +150,8 @@ const NotificationsPage = () => {
     }
   
     try {
+      console.log("Receiver ID:", selectedReceiver); 
+      
       const { error } = await supabase.from('messages').insert([
         {
           sender_id: user.id,
