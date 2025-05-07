@@ -29,7 +29,7 @@ const NotificationsPage = () => {
   const [activeTab, setActiveTab] = useState<MessageTab>('received');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [allUsers, setAllUsers] = useState<{ id: string; email: string; auth_user_id: string }[]>([]);
+  const [allUsers, setAllUsers] = useState<{ id: string; email: string; auth_user_id: string | null }[]>([]);
   const [selectedReceiver, setSelectedReceiver] = useState<string>('');
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
@@ -118,7 +118,7 @@ const NotificationsPage = () => {
       }
 
       console.log("Fetched received messages:", data); 
-      setMessages(data || []);
+      setMessages((data as unknown as Message[]) || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
       setError(errorMessage);
@@ -154,7 +154,7 @@ const NotificationsPage = () => {
       }
 
       console.log("Fetched sent messages:", data);
-      setSentMessages(data || []);
+      setSentMessages((data as unknown as Message[]) || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load sent messages';
       setError(errorMessage);
@@ -202,13 +202,20 @@ const NotificationsPage = () => {
       setSending(false);
       return;
     }
+
+    // Check if auth_user_id is null
+    if (!selectedUser.auth_user_id) {
+      setError('Selected recipient does not have a valid authentication ID.');
+      setSending(false);
+      return;
+    }
   
     try {
       console.log("Sender ID (auth_user_id):", user.id); 
       console.log("Receiver ID (auth_user_id):", selectedUser.auth_user_id); 
       console.log("Message Content:", messageText);  
       
-      const { error } = await supabase.from('messages').insert([
+      const { error } = await supabase.from('messages').insert(
         {
           sender_id: user.id,  // Auth user ID from Supabase Auth
           receiver_id: selectedUser.auth_user_id,  // Using auth_user_id from the users table
@@ -217,8 +224,8 @@ const NotificationsPage = () => {
           report_id: null,  
           property_id: null,  
           message_type: 'text',  
-        },
-      ]);
+        }
+      );
       if (error) {
         throw error;
       }
