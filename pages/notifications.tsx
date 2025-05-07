@@ -136,23 +136,24 @@ const NotificationsPage = () => {
 
   const sendMessage = async () => {
     if (!selectedReceiver || !messageText) return;
+  
     setSending(true);
-
-    const { data: userExists, error: checkError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', selectedReceiver)
-      .single();
-
-    if (checkError || !userExists) {
-      setError('Selected recipient does not exist.');
-      setSending(false);
-      return;
-    }
-
+  
     try {
+      const { data: receiverExists, error: receiverError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', selectedReceiver)
+        .single();
+  
+      if (receiverError || !receiverExists) {
+        setError('Selected recipient does not exist.');
+        setSending(false);
+        return;
+      }
+  
       console.log("Sending message to Receiver ID:", selectedReceiver);
-
+  
       const { error } = await supabase.from('messages').insert([
         {
           sender_id: user.id,
@@ -161,19 +162,25 @@ const NotificationsPage = () => {
           is_read: false,
         },
       ]);
-
-      if (error) throw error;
-
+  
+      if (error) {
+        setError("Failed to send message");
+        console.error("Error inserting message:", error);
+        setSending(false);
+        return;
+      }
+  
       setMessageText('');
       setSelectedReceiver('');
-      fetchMessages();
+      fetchMessages(); 
     } catch (err) {
-      setError("Failed to send message");
-      console.error(err);
+      setError('Failed to send message');
+      console.error('Error sending message:', err);
     } finally {
       setSending(false);
     }
   };
+  
 
   return (
     <Layout title="Messages | SureSight">
