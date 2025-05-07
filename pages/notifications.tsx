@@ -136,6 +136,19 @@ const NotificationsPage = () => {
   const sendMessage = async () => {
     if (!selectedReceiver || !messageText) return;
     setSending(true);
+  
+    const { data: userExists, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', selectedReceiver)
+      .single();
+  
+    if (checkError || !userExists) {
+      setError('Selected recipient does not exist.');
+      setSending(false);
+      return;
+    }
+  
     try {
       const { error } = await supabase.from('messages').insert([
         {
@@ -146,7 +159,7 @@ const NotificationsPage = () => {
         },
       ]);
       if (error) throw error;
-
+  
       setMessageText('');
       setSelectedReceiver('');
       fetchMessages();
