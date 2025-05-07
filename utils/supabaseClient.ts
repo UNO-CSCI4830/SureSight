@@ -119,11 +119,11 @@ export const analyzeImageDamage = async (
     // Map damage type from first matched label to enum
     let damageType = null;
     if (matchedLabels.length > 0) {
-      if (matchedLabels.some(l => l.toLowerCase().includes('roof'))) damageType = 'roof';
-      else if (matchedLabels.some(l => l.toLowerCase().includes('siding'))) damageType = 'siding';
-      else if (matchedLabels.some(l => l.toLowerCase().includes('window'))) damageType = 'window';
-      else if (matchedLabels.some(l => l.toLowerCase().includes('water'))) damageType = 'water';
-      else if (matchedLabels.some(l => l.toLowerCase().includes('structural'))) damageType = 'structural';
+      if (matchedLabels.some((l: string) => l.toLowerCase().includes('roof'))) damageType = 'roof';
+      else if (matchedLabels.some((l: string) => l.toLowerCase().includes('siding'))) damageType = 'siding';
+      else if (matchedLabels.some((l: string) => l.toLowerCase().includes('window'))) damageType = 'window';
+      else if (matchedLabels.some((l: string) => l.toLowerCase().includes('water'))) damageType = 'water';
+      else if (matchedLabels.some((l: string) => l.toLowerCase().includes('structural'))) damageType = 'structural';
       else damageType = 'other';
     }
     

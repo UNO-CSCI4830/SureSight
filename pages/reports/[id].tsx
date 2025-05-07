@@ -45,6 +45,7 @@ type ExtendedReport = Report & {
     ai_damage_type: string | null;
     ai_damage_severity: string | null;
     ai_confidence: number | null;
+    ai_processed: boolean;
   }[];
 };
 
@@ -668,7 +669,9 @@ const ReportDetailPage: React.FC = () => {
       
       if (result.success) {
         // Refresh the report to show updated AI tags
-        await fetchReport(report?.id);
+        if (report && report.id) {
+          await fetchReport(report.id);
+        }
         
         setMessage({
           text: result.data?.damage_detected 
