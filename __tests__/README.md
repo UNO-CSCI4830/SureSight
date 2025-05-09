@@ -11,6 +11,8 @@ This directory contains all test files for the SureSight application. This docum
 - [Database Testing](#database-testing)
 - [Mocking](#mocking)
 - [Best Practices](#best-practices)
+- [CI/CD Integration](#cicd-integration)
+- [Troubleshooting](#troubleshooting)
 
 ## Testing Stack
 
@@ -19,7 +21,7 @@ SureSight uses the following testing technologies:
 - **Jest** - Main test runner and framework
 - **React Testing Library** - For testing React components
 - **jest-environment-jsdom** - DOM environment for component tests
-- **user-event** - For simulating user interactions
+- **@testing-library/user-event** - For simulating user interactions
 - **node-mocks-http** - For testing API routes
 - **Supabase client mocking** - For database integration testing
 
@@ -43,6 +45,7 @@ __tests__/
       ├── databaseService.integration.test.ts # DB service integration tests
       ├── databaseService.test.ts             # DB service unit tests
       ├── formValidation.test.ts              # Form validation tests
+      ├── googleVisionAnalysis.test.ts        # Image analysis tests
       ├── supabaseAuth.test.ts                # Auth utility tests
       ├── supabaseClient.test.ts              # Supabase client tests
       └── supabaseDatabaseConnection.test.ts  # DB connection tests
@@ -70,6 +73,14 @@ For example:
 
 ```bash
 npm test -- __tests__/utils/formValidation.test.ts
+```
+
+### Watch Mode
+
+To run tests in watch mode (automatically re-run when files change):
+
+```bash
+npm test -- --watch
 ```
 
 ### With Coverage
@@ -187,6 +198,49 @@ describe('Form validation utilities', () => {
 });
 ```
 
+### Page Tests
+
+For testing Next.js pages:
+
+1. Mock necessary components and hooks (useRouter, etc.)
+2. Test the page's rendering and interactions
+3. Verify that the correct data is displayed
+
+Example:
+
+```tsx
+import { render, screen, waitFor } from '@testing-library/react';
+import Dashboard from '../../pages/Dashboard';
+
+jest.mock('next/router', () => ({
+  useRouter: () => ({ push: jest.fn() })
+}));
+
+jest.mock('../../utils/supabaseClient', () => ({
+  useSupabaseAuth: () => ({ user: { id: 'test-user-id' } }),
+  supabase: {
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockResolvedValue({ 
+        data: [{ title: 'Test Report' }], 
+        error: null 
+      })
+    })
+  }
+}));
+
+describe('Dashboard Page', () => {
+  test('displays user reports', async () => {
+    render(<Dashboard />);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Test Report')).toBeInTheDocument();
+    });
+  });
+});
+```
+
 ## Database Testing
 
 ### Mock Tests
@@ -250,6 +304,8 @@ For comprehensive testing against your actual Supabase instance:
 2. These tests verify your database connections, schema, and functionality
 3. They create test data, validate it, and clean up afterward
 
+> **Note:** Live database tests in `databaseLiveTest.ts` are skipped in CI environments to avoid modifying the production database.
+
 ## Mocking
 
 ### Supabase Mocking
@@ -262,7 +318,7 @@ jest.mock('../../utils/supabaseClient', () => ({
   supabase: {
     from: jest.fn(),
     auth: {
-      signIn: jest.fn(),
+      signInWithPassword: jest.fn(),
       signUp: jest.fn(),
       // other auth methods...
     },
@@ -289,6 +345,28 @@ jest.mock('../../components/ui/Button', () => ({
 }));
 ```
 
+### Next.js Mocking
+
+For testing Next.js specific features:
+
+```typescript
+// Mock Next.js router
+jest.mock('next/router', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    query: {},
+    pathname: '/test-path'
+  })
+}));
+
+// Mock Next.js head
+jest.mock('next/head', () => {
+  return function MockHead({ children }) {
+    return <div data-testid="mock-head">{children}</div>;
+  };
+});
+```
+
 ## Best Practices
 
 1. **Isolate tests** - Each test should be independent of others
@@ -301,3 +379,33 @@ jest.mock('../../components/ui/Button', () => ({
 8. **Maintain test coverage** - Aim for high test coverage, especially for critical paths
 9. **Keep tests fast** - Tests should run quickly to facilitate development
 10. **Follow the AAA pattern** - Arrange (setup), Act (execute), Assert (verify)
+
+## CI/CD Integration
+
+Tests are automatically run in CI/CD pipelines:
+
+1. Unit and integration tests run on every pull request
+2. Database live tests are skipped in CI environments to prevent unintended side effects
+3. Tests must pass before merging into the main branch
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication errors in tests**
+   - Make sure you've mocked the auth methods correctly
+   - Check if `jest-setup.ts` contains proper auth mock implementations
+
+2. **Component rendering issues**
+   - Ensure you've mocked any required context providers
+   - Check if you need to wrap components in act() for async updates
+
+3. **Database test failures**
+   - For local tests, verify your .env file has correct Supabase credentials
+   - For CI tests, ensure necessary environment variables are set in the CI configuration
+
+### Debug Tips
+
+- Use `console.log()` in tests (they will appear in the Jest output)
+- Run a single test with `npm test -- -t "test name"` to focus debugging
+- Use Jest's `--verbose` flag for detailed output
