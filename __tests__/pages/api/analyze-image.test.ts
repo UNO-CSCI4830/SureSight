@@ -3,15 +3,21 @@ import { createMocks } from 'node-mocks-http';
 // Define mock functions first
 const mockInvoke = jest.fn();
 const mockInsert = jest.fn();
+const mockSelect = jest.fn();
 const mockFrom = jest.fn();
 const mockGetUser = jest.fn();
+const mockUpdate = jest.fn();
+const mockSingle = jest.fn();
+const mockMaybeSingle = jest.fn();
 
 // Mock the module before importing the handler
 jest.mock('../../../utils/supabaseClient', () => ({
   supabase: {
     storage: {
       from: jest.fn().mockReturnThis(),
-      getPublicUrl: jest.fn()
+      getPublicUrl: jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/test.jpg' }
+      })
     },
     functions: {
       invoke: mockInvoke
@@ -24,11 +30,41 @@ jest.mock('../../../utils/supabaseClient', () => ({
 }));
 
 // Set default mock implementation
-mockFrom.mockImplementation(() => ({
-  insert: mockInsert,
-  select: jest.fn().mockReturnThis(),
+mockFrom.mockImplementation((table) => {
+  if (table === 'images') {
+    return {
+      update: mockUpdate,
+      select: mockSelect,
+      eq: jest.fn().mockReturnThis(),
+      single: mockSingle,
+      maybeSingle: mockMaybeSingle
+    };
+  }
+  return {
+    insert: mockInsert,
+    select: mockSelect,
+    eq: jest.fn().mockReturnThis(),
+    update: mockUpdate,
+    single: mockSingle,
+    maybeSingle: mockMaybeSingle
+  };
+});
+
+// Set default response values
+mockUpdate.mockResolvedValue({ data: null, error: null });
+mockSingle.mockResolvedValue({ data: { id: 'test-id' }, error: null });
+mockMaybeSingle.mockResolvedValue({ data: { id: 'test-id' }, error: null });
+mockSelect.mockReturnValue({
+  eq: jest.fn().mockReturnThis(),
+  single: mockSingle,
+  maybeSingle: mockMaybeSingle
+});
+
+// Make sure image update mock works properly
+mockFrom.mockReturnValueOnce({
+  update: mockUpdate,
   eq: jest.fn().mockReturnThis()
-}));
+});
 
 // Now import the handler after mocks are set up
 import handler from '../../../pages/api/analyze-image';
@@ -110,7 +146,8 @@ describe('API: /api/analyze-image', () => {
         damage_detected: true,
         damage_type: 'roof',
         confidence: 0.92,
-        severity: 'moderate'
+        severity: 'moderate',
+        analysis: { details: 'sample analysis data' }
       },
       error: null
     });
@@ -139,7 +176,8 @@ describe('API: /api/analyze-image', () => {
         damage_detected: true,
         damage_type: 'roof',
         confidence: 0.92,
-        severity: 'moderate'
+        severity: 'moderate',
+        details: { details: 'sample analysis data' }
       }
     });
     
@@ -204,7 +242,10 @@ describe('API: /api/analyze-image', () => {
     mockInvoke.mockResolvedValue({
       data: {
         damage_detected: true,
-        confidence: 0.92
+        damage_type: 'roof',
+        confidence: 0.92,
+        severity: 'moderate',
+        analysis: {}
       },
       error: null
     });

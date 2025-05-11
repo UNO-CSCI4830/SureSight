@@ -1,7 +1,26 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import FileUpload from '../../../components/ui/FileUpload';
 import { supabase } from '../../../utils/supabaseClient';
+
+// Mock DataTransfer class for tests since it's not available in Jest
+class MockDataTransfer {
+  items = {
+    add: jest.fn(),
+    clear: jest.fn(),
+    length: 0
+  };
+  files = [];
+  
+  setDragImage = jest.fn();
+  clearData = jest.fn();
+  getData = jest.fn();
+  setData = jest.fn();
+}
+
+// Make it globally available
+global.DataTransfer = MockDataTransfer;
 
 // Mock the supabase client
 jest.mock('../../../utils/supabaseClient', () => ({
@@ -29,8 +48,8 @@ jest.mock('../../../components/ui/Button', () => {
   return function MockButton(props: any) {
     return (
       <button 
-        disabled={props.disabled} 
-        className={props.className}
+        disabled={props.disabled || props.isLoading} 
+        className={`${props.className} ${props.disabled || props.isLoading ? 'disabled' : ''}`}
         onClick={props.onClick}
         type={props.type}
         data-testid="upload-button"
@@ -58,8 +77,69 @@ describe('FileUpload Component', () => {
     onUploadComplete: jest.fn()
   };
 
+  // Mock the supabase client methods
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock storage upload
+    jest.spyOn(supabase.storage.from(''), 'upload').mockImplementation(() => {
+      return Promise.resolve({
+        data: { path: 'test-path' },
+        error: null
+      });
+    });
+
+    // Mock get public URL
+    jest.spyOn(supabase.storage.from(''), 'getPublicUrl').mockImplementation(() => {
+      return {
+        data: { publicUrl: 'https://example.com/test-file.jpg' }
+      };
+    });
+
+    // Mock the rpc function
+    if (!supabase.rpc) {
+      // Add a mock rpc function for testing if it doesn't exist
+      supabase.rpc = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          data: 'mock-image-id',
+          error: null
+        });
+      });
+    } else {
+      jest.spyOn(supabase, 'rpc').mockImplementation(() => {
+        return Promise.resolve({
+          data: 'mock-image-id',
+          error: null
+        });
+      });
+    }
+
+    // Add a mock auth object if it doesn't exist
+    if (!supabase.auth) {
+      supabase.auth = {
+        getSession: jest.fn().mockImplementation(() => {
+          return Promise.resolve({
+            data: {
+              session: {
+                user: { id: 'test-auth-user-id' }
+              }
+            },
+            error: null
+          });
+        })
+      };
+    } else if (!supabase.auth.getSession) {
+      supabase.auth.getSession = jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          data: {
+            session: {
+              user: { id: 'test-auth-user-id' }
+            }
+          },
+          error: null
+        });
+      });
+    }
   });
 
   it('renders the upload area correctly', () => {
@@ -188,34 +268,37 @@ describe('FileUpload Component', () => {
     expect(screen.getByText(/please select at least one file to upload/i)).toBeInTheDocument();
   });
 
-  it('handles upload errors', async () => {
-    // Mock an upload error for this test
-    const mockFrom = jest.fn().mockReturnValue({
-      upload: jest.fn().mockReturnValue({ error: new Error('Upload failed') }),
-      getPublicUrl: jest.fn().mockReturnValue({
-        data: { publicUrl: '' }
-      })
+  test('handles upload errors', async () => {
+    // Mock the upload to return an error
+    jest.spyOn(supabase.storage.from(''), 'upload').mockImplementation(() => {
+      return Promise.resolve({
+        data: null,
+        error: new Error('Upload failed')
+      });
     });
-    
-    (supabase.storage.from as jest.Mock).mockImplementation(mockFrom);
-    
-    const { container } = render(<FileUpload {...defaultProps} />);
-    
-    // Add a file
-    const fileInput = screen.getByTitle('Upload your files here');
-    const file = createMockFile('test-image.jpg', 1024 * 1024, 'image/jpeg');
-    fireEvent.change(fileInput, { target: { files: [file] } });
-    
-    await waitFor(() => {
-      expect(screen.getByText('test-image.jpg')).toBeInTheDocument();
+
+    render(
+      <FileUpload bucket="test-bucket" onUploadComplete={defaultProps.onUploadComplete} />
+    );
+
+    // Create test file and trigger upload
+    const file = new File(['test content'], 'test-image.jpg', { type: 'image/jpeg' });
+    const fileList = new DataTransfer();
+    fileList.items.add(file);
+
+    await act(async () => {
+      await userEvent.upload(screen.getByTitle('Upload your files here'), fileList.files);
     });
-    
-    // Find the form and submit it directly
-    const form = container.querySelector('form');
-    fireEvent.submit(form!);
-    
+
+    const uploadButton = screen.getByTestId('upload-button');
+    await act(async () => {
+      await userEvent.click(uploadButton);
+    });
+
+    // Check for error message containing both the filename and failure indication
     await waitFor(() => {
-      expect(screen.getByText(/0 file\(s\) uploaded. failed:/i)).toBeInTheDocument();
+      expect(screen.getByText(/0 of 1 files uploaded/i)).toBeInTheDocument();
+      expect(screen.getByText(/Failed: test-image.jpg/i)).toBeInTheDocument();
     });
   });
 

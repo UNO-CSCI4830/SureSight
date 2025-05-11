@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 
 
 // Mock supabase client
-
 jest.mock('../../utils/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -23,20 +22,40 @@ jest.mock('../../utils/supabaseClient', () => ({
         }
       }))
     },
-    from: jest.fn(() => ({
-      update: jest.fn(() => ({
-        eq: jest.fn(() => Promise.resolve({ error: null }))
-      })),
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null })
-    })),
+    from: jest.fn().mockImplementation((table) => {
+      return {
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ error: null })
+        }),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockImplementation(() => {
+          if (table === 'messages') {
+            return Promise.resolve({
+              data: [
+                {
+                  id: 'msg-1',
+                  sender_id: 'user-123',
+                  receiver_id: 'test-user-id',
+                  content: 'Hello from another user!',
+                  is_read: false,
+                  created_at: '2025-04-29T12:00:00Z',
+                  sender: { email: 'user123@example.com' },
+                  receiver: { email: 'test@example.com' }
+                },
+              ],
+              error: null
+            });
+          } else {
+            return Promise.resolve({ data: null, error: null });
+          }
+        }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null })
+      };
+    }),
     channel: jest.fn(() => ({
       on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn(callback => {
-        callback('SUBSCRIBED');
-        return Promise.resolve();
-      })
+      subscribe: jest.fn(() => Promise.resolve('SUBSCRIBED'))
     })),
     removeChannel: jest.fn()
   }
@@ -57,6 +76,8 @@ global.fetch = jest.fn(() =>
         content: 'Hello from another user!',
         is_read: false,
         created_at: '2025-04-29T12:00:00Z',
+        sender: { email: 'user123@example.com' },
+        receiver: { email: 'test@example.com' }
       },
     ]),
   })
@@ -89,20 +110,40 @@ describe('Notifications Page', () => {
     expect(screen.getByText(/loading messages/i)).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText(/from: user-123/i)).toBeInTheDocument();
-      expect(screen.getByText(/hello from another user!/i)).toBeInTheDocument();
+      expect(screen.getByText(/From: user123@example.com/i)).toBeInTheDocument();
+      expect(screen.getByText(/Hello from another user!/i)).toBeInTheDocument();
     });
   });
 
   test('handles mark as read', async () => {
     const user = userEvent.setup();
+    
+    // Override the mock specifically for this test
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([
+          {
+            id: 'msg-1',
+            sender_id: 'user-123',
+            receiver_id: 'test-user-id',
+            content: 'Hello from another user!',
+            is_read: false,
+            created_at: '2025-04-29T12:00:00Z',
+            sender: { email: 'user123@example.com' },
+            receiver: { email: 'test@example.com' }
+          },
+        ]),
+      })
+    );
+    
     render(<NotificationsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/mark as read/i)).toBeInTheDocument();
+      expect(screen.getByText(/Mark as read/i)).toBeInTheDocument();
     });
 
-    const button = screen.getByText(/mark as read/i);
+    const button = screen.getByText(/Mark as read/i);
     await user.click(button);
 
     // Success is implied if no errors are thrown
@@ -110,29 +151,52 @@ describe('Notifications Page', () => {
   });
 
   test('displays error from API', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: () => Promise.resolve({ error: 'Fetch failed' }),
-    });
+    // Mock a failed response
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    
+    const mockFrom = jest.fn().mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          error: { message: 'Fetch failed' },
+          data: null
+        });
+      })
+    }));
+    
+    const supabaseModule = require('../../utils/supabaseClient');
+    supabaseModule.supabase.from = mockFrom;
 
     render(<NotificationsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/fetch failed/i)).toBeInTheDocument();
+      // More flexible way to check for error message
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load/i)).toBeInTheDocument();
     });
   });
 
   test('displays empty message state', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
+    // Mock an empty response
+    const mockFrom = jest.fn().mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+          data: [],
+          error: null
+        });
+      })
+    }));
+    
+    const supabaseModule = require('../../utils/supabaseClient');
+    supabaseModule.supabase.from = mockFrom;
 
     render(<NotificationsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/No received messages yet!/i)).toBeInTheDocument();
     });
   });
 });

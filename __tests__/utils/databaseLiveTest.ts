@@ -135,9 +135,8 @@ async function useExistingTestUser() {
 /**
  * Helper to create a temporary test image file
  */
-async function createTestImageFile(): Promise<File> {
-  // For Node.js testing environment, we need a different approach to create a File
-  // This is a simplified approach that works in the browser
+async function createTestImageFile(): Promise<any> {
+  // For Node.js testing environment, create a small PNG image
   const base64Data = 
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
   const binaryData = Buffer.from(base64Data, 'base64');
@@ -459,17 +458,16 @@ async function uploadTestImage(reportId: string, userId: string) {
       .getPublicUrl(uploadData.path);
       
     // Add record to images table based on actual schema
-    // IMPORTANT: Use the user profile ID (not the auth user ID) for uploaded_by to satisfy foreign key constraints
     const { data: imageData, error: imageError } = await supabase
       .from('images')
       .insert({
         assessment_area_id: createdResources.assessmentAreaIds[0], // Associate with first assessment area
-        report_id: reportId, // Also link to the report directly as per schema
+        report_id: reportId, // Also link to the report directly
         storage_path: uploadData.path,
         filename: testImage.name,
         file_size: testImage.size,
         content_type: testImage.type,
-        uploaded_by: userId  // Use user profile ID (not auth ID) to match activities_user_id_fkey
+        uploaded_by: userId
       })
       .select('*')
       .single();
@@ -746,27 +744,9 @@ export async function runDatabaseLiveTest() {
   try {
     console.log('Starting database live test...');
     
-    // Get a user - either create a new one or use existing one depending on settings
-    let user;
-    if (REUSE_TEST_USER) {
-      // Use existing test user to avoid rate limits
-      user = await useExistingTestUser();
-      
-      // In reuse mode, we'll clean up test data but keep the user
-      console.log('Using existing test user - will clean up data but keep user account');
-    } else {
-      // Create a brand new test user
-      try {
-        user = await createTestUser();
-      } catch (error: any) {
-        if (error.message && error.message.includes('rate limit')) {
-          console.warn('Hit rate limit creating user, falling back to existing test user');
-          user = await useExistingTestUser();
-        } else {
-          throw error;
-        }
-      }
-    }
+    // Use existing test user to avoid rate limits and authentication issues
+    let user = await useExistingTestUser();
+    console.log('Using existing test user - will clean up data but keep user account');
     
     // Add a small delay to ensure the user profile is fully available in the database
     console.log('Waiting for user profile to propagate...');
@@ -799,9 +779,9 @@ export async function runDatabaseLiveTest() {
     
     // Clean up
     await cleanupTestData();
-    
     console.log('Test cleanup complete.');
     
+    return true;
   } catch (error: any) {
     console.error(`Test failed: ${error.message}`);
     
@@ -827,6 +807,14 @@ describe('Database Live Tests', () => {
       expect(true).toBe(true); // Pass test when skipped
       return;
     }
-    await runDatabaseLiveTest();
+    
+    try {
+      // Run the test with proper error handling
+      await runDatabaseLiveTest();
+      expect(true).toBe(true); // If we get here, the test passed
+    } catch (error) {
+      console.error('Test failed with error:', error);
+      expect(error).toBeUndefined(); // This will fail the test with the actual error
+    }
   });
 });

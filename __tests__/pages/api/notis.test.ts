@@ -29,7 +29,7 @@ describe('/api/notis API route', () => {
     await handler(req, res);
 
     expect(res._getStatusCode()).toBe(400);
-    expect(res._getJSONData()).toEqual({ error: 'User ID is required' });
+    expect(res._getJSONData()).toEqual({ error: 'User ID must be a single string' });
   });
 
   it('returns messages if user_id is provided and query succeeds', async () => {
